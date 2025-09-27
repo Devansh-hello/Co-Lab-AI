@@ -38,24 +38,18 @@ export declare const User: mongoose.Model<{
 } & {
     __v: number;
 }>>;
-export declare const Content: mongoose.Model<{
+export declare const Project: mongoose.Model<{
     userId: mongoose.Types.ObjectId;
     title: string;
     description?: string | null;
-    image?: string | null;
-    tags?: mongoose.Types.ObjectId | null;
 }, {}, {}, {}, mongoose.Document<unknown, {}, {
     userId: mongoose.Types.ObjectId;
     title: string;
     description?: string | null;
-    image?: string | null;
-    tags?: mongoose.Types.ObjectId | null;
 }, {}, mongoose.DefaultSchemaOptions> & {
     userId: mongoose.Types.ObjectId;
     title: string;
     description?: string | null;
-    image?: string | null;
-    tags?: mongoose.Types.ObjectId | null;
 } & {
     _id: mongoose.Types.ObjectId;
 } & {
@@ -64,74 +58,74 @@ export declare const Content: mongoose.Model<{
     userId: mongoose.Types.ObjectId;
     title: string;
     description?: string | null;
-    image?: string | null;
-    tags?: mongoose.Types.ObjectId | null;
 }, mongoose.Document<unknown, {}, mongoose.FlatRecord<{
     userId: mongoose.Types.ObjectId;
     title: string;
     description?: string | null;
-    image?: string | null;
-    tags?: mongoose.Types.ObjectId | null;
 }>, {}, mongoose.ResolveSchemaOptions<mongoose.DefaultSchemaOptions>> & mongoose.FlatRecord<{
     userId: mongoose.Types.ObjectId;
     title: string;
     description?: string | null;
-    image?: string | null;
-    tags?: mongoose.Types.ObjectId | null;
 }> & {
     _id: mongoose.Types.ObjectId;
 } & {
     __v: number;
 }>>;
-export declare const Tags: mongoose.Model<{
-    name: string;
-    id?: mongoose.Types.ObjectId | null;
+export declare const Chats: mongoose.Model<{
+    projectId: mongoose.Types.ObjectId;
+    title?: string | null;
 }, {}, {}, {}, mongoose.Document<unknown, {}, {
-    name: string;
-    id?: mongoose.Types.ObjectId | null;
+    projectId: mongoose.Types.ObjectId;
+    title?: string | null;
 }, {}, mongoose.DefaultSchemaOptions> & {
-    name: string;
-    id?: mongoose.Types.ObjectId | null;
+    projectId: mongoose.Types.ObjectId;
+    title?: string | null;
 } & {
     _id: mongoose.Types.ObjectId;
 } & {
     __v: number;
 }, mongoose.Schema<any, mongoose.Model<any, any, any, any, any, any>, {}, {}, {}, {}, mongoose.DefaultSchemaOptions, {
-    name: string;
-    id?: mongoose.Types.ObjectId | null;
+    projectId: mongoose.Types.ObjectId;
+    title?: string | null;
 }, mongoose.Document<unknown, {}, mongoose.FlatRecord<{
-    name: string;
-    id?: mongoose.Types.ObjectId | null;
+    projectId: mongoose.Types.ObjectId;
+    title?: string | null;
 }>, {}, mongoose.ResolveSchemaOptions<mongoose.DefaultSchemaOptions>> & mongoose.FlatRecord<{
-    name: string;
-    id?: mongoose.Types.ObjectId | null;
+    projectId: mongoose.Types.ObjectId;
+    title?: string | null;
 }> & {
     _id: mongoose.Types.ObjectId;
 } & {
     __v: number;
 }>>;
-export declare const chatHistory: mongoose.Model<{
-    userId: mongoose.Types.ObjectId;
-    output_text?: string | null;
+export declare const Message: mongoose.Model<{
+    chatId: mongoose.Types.ObjectId;
+    sender?: string | null;
+    content?: string | null;
 }, {}, {}, {}, mongoose.Document<unknown, {}, {
-    userId: mongoose.Types.ObjectId;
-    output_text?: string | null;
+    chatId: mongoose.Types.ObjectId;
+    sender?: string | null;
+    content?: string | null;
 }, {}, mongoose.DefaultSchemaOptions> & {
-    userId: mongoose.Types.ObjectId;
-    output_text?: string | null;
+    chatId: mongoose.Types.ObjectId;
+    sender?: string | null;
+    content?: string | null;
 } & {
     _id: mongoose.Types.ObjectId;
 } & {
     __v: number;
 }, mongoose.Schema<any, mongoose.Model<any, any, any, any, any, any>, {}, {}, {}, {}, mongoose.DefaultSchemaOptions, {
-    userId: mongoose.Types.ObjectId;
-    output_text?: string | null;
+    chatId: mongoose.Types.ObjectId;
+    sender?: string | null;
+    content?: string | null;
 }, mongoose.Document<unknown, {}, mongoose.FlatRecord<{
-    userId: mongoose.Types.ObjectId;
-    output_text?: string | null;
+    chatId: mongoose.Types.ObjectId;
+    sender?: string | null;
+    content?: string | null;
 }>, {}, mongoose.ResolveSchemaOptions<mongoose.DefaultSchemaOptions>> & mongoose.FlatRecord<{
-    userId: mongoose.Types.ObjectId;
-    output_text?: string | null;
+    chatId: mongoose.Types.ObjectId;
+    sender?: string | null;
+    content?: string | null;
 }> & {
     _id: mongoose.Types.ObjectId;
 } & {

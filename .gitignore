@@ -1,0 +1,5 @@
+CoLab AI Backend/.env
+CoLab AI Backend/dist/
+dist/
+node_modules/
+.env

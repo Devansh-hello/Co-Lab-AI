@@ -1,6 +1,7 @@
 import axios from 'axios';
+import  { AxiosError } from "axios";
 
-const api = axios.create({
+export const api = axios.create({
     baseURL: "http://localhost:5000/api/v1",
     withCredentials: true
 })
@@ -20,27 +21,40 @@ export async function sendLogin(email: string, password
     :string
 ) {
     try {
-        const response = await api.post('/login', {
+        const response = await api.post('/signin', {
             email: email,
             password:password
         });
-        return response.data;
-    } catch (error) {
-        console.error('Failed to Login', error);
-        throw error;
+        return {res: response.data , status: response.status};
+    } catch (error: unknown) {
+
+        if(error instanceof AxiosError ){
+            if (error.response) {
+            return {
+                res: error.response.data,     
+                status: error.response.status
+            };
+        }throw error;
+        }
+        
+  }
     }
-}
+
 
 export async function checkLoggedin(){
     try{
         const response:any = await api.get("/loggedin")
-        if (response.loggedin == true){
-            return true
-        }else{
-            return false
+        return {res: response.data , status: response.status}
+
+    }catch(error){
+       if(error instanceof AxiosError ){
+            if (error.response) {
+                return {
+                    res: error.response.data,     
+                    status: error.response.status
+                };
+            }throw error;
         }
-    }catch(err){
-        console.log(err)
     }
     
 }

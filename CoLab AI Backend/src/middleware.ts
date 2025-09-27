@@ -15,7 +15,7 @@ export function zodMiddleware(req: Request, res: Response, next: NextFunction){
 
     const zodschema = zod.object({
         username: zod.string().trim().optional(),
-        email: zod.email(),
+        email: zod.string().email(),
         password: zod.string().min(8)
     })
 
@@ -37,7 +37,7 @@ export function authCheck(req: AuthRequest, res:Response, next:NextFunction){
 
     if(!token){
         res.status(400).json({
-            message: "you are not loged in"
+            loggedin: false
         })
     }else{
         try{

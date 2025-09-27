@@ -7,18 +7,30 @@ import SignUp from './pages/SignUp.tsx'
 import Login from './pages/Login.tsx'
 import {createBrowserRouter, RouterProvider} from "react-router-dom";
 import NotFound from './pages/404.tsx'
-import { Header } from './components/header.tsx'
-
+import ProctectedRoutes from "./functions/protectedRoutes.tsx"
+import { AuthProvider } from './context/AuthContext.tsx'
 const router = createBrowserRouter([
-  {path:"/chat", element: <App/>},
-  {path:"/", element:<Home/>},
-  {path:"/signup", element:<SignUp/>},
-  {path:"/login", element:<Login/>},
-  {path:"*", element:<NotFound/>}
+  { path: "/", element: <Home /> },
+  { path: "/signup", element: <SignUp /> },
+  { path: "/login", element: <Login /> },
+
+  {
+    element: (
+      <ProctectedRoutes />
+    ),
+    children: [
+      { path: "/chat", element: <App /> },
+      
+    ],
+  },
+
+  { path: "*", element: <NotFound /> },
 ]);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <AuthProvider>
     <RouterProvider router={router} />
+    </AuthProvider>
   </StrictMode>,
 )

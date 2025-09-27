@@ -1,11 +1,12 @@
 import { response } from "express";
 import mongoose from "mongoose";
-import { string } from "zod";
+import dotenv from "dotenv"
 
+dotenv.config()
 
 async function mongo() {
     try{
-        await mongoose.connect("mongodb+srv://DevZero:Kamal0342@learn.lzqh8uq.mongodb.net/Brainly");
+        await mongoose.connect(process.env.DATABASE_URL as string);
     }catch(err){
         response.json({
             message: "Unable to connect to database"

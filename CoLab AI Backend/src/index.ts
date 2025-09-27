@@ -1,14 +1,12 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
-import { chat } from "./function.js";
 import cors from "cors";
-
 
 import { User, Chats, Project, Message } from "./db.js";
 import { zodMiddleware, authCheck } from "./middleware.js";
-import { Chat } from "openai/resources/index.mjs";
 
+import("./function.js");
 
 interface AuthRequest extends Request{
     userId?: string;
@@ -20,8 +18,8 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use(cors({
-    origin: 'http://localhost:5173', // Your React app URL
-    credentials: true // Allow cookies
+    origin: 'http://localhost:5173', 
+    credentials: true 
 }));
 
 const JWT_PASSWORD: string = "wioefiowiwhfe897g897e234fw";
@@ -79,7 +77,7 @@ app.post("/api/v1/signin",zodMiddleware, async(req,res)=>{
 });
 app.get("/api/v1/loggedin", authCheck,(req: any,res)=>{
     res.status(200).json({
-        loogedin: true
+        loggedin: true
     })
     
 })
@@ -138,35 +136,10 @@ app.delete("/api/v1/project",authCheck,async(req,res)=>{
     
 });
 
-app.post("/api/v1/ai-message",authCheck, async(req:any,res)=>{
-    const message = req.body.message;
-    const userId = req.userId;
-    
-    try{
-        const response = await chat(message);
-        Message.create({
-
-            chatId: userId,
-            sender: "Agent",
-            content: response
-        }
-        )
-
-        res.status(200).json({
-            response
-        })
-    }
-    catch(error){
-        res.status(400).json({
-            message: "Unable to give output",
-            error: error
-        })
-    }
-});
 app.post("/api/v1/message",authCheck, async(req:any,res)=>{
     const message = req.body.message;
     const userId = req.userId;
-    
+
     try{
         Message.create({
 

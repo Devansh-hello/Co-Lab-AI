@@ -5,7 +5,7 @@ const JWT_PASSWORD = "wioefiowiwhfe897g897e234fw";
 export function zodMiddleware(req, res, next) {
     const zodschema = zod.object({
         username: zod.string().trim().optional(),
-        email: zod.email(),
+        email: zod.string().email(),
         password: zod.string().min(8)
     });
     const result = zodschema.safeParse(req.body);
@@ -23,7 +23,7 @@ export function authCheck(req, res, next) {
     const token = req.cookies.token;
     if (!token) {
         res.status(400).json({
-            message: "you are not loged in"
+            loggedin: false
         });
     }
     else {

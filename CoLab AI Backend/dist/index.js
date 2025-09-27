@@ -1,16 +1,16 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
-import { chat } from "./function.js";
 import cors from "cors";
-import { User, Content, Tags, chatHistory } from "./db.js";
+import { User, Chats, Project, Message } from "./db.js";
 import { zodMiddleware, authCheck } from "./middleware.js";
+import("./function.js");
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-    origin: 'http://localhost:5173', // Your React app URL
-    credentials: true // Allow cookies
+    origin: 'http://localhost:5173',
+    credentials: true
 }));
 const JWT_PASSWORD = "wioefiowiwhfe897g897e234fw";
 app.post("/api/v1/signup", zodMiddleware, async (req, res) => {
@@ -55,21 +55,19 @@ app.post("/api/v1/signin", zodMiddleware, async (req, res) => {
 });
 app.get("/api/v1/loggedin", authCheck, (req, res) => {
     res.status(200).json({
-        loogedin: true
+        loggedin: true
     });
 });
-app.post("/api/v1/content", authCheck, async (req, res) => {
-    const { title, description, image, tags } = req.body;
-    //const newReq = req as unknown as AuthRequest;
+app.post("/api/v1/project", authCheck, async (req, res) => {
+    const { title, description } = req.body;
     try {
-        await Content.create({
+        await Project.create({
             title: title,
             description: description,
-            image: image,
             userId: req.userId
         });
         res.status(200).json({
-            message: "post created"
+            message: "Project created succesfully"
         });
     }
     catch {
@@ -78,17 +76,21 @@ app.post("/api/v1/content", authCheck, async (req, res) => {
         });
     }
 });
-app.get("/api/v1/content", authCheck, async (req, res) => {
+app.get("/api/v1/project", authCheck, async (req, res) => {
     const userId = req.userId;
-    const posts = await Content.find({ userId: userId });
+    const posts = await Project.find({ userId: userId });
     res.json(posts);
 });
-app.delete("/api/v1/content", authCheck, async (req, res) => {
+app.delete("/api/v1/project", authCheck, async (req, res) => {
     const { id } = req.body;
     try {
-        await Content.deleteOne({ _id: id });
+        await Project.deleteOne({ _id: id });
+        const chatID = await Chats.find({ _id: id });
+        const getChatID = chatID.map(c => c._id);
+        await Chats.deleteMany({ _id: id });
+        await Message.deleteMany(getChatID);
         res.status(200).json({
-            message: "Post Deleted succesfully"
+            message: "Project Deleted succesfully"
         });
     }
     catch {
@@ -97,17 +99,14 @@ app.delete("/api/v1/content", authCheck, async (req, res) => {
         });
     }
 });
-app.post("/api/v1/chat-message", authCheck, async (req, res) => {
+app.post("/api/v1/message", authCheck, async (req, res) => {
     const message = req.body.message;
     const userId = req.userId;
     try {
-        const response = await chat(message);
-        chatHistory.create({
-            userId: userId,
-            output_text: response
-        });
-        res.status(200).json({
-            response
+        Message.create({
+            chatId: userId,
+            sender: "User",
+            content: message
         });
     }
     catch (error) {

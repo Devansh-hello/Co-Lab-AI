@@ -1,2 +1,2 @@
-export declare function chat(input: string): Promise<unknown>;
+export {};
 //# sourceMappingURL=function.d.ts.map

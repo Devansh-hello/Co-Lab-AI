@@ -1,9 +1,10 @@
 import { response } from "express";
 import mongoose from "mongoose";
-import { string } from "zod";
+import dotenv from "dotenv";
+dotenv.config();
 async function mongo() {
     try {
-        await mongoose.connect("mongodb+srv://DevZero:Kamal0342@learn.lzqh8uq.mongodb.net/Brainly");
+        await mongoose.connect(process.env.DATABASE_URL);
     }
     catch (err) {
         response.json({
@@ -18,23 +19,22 @@ const user = new mongoose.Schema({
     password: { type: String, required: true },
     userId: { type: mongoose.Schema.Types.ObjectId }
 });
-const content = new mongoose.Schema({
+const project = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String },
-    image: { type: String },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
-    tags: { type: mongoose.Schema.Types.ObjectId, ref: "tags" },
 });
-const tags = new mongoose.Schema({
-    id: { type: mongoose.Schema.Types.ObjectId },
-    name: { type: String, required: true, },
+const chats = new mongoose.Schema({
+    projectId: { type: mongoose.Schema.Types.ObjectId, ref: "project", required: true },
+    title: { type: String }
 });
-const chathistory = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
-    output_text: { type: String }
+const message = new mongoose.Schema({
+    chatId: { type: mongoose.Schema.Types.ObjectId, ref: "chat", required: true },
+    sender: { type: String },
+    content: { type: String }
 });
 export const User = mongoose.model("user", user);
-export const Content = mongoose.model("content", content);
-export const Tags = mongoose.model("tags", tags);
-export const chatHistory = mongoose.model("chathistory", chathistory);
+export const Project = mongoose.model("project", project);
+export const Chats = mongoose.model("chats", chats);
+export const Message = mongoose.model("message", message);
 //# sourceMappingURL=db.js.map
