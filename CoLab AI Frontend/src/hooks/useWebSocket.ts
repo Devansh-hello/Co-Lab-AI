@@ -6,17 +6,21 @@ export interface Message {
   username: string;
   content: string;
   timestamp: Date;
-  type?: 'text' | 'analysis' | 'frontend' | 'backend' | 'documentation' | 'status' | 'error';
+  type?: 'text' | 'analysis' | 'frontend' | 'backend' | 'documentation' | 'status' | 'error' | 'streaming';
   data?: any;
+  isStreaming?: boolean;
 }
+
 export interface WebSocketState {
   isConnected: boolean;
   isGenerating: boolean;
   currentStatus: string;
   error: string | null;
 }
-export const useWebSocket = () => {
+
+export const useWebSocket = (projectId: string) => {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [wsState, setWsState] = useState<WebSocketState>({
     isConnected: false,
     isGenerating: false,
@@ -27,6 +31,145 @@ export const useWebSocket = () => {
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const currentStreamingMessageRef = useRef<string | null>(null);
+
+  // Load chat history from API
+  useEffect(() => {
+    const loadHistory = async () => {
+      if (!projectId) {
+        console.error('No projectId provided');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          console.error('No auth token found');
+          setWsState(prev => ({ ...prev, error: 'Please log in to continue' }));
+          setIsLoading(false);
+          return;
+        }
+
+        const response = await fetch(`http://localhost:5000/api/v1/projects/${projectId}/messages`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Failed to load messages' }));
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.messages || data.messages.length === 0) {
+          setMessages([]);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Convert DB messages to UI format
+        const formattedMessages: Message[] = [];
+        
+        data.messages.forEach((msg: any) => {
+          // User message
+          formattedMessages.push({
+            id: msg._id,
+            sender: 'user',
+            username: 'You',
+            content: msg.userMessage,
+            timestamp: new Date(msg.timestamp),
+            type: 'text'
+          });
+          
+          // Coordinator/Analysis response
+          if (msg.coordinatorResponse) {
+            const coord = msg.coordinatorResponse.content;
+            formattedMessages.push({
+              id: `${msg._id}-coord`,
+              sender: 'agent',
+              username: 'AI Generator',
+              content: `✅ Project analysis completed!\n\n**Project:** ${coord.project.name}\n**Description:** ${coord.project.description}\n**Features:** ${coord.features.join(', ')}`,
+              timestamp: new Date(msg.coordinatorResponse.timestamp),
+              type: 'analysis',
+              data: coord
+            });
+          }
+          
+          // Frontend response
+          if (msg.frontendResponse) {
+            const frontend = msg.frontendResponse.content;
+            formattedMessages.push({
+              id: `${msg._id}-frontend`,
+              sender: 'agent',
+              username: 'AI Generator',
+              content: `🎨 Frontend code generated!\n\n**Components:** ${frontend.components.length} component(s)\n**Framework:** ${frontend.styling.framework}\n**State Management:** ${frontend.state_management.approach}`,
+              timestamp: new Date(msg.frontendResponse.timestamp),
+              type: 'frontend',
+              data: frontend
+            });
+          }
+          
+          // Backend response
+          if (msg.backendResponse) {
+            const backend = msg.backendResponse.content;
+            formattedMessages.push({
+              id: `${msg._id}-backend`,
+              sender: 'agent',
+              username: 'AI Generator',
+              content: `⚙️ Backend code generated!\n\n**API Endpoints:** ${backend.api_endpoints.length} endpoint(s)\n**Database:** ${backend.database.type}\n**Authentication:** ${backend.authentication.method}`,
+              timestamp: new Date(msg.backendResponse.timestamp),
+              type: 'backend',
+              data: backend
+            });
+          }
+          
+          // Documentation response
+          if (msg.documentationResponse) {
+            const docs = msg.documentationResponse.content;
+            formattedMessages.push({
+              id: `${msg._id}-docs`,
+              sender: 'agent',
+              username: 'AI Generator',
+              content: `📚 Documentation generated!\n\n**README:** ${docs.readme.title}\n**Setup Guide:** ${docs.setup_guide.prerequisites.length} prerequisites\n**Code Documentation:** ${docs.code_documentation.length} file(s)`,
+              timestamp: new Date(msg.documentationResponse.timestamp),
+              type: 'documentation',
+              data: docs
+            });
+          }
+          
+          // Error status
+          if (msg.status === 'error') {
+            formattedMessages.push({
+              id: `${msg._id}-error`,
+              sender: 'agent',
+              username: 'AI Generator',
+              content: '❌ An error occurred while processing this request',
+              timestamp: new Date(msg.timestamp),
+              type: 'error'
+            });
+          }
+        });
+        
+        setMessages(formattedMessages);
+      } catch (error) {
+        console.error('Failed to load history:', error);
+        setWsState(prev => ({ 
+          ...prev, 
+          error: error instanceof Error ? error.message : 'Failed to load chat history' 
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadHistory();
+  }, [projectId]);
 
   const addMessage = useCallback((message: Omit<Message, 'id' | 'timestamp'>) => {
     const newMessage: Message = {
@@ -44,6 +187,10 @@ export const useWebSocket = () => {
     ));
   }, []);
 
+  const removeMessage = useCallback((id: string) => {
+    setMessages(prev => prev.filter(msg => msg.id !== id));
+  }, []);
+
   const handleWebSocketMessage = useCallback((data: any) => {
     switch (data.type) {
       case 'status':
@@ -52,34 +199,22 @@ export const useWebSocket = () => {
           isGenerating: true, 
           currentStatus: data.message 
         }));
-        addMessage({
-          sender: 'agent',
-          username: 'AI Generator',
-          content: `🔄 ${data.message}`,
-          type: 'status'
-        });
+        // Don't show status messages as chat messages anymore
         break;
 
       case 'frontend_stream':
-        if (!currentStreamingMessageRef.current) {
-          // Start new streaming message
-          const messageId = addMessage({
-            sender: 'agent',
-            username: 'AI Generator',
-            content: data.content,
-            type: 'text'
-          });
-          currentStreamingMessageRef.current = messageId;
-        } else {
-          // Update existing streaming message
-          updateMessage(currentStreamingMessageRef.current, {
-            content: data.accumulated
-          });
-        }
+      case 'backend_stream':
+      case 'documentation_stream':
+        // Ignore streaming chunks - we'll only show the final result
         break;
 
       case 'frontend_complete':
-        currentStreamingMessageRef.current = null;
+        // Remove any streaming message if exists
+        if (currentStreamingMessageRef.current) {
+          removeMessage(currentStreamingMessageRef.current);
+          currentStreamingMessageRef.current = null;
+        }
+        
         addMessage({
           sender: 'agent',
           username: 'AI Generator',
@@ -89,24 +224,12 @@ export const useWebSocket = () => {
         });
         break;
 
-      case 'backend_stream':
-        if (!currentStreamingMessageRef.current) {
-          const messageId = addMessage({
-            sender: 'agent',
-            username: 'AI Generator',
-            content: data.content,
-            type: 'text'
-          });
-          currentStreamingMessageRef.current = messageId;
-        } else {
-          updateMessage(currentStreamingMessageRef.current, {
-            content: data.accumulated
-          });
-        }
-        break;
-
       case 'backend_complete':
-        currentStreamingMessageRef.current = null;
+        if (currentStreamingMessageRef.current) {
+          removeMessage(currentStreamingMessageRef.current);
+          currentStreamingMessageRef.current = null;
+        }
+        
         addMessage({
           sender: 'agent',
           username: 'AI Generator',
@@ -127,6 +250,11 @@ export const useWebSocket = () => {
         break;
 
       case 'documentation_complete':
+        if (currentStreamingMessageRef.current) {
+          removeMessage(currentStreamingMessageRef.current);
+          currentStreamingMessageRef.current = null;
+        }
+        
         addMessage({
           sender: 'agent',
           username: 'AI Generator',
@@ -141,14 +269,13 @@ export const useWebSocket = () => {
         setWsState(prev => ({ 
           ...prev, 
           isGenerating: false, 
-          currentStatus: 'Complete!' 
+          currentStatus: '' 
         }));
         addMessage({
           sender: 'agent',
           username: 'AI Generator',
-          content: `🎉 Project generation completed successfully!\n\nYour full-stack project is ready with:\n• Project analysis\n• Frontend code (React)\n• Backend code (Node.js)\n• Complete documentation`,
-          type: 'text',
-          data: data.summary
+          content: `🎉 **Project generation completed successfully!**\n\nYour full-stack project is ready with:\n• Project analysis\n• Frontend code (React)\n• Backend code (Node.js)\n• Complete documentation`,
+          type: 'text'
         });
         break;
 
@@ -168,9 +295,7 @@ export const useWebSocket = () => {
         });
         break;
     }
-  }, [addMessage, updateMessage]);
-
-  // ... rest of the hook code remains the same
+  }, [addMessage, updateMessage, removeMessage]);
 
   const connect = useCallback(() => {
     if (ws.current?.readyState === WebSocket.OPEN) return;
@@ -203,8 +328,14 @@ export const useWebSocket = () => {
         reconnectTimeoutRef.current = setTimeout(connect, 3000);
       };
 
+      ws.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        setWsState(prev => ({ ...prev, error: 'Connection error' }));
+      };
+
     } catch (error) {
       console.error('Failed to connect to WebSocket:', error);
+      setWsState(prev => ({ ...prev, error: 'Failed to connect' }));
     }
   }, [handleWebSocketMessage]);
 
@@ -214,14 +345,22 @@ export const useWebSocket = () => {
       return;
     }
 
+    if (!projectId) {
+      setWsState(prev => ({ ...prev, error: 'No project selected' }));
+      return;
+    }
+
     addMessage({
       sender: 'user',
-      username: 'DevZero',
+      username: 'You',
       content: message,
       type: 'text'
     });
 
-    ws.current.send(message);
+    ws.current.send(JSON.stringify({
+      message,
+      projectId
+    }));
     
     setWsState(prev => ({ 
       ...prev, 
@@ -229,7 +368,7 @@ export const useWebSocket = () => {
       currentStatus: 'Processing your request...',
       error: null 
     }));
-  }, [addMessage]);
+  }, [addMessage, projectId]);
 
   useEffect(() => {
     connect();
@@ -243,6 +382,7 @@ export const useWebSocket = () => {
 
   return {
     messages,
+    isLoading,
     wsState,
     sendMessage,
     connect,

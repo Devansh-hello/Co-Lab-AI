@@ -1,47 +1,67 @@
+"use client"
+
+import { useState } from "react"
 import { CreateProjectModal } from "../components/CreateProject"
-import { MyButton } from "../components/MyButton"
+import { Button } from "../components/ui/button"
 import { Header } from "../components/header"
+import { Plus, Edit3 } from "lucide-react"
+import useContent from "../hooks/useContent"
+import { Link } from "react-router-dom"
 
-function ProjectPage(){
-    return <>
-        <CreateProjectModal open={true} />
+function ProjectPage() {
+  const [open, setOpen] = useState(false)
+  const projects = useContent()
 
-        <div className="flex flex-col grow p-6 gap-6 h-screen w-screen bg-[#ECEEDF] items-center">
-        
-            <Header />
-            
-            <div className="flex flex-row justify-between items-center p-4 gap-3.5 w-[55%]  rounded-3xl">
+  console.log(projects)
+  function modalState() {
+    setOpen(true)
+  }
 
-                <h1 className=" text-black text-3xl p-4 rounded-2xl font-montserrat text-center justify-center">Your Projects</h1>
+  return (
+    <>
+      <CreateProjectModal
+        open={open}
+        onclose={() => {
+          setOpen(false)
+        }}
+      />
 
-                <div className="">
-                    <MyButton content="New Project" image="https://img.icons8.com/android/24/plus.png" width={15}/>
-                </div>
-                
-            
-            </div>
-            
-            <div className="flex flex-row p-4 bg-[#edd4c034] rounded-lg w-[50%] h-[10%] justify-between items-center border-[1px] hover:bg-[#edd4c07f] hover:scale-102 hover:cursor-pointer transition delay-150 duration-300 ease-in-out">
-                <div>
-                    <h1 className=" text-xl font-montserrat">Basic Calculator</h1>
-                    <p className="font-SourceCodePro text-[15px]">basic modern Looking functionable calculator app</p>
-                </div>
-                
+      <div className="flex flex-col grow p-6 gap-6 h-screen w-screen bg-gradient-to-br from-[#ECEEDF] to-[#D9C4B0] items-center">
+        <Header />
 
-                <MyButton content="Edit" image="https://img.icons8.com/ios/50/create-new.png" width={18}/>
-            </div>
+        <div className="flex flex-row justify-between items-center p-6 gap-4 w-[55%] bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-lg">
+          <h1 className="text-black text-3xl font-montserrat font-semibold">Your Projects</h1>
 
-            <div className="flex flex-row p-4 bg-[#edd4c034] rounded-lg w-[50%] h-[10%] justify-between items-center border-[1px] hover:bg-[#edd4c07f] hover:scale-102 hover:cursor-pointer transition delay-150 duration-300 ease-in-out">
-                <div>
-                    <h1 className=" text-xl font-montserrat">Basic Calculator</h1>
-                    <p className="font-SourceCodePro text-[15px]">basic modern Looking functionable calculator app</p>
-                </div>
-                
-
-                <MyButton content="Edit" image="https://img.icons8.com/ios/50/create-new.png" width={18}/>
-            </div>
-
+          <Button
+            onClick={modalState}
+            className="bg-[#CFAB8D] hover:bg-[#B8956F] text-black font-medium px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg backdrop-blur-sm border border-white/20 flex items-center gap-2"
+          >
+            <Plus size={18} />
+            New Project
+          </Button>
         </div>
+
+        {projects.map(({ name, description, _id }) => (
+          <div
+            key={_id}
+            className="flex flex-row p-6 bg-white/20 backdrop-blur-md rounded-2xl w-[50%] min-h-[120px] justify-between items-center border border-white/30 hover:bg-white/30 hover:scale-102 hover:cursor-pointer transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl"
+          >
+            <Link to={"/chat/" + _id} className="flex-1">
+              <div>
+                <h1 className="text-xl font-montserrat font-semibold text-black mb-2">{name}</h1>
+                <p className="font-SourceCodePro text-[15px] text-gray-700 leading-relaxed">{description}</p>
+              </div>
+            </Link>
+
+            <Button className="bg-[#D9C4B0] hover:bg-[#CFAB8D] text-black font-medium px-4 py-2 rounded-lg transition-all duration-300 hover:scale-105 backdrop-blur-sm border border-white/20 flex items-center gap-2 ml-4">
+              <Edit3 size={16} />
+              Edit
+            </Button>
+          </div>
+        ))}
+      </div>
     </>
+  )
 }
+
 export default ProjectPage

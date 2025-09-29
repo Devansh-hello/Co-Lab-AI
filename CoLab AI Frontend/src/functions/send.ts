@@ -58,3 +58,43 @@ export async function checkLoggedin(){
     }
     
 }
+
+export async function sendProject(name: string, description
+    :string
+) {
+    try {
+        const response = await api.post('/project', {
+            name: name,
+            description:description
+        });
+        return {res: response.data , status: response.status};
+    } catch (error: unknown) {
+
+        if(error instanceof AxiosError ){
+            if (error.response) {
+            return {
+                res: error.response.data,     
+                status: error.response.status
+            };
+        }throw error;
+        }
+        
+    }
+}
+export async function getPosts(){
+    try{
+        const response:any = await api.get("/project")
+        return {name: response.data.name , description: response.data.description}
+
+    }catch(error){
+       if(error instanceof AxiosError ){
+            if (error.response) {
+                return {
+                    res: error.response.data,     
+                    status: error.response.status
+                };
+            }throw error;
+        }
+    }
+    
+}

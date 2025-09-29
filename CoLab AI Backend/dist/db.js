@@ -20,21 +20,35 @@ const user = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId }
 });
 const project = new mongoose.Schema({
-    title: { type: String, required: true },
+    name: { type: String, required: true },
     description: { type: String },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
-});
-const chats = new mongoose.Schema({
-    projectId: { type: mongoose.Schema.Types.ObjectId, ref: "project", required: true },
-    title: { type: String }
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
 });
 const message = new mongoose.Schema({
-    chatId: { type: mongoose.Schema.Types.ObjectId, ref: "chat", required: true },
-    sender: { type: String },
-    content: { type: String }
+    projectId: { type: mongoose.Schema.Types.ObjectId, ref: "project", required: true },
+    userMessage: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+    coordinatorResponse: {
+        content: { type: mongoose.Schema.Types.Mixed },
+        timestamp: { type: Date }
+    },
+    frontendResponse: {
+        content: { type: mongoose.Schema.Types.Mixed },
+        timestamp: { type: Date }
+    },
+    backendResponse: {
+        content: { type: mongoose.Schema.Types.Mixed },
+        timestamp: { type: Date }
+    },
+    documentationResponse: {
+        content: { type: mongoose.Schema.Types.Mixed },
+        timestamp: { type: Date }
+    },
+    status: { type: String, enum: ['processing', 'completed', 'error'], default: 'processing' }
 });
 export const User = mongoose.model("user", user);
 export const Project = mongoose.model("project", project);
-export const Chats = mongoose.model("chats", chats);
 export const Message = mongoose.model("message", message);
 //# sourceMappingURL=db.js.map

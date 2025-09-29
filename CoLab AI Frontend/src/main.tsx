@@ -22,7 +22,7 @@ const router = createBrowserRouter([
   {
     element: <ProctectedRoutes />,
     children: [
-      { path: "/chat", element: <App /> },
+      { path: "/chat/:projectId", element: <App /> },
       { path: "/projects", element: <ProjectPage /> }
     ],
   },

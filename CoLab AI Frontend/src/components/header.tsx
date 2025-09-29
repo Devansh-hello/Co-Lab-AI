@@ -1,56 +1,55 @@
-import { Link } from "react-router-dom";
+"use client"
 
-import { useAuth } from "../context/AuthContext";
+import { Link } from "react-router-dom"
+import { useAuth } from "../context/AuthContext"
+import { Home, FolderOpen, LogIn, User } from "lucide-react"
 
+export function Header() {
+  const { user } = useAuth()
 
-export function Header(){
+  return (
+    <div className="flex flex-row gap-3.5 justify-between border-2 p-4 rounded-xl bg-[#D9C4B0]/90 backdrop-blur-sm w-[90%] h-[10%] items-center shadow-lg">
+      <div className="flex flex-row gap-3.5">
+        <Link
+          to="/"
+          className="cursor-pointer bg-[#CFAB8D]/80 hover:bg-[#CFAB8D] rounded-lg px-4 py-2 font-montserrat transition-all duration-200 hover:shadow-md flex items-center gap-2 backdrop-blur-sm"
+        >
+          <Home size={16} />
+          Home
+        </Link>
 
-    const {user} = useAuth()
-    return<div 
-    className="flex flex-row gap-3.5 justify-between border-2 p-4 rounded-md bg-[#D9C4B0] w-[90%] h-[10%] items-center">
-        <div 
-        className="flex flex-row gap-3.5">
+        {user === true ? (
+          <Link
+            to="/projects"
+            className="cursor-pointer bg-[#CFAB8D]/80 hover:bg-[#CFAB8D] rounded-lg px-4 py-2 font-montserrat transition-all duration-200 hover:shadow-md flex items-center gap-2 backdrop-blur-sm"
+          >
+            <FolderOpen size={16} />
+            Projects
+          </Link>
+        ) : null}
+      </div>
 
-            <Link to={"/"}
-            className="cursor-pointer bg-[#CFAB8D] rounded-lg px-3 py-1.5 font-montserrat">
-                Home
-            </Link>
+      <div className="flex flex-row justify-center items-center font-semibold font-montserrat text-xl text-gray-950 gap-2">
+        <h1 className="text-balance">Colab Minds AI</h1>
+      </div>
 
-            {user == true ?<Link to={"/projects"}
-            className="cursor-pointer bg-[#CFAB8D] rounded-lg px-3 py-1.5 font-montserrat">
-                Projects
-            </Link> : null}
-
-        </div>
-
-        <div 
-        className=" flex flex-row justify-center items-center font-medium font-montserrat text-xl text-gray-950 gap-2">
-            <img src="https://media.discordapp.net/attachments/1084257517229592659/1421561764872454174/281425e4-4e94-475a-a488-740a0fd95d50-removebg-preview1.png?ex=68d97c10&is=68d82a90&hm=fecc2ecc733f7afe10921f27da86e999a20848849579b8d7c0bc77fa59948846&=&format=webp&quality=lossless&width=883&height=883" width={40}/>
-
-            
-            <h1>
-                Colab Minds AI
-            </h1>
-
-        </div>
-
-        <div className="justify-center items-center ali">
-
-            {user === false ?<Link to={"/Login"}
-            type="button" 
-            className="cursor-pointer bg-[#CFAB8D] rounded-lg px-3 py-1.5 items-center">
-                Login
-            </Link>:user === true ?
-            <button
-            type="button">
-
-                <img  
-                src="https://static.wikia.nocookie.net/eb6be2ef-39ef-4a9a-9470-6465e2292a11/scale-to-width/755"
-                className="w-12 rounded-full "/>
-
-            </button>: null}
-
-        </div>
-        
+      <div className="justify-center items-center">
+        {user === false ? (
+          <Link
+            to="/Login"
+            className="cursor-pointer bg-[#CFAB8D]/80 hover:bg-[#CFAB8D] rounded-lg px-4 py-2 items-center transition-all duration-200 hover:shadow-md flex gap-2 backdrop-blur-sm font-montserrat"
+          >
+            <LogIn size={16} />
+            Login
+          </Link>
+        ) : user === true ? (
+          <button type="button" className="relative group">
+            <div className="w-12 h-12 rounded-full bg-[#CFAB8D]/80 backdrop-blur-sm border-2 border-[#CFAB8D] flex items-center justify-center transition-all duration-200 hover:shadow-lg group-hover:bg-[#CFAB8D]">
+              <User size={20} className="text-gray-700" />
+            </div>
+          </button>
+        ) : null}
+      </div>
     </div>
+  )
 }

@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 
-import { User, Chats, Project, Message } from "./db.js";
+import { User, Project, Message } from "./db.js";
 import { zodMiddleware, authCheck } from "./middleware.js";
 
 import("./function.js");
@@ -84,11 +84,11 @@ app.get("/api/v1/loggedin", authCheck,(req: any,res)=>{
 
 app.post("/api/v1/project",authCheck,async (req: any,res)=>{
 
-    const {title, description} = req.body;
+    const {name, description} = req.body;
 
     try{
         await Project.create({
-            title: title,
+            name: name,
             description: description,
             userId: req.userId
         })
@@ -96,7 +96,7 @@ app.post("/api/v1/project",authCheck,async (req: any,res)=>{
             message:"Project created succesfully"
         })
     }catch{
-        res.json({
+        res.status(400).json({
             message:"unable to create"
         })
     }
@@ -111,30 +111,7 @@ app.get("/api/v1/project",authCheck, async (req: any,res)=>{
     )
 });
 
-app.delete("/api/v1/project",authCheck,async(req,res)=>{
-    const {id} = req.body;
 
-    try{
-        await Project.deleteOne({_id: id});
-
-        const chatID = await Chats.find({_id: id});
-
-        const getChatID = chatID.map(c => c._id)
-
-        await Chats.deleteMany({_id: id});
-        await Message.deleteMany(getChatID)
-
-        res.status(200).json({
-            message: "Project Deleted succesfully"
-        })
-    }
-    catch{
-        res.status(400).json({
-            message:"Unable to delete post"
-        })
-    }
-    
-});
 
 app.post("/api/v1/message",authCheck, async(req:any,res)=>{
     const message = req.body.message;
@@ -159,5 +136,45 @@ app.post("/api/v1/message",authCheck, async(req:any,res)=>{
 });
 app.get("/api/v1/chat-message",(req,res)=>{
     
+});
+// Get chat history for a specific chat
+app.get("/api/v1/chats/:chatId/messages", authCheck, async (req: any, res) => {
+    const { chatId } = req.params;
+    const messages = await Message.find({ chatId })
+        .sort({ timestamp: 1 })
+        .lean();
+    
+    res.json({ messages });
+});
+
+
+app.get("/api/v1/projects/:projectId/messages", authCheck, async (req: any, res) => {
+    try {
+        const { projectId } = req.params;
+        const userId = req.userId;
+        
+        console.log("Fetching messages for project:", projectId, "User:", userId);
+        
+        // Verify user owns the project
+        const project = await Project.findOne({ _id: projectId, userId });
+        if (!project) {
+            console.error("Project not found for user:", userId, "Project:", projectId);
+            return res.status(404).json({ error: "Project not found" });
+        }
+        
+        const messages = await Message.find({ projectId })
+            .sort({ timestamp: 1 })
+            .lean();
+        
+        console.log("Found", messages.length, "messages for project:", projectId);
+        
+        res.json({ messages: messages || [] });
+    } catch (error) {
+        console.error("Error fetching messages:", error);
+        res.status(500).json({ 
+            error: "Failed to fetch messages",
+            details: error instanceof Error ? error.message : "Unknown error"
+        });
+    }
 });
 app.listen(5000);

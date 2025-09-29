@@ -1,19 +1,19 @@
 import OpenAI from 'openai';
 import { WebSocketServer } from "ws"
-import { object, string, z } from "zod"
+import { z } from "zod"
 import dotenv from "dotenv"
+import { Message, Project } from './db.js';
 
 dotenv.config()
 
 const wss = new WebSocketServer({ port: 8080 });
-
 
 const openrouter = new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY,
     baseURL: "https://openrouter.ai/api/v1"
 });
 
-
+// Schemas remain the same
 const ProjectAnalysisSchema = z.object({
   project: z.object({
     name: z.string(),
@@ -115,21 +115,475 @@ const DocumentationSchema = z.object({
   deployment_guide: z.string()
 });
 
+wss.on("connection", function connection(ws, req) {
+    console.log("connected");
+   
+    ws.on("message", async function message(data) {
+        let messageDoc: any = null;
+        
+        try {
+            const parsed = JSON.parse(data.toString());
+            const { message: userMessage, projectId } = parsed;
+            
+            console.log("Received:", userMessage, "ProjectID:", projectId);
+            
+            // Create new message document
+            messageDoc = new Message({
+                projectId: projectId,
+                userMessage: userMessage,
+                status: 'processing'
+            });
+            await messageDoc.save();
+            
+            // Get conversation context from the same project
+            const conversationHistory = await Message.find({ projectId: projectId })
+                .sort({ timestamp: -1 })
+                .limit(5)
+                .lean();
+            
+            // Step 1: Coordinator Agent with context
+            ws.send(JSON.stringify({
+                type: 'status',
+                message: 'Analyzing project requirements...'
+            }));
+            
+            const analysis = await CoordinatorAgent(userMessage, conversationHistory, ws);
+            
+            messageDoc.coordinatorResponse = {
+                content: analysis,
+                timestamp: new Date()
+            };
+            await messageDoc.save();
+            
+            ws.send(JSON.stringify({
+                type: 'analysis_complete',
+                content: analysis
+            }));
+            
+            let frontendResult = null;
+            let backendResult = null;
+            
+            // Step 2: Frontend Agent with context and streaming
+            if (analysis.frontend && analysis.frontend.technologies.length > 0) {
+                ws.send(JSON.stringify({
+                    type: 'status',
+                    message: 'Generating frontend code...'
+                }));
+                
+                frontendResult = await FrontendAgentStreaming(analysis, conversationHistory, ws);
+                
+                messageDoc.frontendResponse = {
+                    content: frontendResult,
+                    timestamp: new Date()
+                };
+                await messageDoc.save();
+            }
+            
+            // Step 3: Backend Agent with context and streaming
+            if (analysis.backend && analysis.backend.needed) {
+                ws.send(JSON.stringify({
+                    type: 'status',
+                    message: 'Generating backend code...'
+                }));
+                
+                backendResult = await BackendAgentStreaming(analysis, conversationHistory, ws);
+                
+                messageDoc.backendResponse = {
+                    content: backendResult,
+                    timestamp: new Date()
+                };
+                await messageDoc.save();
+            }
+            
+            // Step 4: Documentation Agent
+            ws.send(JSON.stringify({
+                type: 'status',
+                message: 'Generating documentation...'
+            }));
+            
+            const documentationResult = await DocumentationAgentStreaming(
+                analysis, 
+                frontendResult, 
+                backendResult, 
+                ws
+            );
+            
+            messageDoc.documentationResponse = {
+                content: documentationResult,
+                timestamp: new Date()
+            };
+            await messageDoc.save();
+            
+            // Update project's updatedAt
+            await Project.findByIdAndUpdate(projectId, { updatedAt: new Date() });
+            
+            // Mark as completed
+            messageDoc.status = 'completed';
+            await messageDoc.save();
+            
+            ws.send(JSON.stringify({
+                type: 'all_complete',
+                message: 'Project generation completed!',
+                messageId: messageDoc._id
+            }));
+           
+        } catch (error: any) {
+            console.error("Error:", error);
+            
+            if (messageDoc) {
+                messageDoc.status = 'error';
+                await messageDoc.save();
+            }
+            
+            ws.send(JSON.stringify({
+                type: 'error',
+                message: error.message
+            }));
+        }
+    });
 
+    // Coordinator Agent with context
+    async function CoordinatorAgent(userMessage: string, conversationHistory: any[], ws: any): Promise<any> {
+        try {
+            // Build context from previous messages
+            const contextMessages = conversationHistory
+                .reverse()
+                .map(msg => ({
+                    user: msg.userMessage,
+                    analysis: msg.coordinatorResponse?.content
+                }))
+                .filter(msg => msg.analysis)
+                .slice(0, 3);
+            
+            const contextPrompt = contextMessages.length > 0 
+                ? `\n\nPREVIOUS CONVERSATION CONTEXT:\n${contextMessages.map((msg, i) => 
+                    `${i + 1}. User: ${msg.user}\n   Analysis: Project "${msg.analysis.project.name}" - ${msg.analysis.project.description}`
+                  ).join('\n\n')}\n\nCURRENT REQUEST:`
+                : '';
+
+            const systemPrompt = `You are a senior project coordinator. Analyze user requests and create comprehensive project breakdowns.
+            ${contextPrompt ? 'Use the previous conversation context to understand the project better and maintain consistency.' : ''}
+
+            CRITICAL: You MUST respond with ONLY valid JSON in this EXACT format:
+            {
+              "project": {"name": "Project Name", "description": "Description"},
+              "features": ["feature1", "feature2"],
+              "overall_structure": {
+                "architecture": "Architecture description",
+                "file_structure": {"root": ["file1.js", "folder1/"]},
+                "user_flow": "User flow description"
+              },
+              "frontend": {
+                "technologies": ["React", "CSS"],
+                "components": {
+                  "ComponentName": {
+                    "description": "What this does",
+                    "interactions": "How it interacts",
+                    "layout": "Layout description"
+                  }
+                },
+                "requirements": ["requirement1"]
+              },
+              "backend": {
+                "needed": true,
+                "description": "Backend description",
+                "optional_extensions": ["extension1"]
+              },
+              "deployment_notes": "Deployment info",
+              "references": ["reference1"]
+            }
+
+            NO other text. NO markdown. ONLY JSON.`;
+
+            const response = await openrouter.chat.completions.create({
+                model: "x-ai/grok-4-fast:free",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: contextPrompt + userMessage }
+                ],
+                temperature: 0.3,
+                max_tokens: 2000
+            });
+            
+            const content = response.choices[0]?.message?.content?.trim();
+            
+            if (!content) {
+                return createFallbackAnalysis(userMessage);
+            }
+            
+            try {
+                const jsonData = extractJSON(content);
+                const validatedData = ProjectAnalysisSchema.parse(jsonData);
+                return validatedData;
+            } catch (parseError) {
+                console.warn("JSON parsing failed, using fallback:", parseError);
+                return createFallbackAnalysis(userMessage);
+            }
+            
+        } catch (error) {
+            console.error("Coordinator Agent Error:", error);
+            return createFallbackAnalysis(userMessage);
+        }
+    }
+
+    // Frontend Agent with context and streaming
+    async function FrontendAgentStreaming(analysis: any, conversationHistory: any[], ws: any) {
+        try {
+            // Get previous frontend responses for context
+            const previousFrontend = conversationHistory
+                .reverse()
+                .map(msg => msg.frontendResponse?.content)
+                .filter(Boolean)
+                .slice(0, 2);
+            
+            const contextPrompt = previousFrontend.length > 0
+                ? `\n\nPREVIOUS FRONTEND CONTEXT:\nLast generated ${previousFrontend[0]?.components?.length || 0} components using ${previousFrontend[0]?.styling?.framework || 'CSS'}.\n\n`
+                : '';
+
+            const frontendPrompt = `${contextPrompt}Based on this project analysis, create complete frontend implementation:
+
+            Project: ${analysis.project.name}
+            Description: ${analysis.project.description}
+            Technologies: ${analysis.frontend.technologies.join(', ')}
+
+            Respond with ONLY valid JSON in this format:
+            {
+              "components": [{"name": "ComponentName", "code": "Complete code", "description": "Description", "dependencies": ["dep1"]}],
+              "styling": {"framework": "CSS", "custom_css": "CSS code", "responsive_design": "Approach"},
+              "state_management": {"approach": "Approach", "implementation": "Details"},
+              "setup_instructions": ["step1", "step2"]
+            }
+
+            NO markdown, only JSON.`;
+
+            const stream = await openrouter.chat.completions.create({
+                model: "x-ai/grok-4-fast:free",
+                messages: [
+                    {
+                        role: "system",
+                        content: `You are a senior frontend developer. Generate production-ready React code.
+                        Respond with ONLY valid JSON. No markdown, no explanations.`
+                    },
+                    { role: "user", content: frontendPrompt }
+                ],
+                stream: true,
+                temperature: 0.3
+            });
+
+            let fullContent = '';
+            
+            for await (const chunk of stream) {
+                const content = chunk.choices[0]?.delta?.content || '';
+                if (content) {
+                    fullContent += content;
+                    
+                    ws.send(JSON.stringify({
+                        type: 'frontend_stream',
+                        content: content,
+                        accumulated: fullContent
+                    }));
+                }
+            }
+            
+            try {
+                const jsonData = extractJSON(fullContent.trim());
+                const validatedResult = FrontendSchema.parse(jsonData);
+                
+                ws.send(JSON.stringify({
+                    type: 'frontend_complete',
+                    content: validatedResult
+                }));
+                
+                return validatedResult;
+            } catch (parseError) {
+                console.warn("Frontend parsing failed, using fallback");
+                const fallbackResult = createFrontendFallback(analysis);
+                
+                ws.send(JSON.stringify({
+                    type: 'frontend_complete',
+                    content: fallbackResult
+                }));
+                
+                return fallbackResult;
+            }
+            
+        } catch (error) {
+            console.error("Frontend Agent Error:", error);
+            throw error;
+        }
+    }
+
+    // Backend Agent with context and streaming
+    async function BackendAgentStreaming(analysis: any, conversationHistory: any[], ws: any) {
+        try {
+            const previousBackend = conversationHistory
+                .reverse()
+                .map(msg => msg.backendResponse?.content)
+                .filter(Boolean)
+                .slice(0, 2);
+            
+            const contextPrompt = previousBackend.length > 0
+                ? `\n\nPREVIOUS BACKEND CONTEXT:\nLast generated ${previousBackend[0]?.api_endpoints?.length || 0} endpoints using ${previousBackend[0]?.database?.type || 'database'}.\n\n`
+                : '';
+
+            const backendPrompt = `${contextPrompt}Based on this project analysis, create complete backend implementation:
+
+              Project: ${analysis.project.name}
+              Description: ${analysis.project.description}
+              Backend: ${analysis.backend.description}
+
+              Respond with ONLY valid JSON in this format:
+              {
+                "api_endpoints": [{"method": "GET", "path": "/api/endpoint", "description": "Description", "code": "Complete code"}],
+                "database": {"type": "MongoDB", "schema": "Schema", "connection_code": "Code"},
+                "authentication": {"method": "JWT", "implementation": "Implementation"},
+                "server_setup": "Complete server code",
+                "deployment_config": "Deployment config"
+              }
+
+              NO markdown, only JSON.`;
+
+            const stream = await openrouter.chat.completions.create({
+                model: "x-ai/grok-4-fast:free",
+                messages: [
+                    {
+                        role: "system",
+                        content: `You are a senior backend developer. Generate production-ready Node.js code.
+                        Respond with ONLY valid JSON.`
+                    },
+                    { role: "user", content: backendPrompt }
+                ],
+                stream: true,
+                temperature: 0.3
+            });
+
+            let fullContent = '';
+            
+            for await (const chunk of stream) {
+                const content = chunk.choices[0]?.delta?.content || '';
+                if (content) {
+                    fullContent += content;
+                    
+                    ws.send(JSON.stringify({
+                        type: 'backend_stream',
+                        content: content,
+                        accumulated: fullContent
+                    }));
+                }
+            }
+            
+            try {
+                const jsonData = extractJSON(fullContent.trim());
+                const validatedResult = BackendSchema.parse(jsonData);
+                
+                ws.send(JSON.stringify({
+                    type: 'backend_complete',
+                    content: validatedResult
+                }));
+                
+                return validatedResult;
+            } catch (parseError) {
+                console.warn("Backend parsing failed, using fallback");
+                const fallbackResult = createBackendFallback(analysis);
+                
+                ws.send(JSON.stringify({
+                    type: 'backend_complete',
+                    content: fallbackResult
+                }));
+                
+                return fallbackResult;
+            }
+            
+        } catch (error) {
+            console.error("Backend Agent Error:", error);
+            throw error;
+        }
+    }
+
+    async function DocumentationAgentStreaming(
+        analysis: any, 
+        frontendResult: any, 
+        backendResult: any, 
+        ws: any
+    ) {
+        try {
+            const docPrompt = `Generate comprehensive documentation for this project:
+
+            PROJECT: ${analysis.project.name}
+            DESCRIPTION: ${analysis.project.description}
+
+            Create documentation in JSON format with readme, setup_guide, code_documentation, and deployment_guide.
+            NO markdown, only JSON.`;
+
+            const stream = await openrouter.chat.completions.create({
+                model: "x-ai/grok-4-fast:free",
+                messages: [
+                    {
+                        role: "system",
+                        content: `You are a technical documentation specialist. Respond with ONLY valid JSON.`
+                    },
+                    { role: "user", content: docPrompt }
+                ],
+                stream: true,
+                temperature: 0.3
+            });
+
+            let fullContent = '';
+            
+            for await (const chunk of stream) {
+                const content = chunk.choices[0]?.delta?.content || '';
+                if (content) {
+                    fullContent += content;
+                    
+                    ws.send(JSON.stringify({
+                        type: 'documentation_stream',
+                        content: content,
+                        accumulated: fullContent
+                    }));
+                }
+            }
+            
+            try {
+                const jsonData = extractJSON(fullContent.trim());
+                const validatedResult = DocumentationSchema.parse(jsonData);
+                
+                ws.send(JSON.stringify({
+                    type: 'documentation_complete',
+                    content: validatedResult
+                }));
+                
+                return validatedResult;
+            } catch (parseError) {
+                console.warn("Documentation parsing failed, using fallback");
+                const fallbackResult = createDocsFallback(analysis);
+                
+                ws.send(JSON.stringify({
+                    type: 'documentation_complete',
+                    content: fallbackResult
+                }));
+                
+                return fallbackResult;
+            }
+            
+        } catch (error) {
+            console.error("Documentation Agent Error:", error);
+            throw error;
+        }
+    }
+});
+
+// Helper functions
 function extractJSON(text: string): any {
-    
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
         try {
             return JSON.parse(jsonMatch[0]);
         } catch (e) {
-            
             let cleaned = jsonMatch[0]
                 .replace(/```json/g, '')
                 .replace(/```/g, '')
-                .replace(/\n\s*\/\/.*$/gm, '') 
+                .replace(/\n\s*\/\/.*$/gm, '')
                 .trim();
-            
             return JSON.parse(cleaned);
         }
     }
@@ -171,532 +625,113 @@ function createFallbackAnalysis(userMessage: string): any {
     };
 }
 
-wss.on("connection", function connection(ws) {
-    console.log("connected");
-   
-    ws.on("message", async function message(data) {
-        try {
-            const messageStr = data.toString();
-            console.log("Received:", messageStr);
-            
-            // Step 1: Coordinator Agent
-            ws.send(JSON.stringify({
-                type: 'status',
-                message: 'Analyzing project requirements...'
-            }));
-            
-            const analysis = await CoordinatorAgent(messageStr);
-            
-            ws.send(JSON.stringify({
-                type: 'analysis_complete',
-                content: analysis
-            }));
-            
-            let frontendResult = null;
-            let backendResult = null;
-            
-            // Step 2: Frontend Agent with streaming
-            if (analysis.frontend && analysis.frontend.technologies.length > 0) {
-                ws.send(JSON.stringify({
-                    type: 'status',
-                    message: 'Generating frontend code...'
-                }));
-                
-                frontendResult = await FrontendAgentStreaming(analysis, ws);
-            }
-            
-            // Step 3: Backend Agent with streaming
-            if (analysis.backend && analysis.backend.needed) {
-                ws.send(JSON.stringify({
-                    type: 'status',
-                    message: 'Generating backend code...'
-                }));
-                
-                backendResult = await BackendAgentStreaming(analysis, ws);
-            }
-            
-            // Step 4: Documentation Agent
-            ws.send(JSON.stringify({
-                type: 'status',
-                message: 'Generating documentation...'
-            }));
-            
-            const documentationResult = await DocumentationAgentStreaming(analysis, frontendResult, backendResult, ws);
-            
-            ws.send(JSON.stringify({
-                type: 'all_complete',
-                message: 'Project generation completed!',
-                summary: {
-                    analysis,
-                    frontend: frontendResult,
-                    backend: backendResult,
-                    documentation: documentationResult
-                }
-            }));
-           
-        } catch (error:any) {
-            console.error("Error:", error);
-            ws.send(JSON.stringify({
-                type: 'error',
-                message: error.message
-            }));
-        }
-    });
+function createFrontendFallback(analysis: any) {
+    return {
+        components: [{
+            name: "App",
+            code: `import React, { useState } from 'react';
+import './App.css';
 
-    // Coordinator Agent with better error handling
-    async function CoordinatorAgent(messages: string): Promise<any> {
-        try {
-            const systemPrompt = `You are a senior project coordinator. Analyze user requests and create comprehensive project breakdowns.
+function App() {
+  const [count, setCount] = useState(0);
 
-            CRITICAL: You MUST respond with ONLY valid JSON in this EXACT format:
+  return (
+    <div className="App">
+      <header className="App-header">
+        <h1>${analysis.project.name}</h1>
+        <p>${analysis.project.description}</p>
+        <button onClick={() => setCount(count + 1)}>
+          Count: {count}
+        </button>
+      </header>
+    </div>
+  );
+}
 
+export default App;`,
+            description: "Main application component",
+            dependencies: ["react"]
+        }],
+        styling: {
+            framework: "CSS",
+            custom_css: `.App { text-align: center; padding: 20px; }
+.App-header { background-color: #282c34; color: white; padding: 20px; border-radius: 8px; }`,
+            responsive_design: "Mobile-first responsive design"
+        },
+        state_management: {
+            approach: "React useState",
+            implementation: "Using React hooks for local state management"
+        },
+        setup_instructions: ["npm install", "npm start"]
+    };
+}
+
+function createBackendFallback(analysis: any) {
+    return {
+        api_endpoints: [{
+            method: "GET",
+            path: "/api/health",
+            description: "Health check endpoint",
+            code: `app.get('/api/health', (req, res) => {
+              res.json({ status: 'OK', message: 'Server is running' });
+          });`
+        }],
+        database: {
+            type: "MongoDB",
+            schema: "Basic schema for the application",
+            connection_code: `const mongoose = require('mongoose');
+              mongoose.connect('mongodb://localhost:27017/database');`
+        },
+        authentication: {
+            method: "JWT",
+            implementation: "Basic JWT authentication setup"
+        },
+        server_setup: `const express = require('express');
+          const app = express();
+          const PORT = process.env.PORT || 3000;
+
+          app.use(express.json());
+
+          app.listen(PORT, () => {
+            console.log(\`Server running on port \${PORT}\`);
+          });`,
+        deployment_config: "Configure environment variables and deploy to cloud platform"
+    };
+}
+
+function createDocsFallback(analysis: any) {
+    return {
+        readme: {
+            title: analysis.project.name,
+            description: analysis.project.description,
+            installation: ["npm install", "npm start"],
+            usage: "Follow the setup instructions and start the development server",
+            api_documentation: "API endpoints are documented in the code",
+            contributing: "Please follow standard GitHub contribution guidelines"
+        },
+        setup_guide: {
+            prerequisites: ["Node.js", "npm", "Git"],
+            environment_setup: ["Clone the repository", "Install dependencies", "Configure environment variables"],
+            configuration: "Set up your environment variables and database connections",
+            troubleshooting: [
+                {issue: "Port already in use", solution: "Change the port in your configuration"},
+                {issue: "Module not found", solution: "Run npm install to install dependencies"}
+            ]
+        },
+        code_documentation: [
             {
-              "project": {
-                "name": "Project Name Here",
-                "description": "Detailed project description"
-              },
-              "features": ["feature1", "feature2", "feature3"],
-              "overall_structure": {
-                "architecture": "Architecture description",
-                "file_structure": {
-                  "root": ["file1.js", "folder1/", "file2.html"]
-                },
-                "user_flow": "How users interact with the application"
-              },
-              "frontend": {
-                "technologies": ["React", "CSS", "JavaScript"],
-                "components": {
-                  "ComponentName": {
-                    "description": "What this component does",
-                    "interactions": "How it interacts with other components",
-                    "layout": "Layout description"
-                  }
-                },
-                "requirements": ["requirement1", "requirement2"]
-              },
-              "backend": {
-                "needed": true,
-                "description": "Backend description",
-                "optional_extensions": ["extension1", "extension2"]
-              },
-              "deployment_notes": "Deployment information",
-              "references": ["reference1", "reference2"]
-            }
-
-            NO other text. NO markdown. NO explanations. ONLY the JSON object.`;
-
-            const response = await openrouter.chat.completions.create({
-                model: "x-ai/grok-4-fast:free",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: messages }
-                ],
-                temperature: 0.3,
-                max_tokens: 2000
-            });
-            
-            const content = response.choices[0]?.message?.content?.trim();
-            
-            if (!content) {
-                console.warn("Empty response from coordinator, using fallback");
-                return createFallbackAnalysis(messages);
-            }
-            
-            console.log("Raw coordinator response:", content);
-            
-            try {
-                // Try to extract and parse JSON
-                const jsonData = extractJSON(content);
-                
-                // Validate against schema
-                const validatedData = ProjectAnalysisSchema.parse(jsonData);
-                return validatedData;
-                
-            } catch (parseError) {
-                console.warn("JSON parsing failed, using fallback:", parseError);
-                return createFallbackAnalysis(messages);
-            }
-            
-        } catch (error) {
-            console.error("Coordinator Agent Error:", error);
-            // Return fallback instead of throwing
-            return createFallbackAnalysis(messages);
-        }
-    }
-
-    // Frontend Agent with streaming and better error handling
-    async function FrontendAgentStreaming(analysis: any, ws: any) {
-        try {
-            const frontendPrompt = `Based on this project analysis, create complete frontend implementation:
-
-            Project: ${analysis.project.name}
-            Description: ${analysis.project.description}
-            Frontend Technologies: ${analysis.frontend.technologies.join(', ')}
-
-            You MUST respond with valid JSON in this format:
-            {
-              "components": [
-                {
-                  "name": "ComponentName",
-                  "code": "Complete React component code here",
-                  "description": "What this component does",
-                  "dependencies": ["dependency1", "dependency2"]
-                }
-              ],
-              "styling": {
-                "framework": "CSS framework used",
-                "custom_css": "Custom CSS code",
-                "responsive_design": "Responsive design approach"
-              },
-              "state_management": {
-                "approach": "State management approach",
-                "implementation": "Implementation details"
-              },
-              "setup_instructions": ["step1", "step2", "step3"]
-            }
-
-            Generate complete, working React components with proper structure. NO markdown, only JSON.`;
-
-            const stream = await openrouter.chat.completions.create({
-                model: "x-ai/grok-4-fast:free",
-                messages: [
+                file: "app.js",
+                description: "Main application file",
+                functions: [
                     {
-                        role: "system",
-                        content: `You are a senior frontend developer. Generate production-ready React code.
-                        Respond with ONLY valid JSON. No markdown, no explanations, just the JSON object.`
-                    },
-                    { role: "user", content: frontendPrompt }
-                ],
-                stream: true,
-                temperature: 0.3
-            });
-
-            let fullContent = '';
-            
-            for await (const chunk of stream) {
-                const content = chunk.choices[0]?.delta?.content || '';
-                if (content) {
-                    fullContent += content;
-                    
-                    // Send streaming update
-                    ws.send(JSON.stringify({
-                        type: 'frontend_stream',
-                        content: content,
-                        accumulated: fullContent
-                    }));
-                }
+                        name: "main",
+                        purpose: "Initialize and start the application",
+                        parameters: "None",
+                        returns: "Application instance"
+                    }
+                ]
             }
-            
-            // Parse final result
-            try {
-                const jsonData = extractJSON(fullContent.trim());
-                const validatedResult = FrontendSchema.parse(jsonData);
-                
-                ws.send(JSON.stringify({
-                    type: 'frontend_complete',
-                    content: validatedResult
-                }));
-                
-                return validatedResult;
-            } catch (parseError) {
-                console.warn("Frontend parsing failed, using fallback");
-                // Enhanced fallback with basic React component
-                const fallbackResult = {
-                    components: [{
-                        name: "App",
-                        code: `import React, { useState } from 'react';
-                        import './App.css';
-
-                        function App() {
-                          const [count, setCount] = useState(0);
-
-                          return (
-                            <div className="App">
-                              <header className="App-header">
-                                <h1>${analysis.project.name}</h1>
-                                <p>${analysis.project.description}</p>
-                                <button onClick={() => setCount(count + 1)}>
-                                  Count: {count}
-                                </button>
-                              </header>
-                            </div>
-                          );
-                        }
-
-                        export default App;`,
-                                                description: "Main application component",
-                                                dependencies: ["react"]
-                                            }],
-                                            styling: {
-                                                framework: "CSS",
-                                                custom_css: `.App { text-align: center; padding: 20px; }
-                        .App-header { background-color: #282c34; color: white; padding: 20px; border-radius: 8px; }`,
-                        responsive_design: "Mobile-first responsive design"
-                    },
-                    state_management: {
-                        approach: "React useState",
-                        implementation: "Using React hooks for local state management"
-                    },
-                    setup_instructions: ["npm install", "npm start"]
-                };
-                
-                ws.send(JSON.stringify({
-                    type: 'frontend_complete',
-                    content: fallbackResult
-                }));
-                
-                return fallbackResult;
-            }
-            
-        } catch (error) {
-            console.error("Frontend Agent Error:", error);
-            throw error;
-        }
-    }
-
-    // Backend Agent with streaming and better error handling
-    async function BackendAgentStreaming(analysis: any, ws: any) {
-        try {
-            const backendPrompt = `Based on this project analysis, create complete backend implementation:
-
-              Project: ${analysis.project.name}
-              Description: ${analysis.project.description}
-              Backend Description: ${analysis.backend.description}
-
-              You MUST respond with valid JSON in this format:
-              {
-                "api_endpoints": [
-                  {
-                    "method": "GET",
-                    "path": "/api/endpoint",
-                    "description": "Endpoint description",
-                    "code": "Complete Express.js route code"
-                  }
-                ],
-                "database": {
-                  "type": "Database type",
-                  "schema": "Database schema definition",
-                  "connection_code": "Database connection code"
-                },
-                "authentication": {
-                  "method": "Authentication method",
-                  "implementation": "Auth implementation code"
-                },
-                "server_setup": "Complete server setup code",
-                "deployment_config": "Deployment configuration"
-              }
-
-              Generate complete Node.js/Express code. NO markdown, only JSON.`;
-
-            const stream = await openrouter.chat.completions.create({
-                model: "x-ai/grok-4-fast:free",
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a senior backend developer. Generate production-ready Node.js code.
-                        Respond with ONLY valid JSON. No markdown, no explanations.`
-                    },
-                    { role: "user", content: backendPrompt }
-                ],
-                stream: true,
-                temperature: 0.3
-            });
-
-            let fullContent = '';
-            
-            for await (const chunk of stream) {
-                const content = chunk.choices[0]?.delta?.content || '';
-                if (content) {
-                    fullContent += content;
-                    
-                    ws.send(JSON.stringify({
-                        type: 'backend_stream',
-                        content: content,
-                        accumulated: fullContent
-                    }));
-                }
-            }
-            
-            try {
-                const jsonData = extractJSON(fullContent.trim());
-                const validatedResult = BackendSchema.parse(jsonData);
-                
-                ws.send(JSON.stringify({
-                    type: 'backend_complete',
-                    content: validatedResult
-                }));
-                
-                return validatedResult;
-            } catch (parseError) {
-                console.warn("Backend parsing failed, using fallback");
-                const fallbackResult = {
-                    api_endpoints: [{
-                        method: "GET",
-                        path: "/api/health",
-                        description: "Health check endpoint",
-                        code: `app.get('/api/health', (req, res) => {
-                          res.json({ status: 'OK', message: 'Server is running' });
-                      });`
-                    }],
-                    database: {
-                        type: "MongoDB",
-                        schema: "Basic schema for the application",
-                        connection_code: `const mongoose = require('mongoose');
-                          mongoose.connect('mongodb://localhost:27017/database');`
-                    },
-                    authentication: {
-                        method: "JWT",
-                        implementation: "Basic JWT authentication setup"
-                    },
-                    server_setup: `const express = require('express');
-                      const app = express();
-                      const PORT = process.env.PORT || 3000;
-
-                      app.use(express.json());
-
-                      app.listen(PORT, () => {
-                        console.log(\`Server running on port \${PORT}\`);
-                      });`,
-                      deployment_config: "Configure environment variables and deploy to cloud platform"
-                };
-                
-                ws.send(JSON.stringify({
-                    type: 'backend_complete',
-                    content: fallbackResult
-                }));
-                
-                return fallbackResult;
-            }
-            
-        } catch (error) {
-            console.error("Backend Agent Error:", error);
-            throw error;
-        }
-    }
-
-    // Documentation Agent with streaming
-    async function DocumentationAgentStreaming(analysis: any, frontendResult: any, backendResult: any, ws: any) {
-        try {
-            const docPrompt = `Generate comprehensive documentation for this project:
-
-            PROJECT: ${analysis.project.name}
-            DESCRIPTION: ${analysis.project.description}
-
-            Create documentation in this JSON format:
-            {
-              "readme": {
-                "title": "Project title",
-                "description": "Project description",
-                "installation": ["installation steps"],
-                "usage": "How to use the project",
-                "api_documentation": "API documentation",
-                "contributing": "Contributing guidelines"
-              },
-              "setup_guide": {
-                "prerequisites": ["prerequisite1", "prerequisite2"],
-                "environment_setup": ["setup step 1", "setup step 2"],
-                "configuration": "Configuration details",
-                "troubleshooting": [{"issue": "Common issue", "solution": "Solution"}]
-              },
-              "code_documentation": [
-                {
-                  "file": "filename.js",
-                  "description": "File description",
-                  "functions": [{"name": "functionName", "purpose": "What it does", "parameters": "Parameters", "returns": "Return value"}]
-                }
-              ],
-              "deployment_guide": "Deployment instructions"
-            }
-
-            NO markdown, only JSON.`;
-
-            const stream = await openrouter.chat.completions.create({
-                model: "x-ai/grok-4-fast:free",
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a technical documentation specialist. Create comprehensive documentation.
-                        Respond with ONLY valid JSON.`
-                    },
-                    { role: "user", content: docPrompt }
-                ],
-                stream: true,
-                temperature: 0.3
-            });
-
-            let fullContent = '';
-            
-            for await (const chunk of stream) {
-                const content = chunk.choices[0]?.delta?.content || '';
-                if (content) {
-                    fullContent += content;
-                    
-                    ws.send(JSON.stringify({
-                        type: 'documentation_stream',
-                        content: content,
-                        accumulated: fullContent
-                    }));
-                }
-            }
-            
-            try {
-                const jsonData = extractJSON(fullContent.trim());
-                const validatedResult = DocumentationSchema.parse(jsonData);
-                
-                ws.send(JSON.stringify({
-                    type: 'documentation_complete',
-                    content: validatedResult
-                }));
-                
-                return validatedResult;
-            } catch (parseError) {
-                console.warn("Documentation parsing failed, using fallback");
-                const fallbackResult = {
-                    readme: {
-                        title: analysis.project.name,
-                        description: analysis.project.description,
-                        installation: ["npm install", "npm start"],
-                        usage: "Follow the setup instructions and start the development server",
-                        api_documentation: "API endpoints are documented in the code",
-                        contributing: "Please follow standard GitHub contribution guidelines"
-                    },
-                    setup_guide: {
-                        prerequisites: ["Node.js", "npm", "Git"],
-                        environment_setup: ["Clone the repository", "Install dependencies", "Configure environment variables"],
-                        configuration: "Set up your environment variables and database connections",
-                        troubleshooting: [
-                            {issue: "Port already in use", solution: "Change the port in your configuration"},
-                            {issue: "Module not found", solution: "Run npm install to install dependencies"}
-                        ]
-                    },
-                    code_documentation: [
-                        {
-                            file: "app.js",
-                            description: "Main application file",
-                            functions: [
-                                {
-                                    name: "main",
-                                    purpose: "Initialize and start the application",
-                                    parameters: "None",
-                                    returns: "Application instance"
-                                }
-                            ]
-                        }
-                    ],
-                    deployment_guide: "Deploy to your preferred cloud platform (Vercel, Netlify, Heroku, etc.)"
-                };
-                
-                ws.send(JSON.stringify({
-                    type: 'documentation_complete',
-                    content: fallbackResult
-                }));
-                
-                return fallbackResult;
-            }
-            
-        } catch (error) {
-            console.error("Documentation Agent Error:", error);
-            throw error;
-        }
-    }
-});
+        ],
+        deployment_guide: "Deploy to your preferred cloud platform (Vercel, Netlify, Heroku, etc.)"
+    };
+}
