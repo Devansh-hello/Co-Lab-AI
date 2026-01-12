@@ -1,6 +1,6 @@
 'use client'
 
-import { useToast } from 'C:/Users/Devansh/Desktop/Projects/Co-Lab-AI/CoLab AI Frontend/src/hooks/use-toast.ts'
+import { useToast } from '@/hooks/use-toast'
 import {
   Toast,
   ToastClose,

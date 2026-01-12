@@ -5,7 +5,7 @@ import {
   MoreHorizontalIcon,
 } from 'lucide-react'
 
-import { cn } from 'C:/Users/Devansh/Desktop/Projects/Co-Lab-AI/CoLab AI Frontend/src/lib/utils.ts'
+import { cn } from '../../lib/utils'
 import { Button, buttonVariants } from './button'
 
 function Pagination({ className, ...props }: React.ComponentProps<'nav'>) {

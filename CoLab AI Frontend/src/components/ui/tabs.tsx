@@ -3,7 +3,7 @@
 import * as React from 'react'
 import * as TabsPrimitive from '@radix-ui/react-tabs'
 
-import { cn } from 'C:/Users/Devansh/Desktop/Projects/Co-Lab-AI/CoLab AI Frontend/src/lib/utils.ts'
+import { cn } from '../../lib/utils'
 
 function Tabs({
   className,

@@ -5,12 +5,10 @@ import type React from "react"
 import { useRef, useState } from "react"
 import { Header } from "../components/header"
 import { sendLogin } from "../functions/send"
-import { useNavigate } from "react-router-dom"
 import toast, { Toaster } from "react-hot-toast"
 import { Mail, Lock, LogIn, Loader2 } from "lucide-react"
 
 function Login() {
-  const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
 
   const emailRef = useRef<HTMLInputElement>(null)
@@ -39,11 +37,9 @@ function Login() {
     setIsLoading(true)
 
     try {
-      const { res, status } = await sendLogin(email, password)
+      const response = await sendLogin(email, password)
 
-      console.log(status)
-
-      if (status == 200) {
+      if (response && response.status == 200) {
         toast.success("Login successful!", {
           style: {
             border: "1px solid #059669",
@@ -60,7 +56,7 @@ function Login() {
           window.location.href = "/"
         }, 1000)
       } else {
-        toast.error(res.message, {
+        toast.error(response?.res?.message || "Login failed", {
           style: {
             border: "1px solid #713200",
             padding: "16px",

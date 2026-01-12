@@ -7,9 +7,8 @@ async function mongo() {
         await mongoose.connect(process.env.DATABASE_URL);
     }
     catch (err) {
-        response.json({
-            message: "Unable to connect to database"
-        });
+        console.error("Unable to connect to database", err);
+        process.exit(1);
     }
 }
 mongo();

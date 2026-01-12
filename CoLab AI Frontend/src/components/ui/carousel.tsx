@@ -6,7 +6,7 @@ import useEmblaCarousel, {
 } from 'embla-carousel-react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 
-import { cn } from 'C:/Users/Devansh/Desktop/Projects/Co-Lab-AI/CoLab AI Frontend/src/lib/utils.ts'
+import { cn } from '../../lib/utils'
 import { Button } from './button'
 
 type CarouselApi = UseEmblaCarouselType[1]

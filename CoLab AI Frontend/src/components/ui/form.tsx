@@ -13,7 +13,7 @@ import {
   type FieldValues,
 } from 'react-hook-form'
 
-import { cn } from 'C:/Users/Devansh/Desktop/Projects/Co-Lab-AI/CoLab AI Frontend/src/lib/utils.ts'
+import { cn } from '../../lib/utils'
 import { Label } from './label'
 
 const Form = FormProvider

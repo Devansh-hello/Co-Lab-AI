@@ -29,7 +29,7 @@ export const useWebSocket = (projectId: string) => {
   });
   
   const ws = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const currentStreamingMessageRef = useRef<string | null>(null);
 
   // Load chat history from API

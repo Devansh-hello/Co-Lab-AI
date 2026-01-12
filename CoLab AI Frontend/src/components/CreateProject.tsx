@@ -15,19 +15,20 @@ interface projectmodal {
 export function CreateProjectModal({ open, onclose }: projectmodal) {
   const projectNameRef = useRef<HTMLInputElement>(null)
   const projectDescriptionRef = useRef<HTMLInputElement>(null)
-  const [done, setdone] = useState(false)
   const [loading, setLoading] = useState<boolean>(false)
 
   async function createProject() {
     const name = projectNameRef.current?.value
     const description = projectDescriptionRef.current?.value
+
+    if (!name || !description) return;
+
     console.log("hello")
     setLoading(true)
     try {
-      const { res, status } = await sendProject(name, description)
+      const response = await sendProject(name, description)
 
-      if (status == 200) {
-        setdone(true)
+      if (response && response.status == 200) {
         window.location.href = "/projects"
       }
 

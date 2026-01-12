@@ -11,7 +11,6 @@ import NotFound from './pages/404.tsx'
 import ProctectedRoutes from "./functions/protectedRoutes.tsx"
 import ProjectPage from "./pages/Projects.tsx"
 import { AuthProvider } from './context/AuthContext.tsx'
-import AppWrapper from './components/AppWrapper.tsx'
 import { useAuth } from './context/AuthContext.tsx'
 import MainLoadingScreen from './components/MainLoadingScreen.tsx'
 
