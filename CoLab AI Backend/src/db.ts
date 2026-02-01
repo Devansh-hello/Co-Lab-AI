@@ -24,7 +24,7 @@ const project = new mongoose.Schema({
 });
 
 const message = new mongoose.Schema({
-    projectId: { type: mongoose.Schema.Types.ObjectId, ref: "project", required: true },
+    projectId: { type: mongoose.Schema.Types.ObjectId, ref: "project", required: true, index: true },
     userMessage: { type: String, required: true },
     intent: { type: String, enum: ['build', 'iterate', 'debug'] },
     timestamp: { type: Date, default: Date.now },
