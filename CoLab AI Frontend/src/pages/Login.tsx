@@ -14,6 +14,16 @@ import { Input } from "../components/ui/input"
 import { Label } from "../components/ui/label"
 import { Button } from "../components/ui/button"
 
+const TOAST_ERROR_STYLE = {
+  style: { border: "1px solid #713200", padding: "16px", color: "#713200", background: "#FFFAEE" },
+  iconTheme: { primary: "#713200", secondary: "#FFFAEE" },
+} as const
+
+const TOAST_SUCCESS_STYLE = {
+  style: { border: "1px solid #059669", padding: "16px", color: "#059669", background: "#FFFAEE" },
+  iconTheme: { primary: "#059669", secondary: "#FFFAEE" },
+} as const
+
 function Login() {
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState("")
@@ -25,18 +35,7 @@ function Login() {
 
   async function handleinput() {
     if (!email || !password) {
-      toast.error("Please fill in all fields", {
-        style: {
-          border: "1px solid #713200",
-          padding: "16px",
-          color: "#713200",
-          background: "#FFFAEE",
-        },
-        iconTheme: {
-          primary: "#713200",
-          secondary: "#FFFAEE",
-        },
-      })
+      toast.error("Please fill in all fields", TOAST_ERROR_STYLE)
       return
     }
 
@@ -46,50 +45,17 @@ function Login() {
       const response = await sendLogin(email, password)
 
       if (response && response.status == 200) {
-        toast.success("Login successful!", {
-          style: {
-            border: "1px solid #059669",
-            padding: "16px",
-            color: "#059669",
-            background: "#FFFAEE",
-          },
-          iconTheme: {
-            primary: "#059669",
-            secondary: "#FFFAEE",
-          },
-        })
+        toast.success("Login successful!", TOAST_SUCCESS_STYLE)
         await refresh()
         setTimeout(() => {
           navigate("/projects")
         }, 1000)
       } else {
-        toast.error(response?.res?.message || "Login failed", {
-          style: {
-            border: "1px solid #713200",
-            padding: "16px",
-            color: "#713200",
-            background: "#FFFAEE",
-          },
-          iconTheme: {
-            primary: "#713200",
-            secondary: "#FFFAEE",
-          },
-        })
+        toast.error(response?.res?.message || "Login failed", TOAST_ERROR_STYLE)
       }
     } catch (err) {
       console.error("[login]", err)
-      toast.error("An error occurred. Please try again.", {
-        style: {
-          border: "1px solid #713200",
-          padding: "16px",
-          color: "#713200",
-          background: "#FFFAEE",
-        },
-        iconTheme: {
-          primary: "#713200",
-          secondary: "#FFFAEE",
-        },
-      })
+      toast.error("An error occurred. Please try again.", TOAST_ERROR_STYLE)
     } finally {
       setIsLoading(false)
     }
