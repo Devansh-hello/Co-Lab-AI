@@ -177,7 +177,13 @@ function SignUp() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     onKeyUp={onPasswordKey}
                                     disabled={isLoading}
+                                    minLength={8}
                                 />
+                                {password.length > 0 && password.length < 8 && (
+                                    <p className="text-xs text-destructive/80 px-2 mt-1">
+                                        Password must be at least 8 characters
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </CardContent>
