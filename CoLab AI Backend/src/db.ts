@@ -19,8 +19,8 @@ const project = new mongoose.Schema({
     name: { type: String, required: true },
     description: { type: String },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date, default: Date.now }
+}, {
+    timestamps: true,
 });
 
 const message = new mongoose.Schema({
