@@ -19,9 +19,7 @@ export async function sendMessage(content: string) {
         throw error;
     }
 }
-export async function sendLogin(email: string, password
-    : string
-) {
+export async function sendLogin(email: string, password: string) {
     try {
         const response = await api.post('/signin', {
             email: email,
@@ -42,9 +40,7 @@ export async function sendLogin(email: string, password
     }
 }
 
-export async function sendSignup(username: string, email: string, password
-    : string
-) {
+export async function sendSignup(username: string, email: string, password: string) {
     try {
         const response = await api.post('/signup', {
             username: username,
@@ -85,9 +81,7 @@ export async function checkLoggedin() {
 
 }
 
-export async function sendProject(name: string, description
-    : string
-) {
+export async function sendProject(name: string, description: string) {
     try {
         const response = await api.post('/project', {
             name: name,
