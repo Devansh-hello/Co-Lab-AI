@@ -12,7 +12,7 @@ export function Header() {
     <div className="flex flex-row gap-3.5 justify-between border-2 border-border p-4 rounded-full bg-card w-full h-auto min-h-[4rem] flex-shrink-0 items-center shadow-directional">
       <div className="flex flex-row gap-3.5">
         <Button variant="outline" className="group rounded-full border-border hover:border-primary/50 text-foreground transition-bouncy hover:scale-105 hover:-translate-y-0.5" asChild>
-          <Link to="/">
+          <Link to="/" aria-label="Go to home page">
             <Home size={16} className="text-primary group-hover:text-primary-foreground mr-2" />
             Home
           </Link>
@@ -20,7 +20,7 @@ export function Header() {
 
         {user === true ? (
           <Button variant="outline" className="group rounded-full border-border hover:border-primary/50 text-foreground transition-bouncy hover:scale-105 hover:-translate-y-0.5" asChild>
-            <Link to="/projects">
+            <Link to="/projects" aria-label="View your projects">
               <FolderOpen size={16} className="text-primary group-hover:text-primary-foreground mr-2" />
               Projects
             </Link>
@@ -35,7 +35,7 @@ export function Header() {
       <div className="justify-center items-center">
         {user === false ? (
           <Button className="font-semibold" asChild>
-            <Link to="/Login">
+            <Link to="/login" aria-label="Sign in to your account">
               <LogIn size={16} />
               Login
             </Link>
