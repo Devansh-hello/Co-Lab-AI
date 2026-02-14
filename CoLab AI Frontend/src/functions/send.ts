@@ -5,7 +5,8 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "/api/v1";
 
 export const api = axios.create({
     baseURL: API_BASE,
-    withCredentials: true
+    withCredentials: true,
+    timeout: 15_000,
 })
 
 export async function sendMessage(content: string) {
