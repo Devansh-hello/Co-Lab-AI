@@ -42,7 +42,7 @@ function Login() {
     setIsLoading(true)
 
     try {
-      const response = await sendLogin(email, password)
+      const response = await sendLogin(email.trim(), password)
 
       if (response && response.status == 200) {
         toast.success("Login successful!", TOAST_SUCCESS_STYLE)

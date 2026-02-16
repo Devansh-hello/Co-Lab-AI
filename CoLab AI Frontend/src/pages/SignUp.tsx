@@ -42,7 +42,7 @@ function SignUp() {
         setIsLoading(true)
 
         try {
-            const response = await sendSignup(username, email, password)
+            const response = await sendSignup(username.trim(), email.trim(), password)
 
             if (response && response.status == 200) {
                 toast.success("Account created successfully!", {
