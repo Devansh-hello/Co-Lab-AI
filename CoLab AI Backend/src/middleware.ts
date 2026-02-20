@@ -1,7 +1,5 @@
 import zod from "zod";
-
 import { type Request, type Response, type NextFunction } from "express";
-
 import jwt from "jsonwebtoken";
 
 export interface AuthRequest extends Request {
@@ -19,9 +17,10 @@ export function validate(schema: zod.ZodSchema) {
                 message: errors[0] ?? "Invalid request",
                 errors
             });
-        } else {
-            next();
+            return;
         }
+
+        next();
     };
 }
 
