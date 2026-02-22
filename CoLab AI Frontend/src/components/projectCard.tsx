@@ -12,10 +12,10 @@ export function ProjectCard({ id, title, isActive }: ProjectCardProps) {
   return (
     <Link to={`/chat/${id}`}>
       <Card
-        className={`w-full p-3 transition-all duration-200 cursor-pointer border ${
+        className={`w-full p-3 transition-all duration-200 cursor-pointer border rounded-xl ${
           isActive
             ? "bg-primary/15 border-primary/50 shadow-gold-glow"
-            : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-primary/30"
+            : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-primary/30 hover:-translate-y-0.5"
         }`}
       >
         <div className="flex items-center gap-3">
