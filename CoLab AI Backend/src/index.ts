@@ -200,12 +200,16 @@ app.delete("/api/v1/project/:id", authCheck, async (req: AuthRequest, res) => {
 });
 
 app.post("/api/v1/message", authCheck, async (req: AuthRequest, res) => {
-    const message = req.body.message;
-    const projectId = req.body.projectId;
+    const { message, projectId } = req.body;
+
+    if (!message || !projectId) {
+        res.status(400).json({ message: "message and projectId are required" });
+        return;
+    }
 
     try {
         const newMsg = await Message.create({
-            projectId: projectId,
+            projectId,
             userMessage: message,
             status: "processing"
         });
@@ -214,11 +218,10 @@ app.post("/api/v1/message", authCheck, async (req: AuthRequest, res) => {
             message: "Message recorded",
             data: newMsg
         });
-    }
-    catch (error) {
+    } catch (error) {
         res.status(400).json({
-            message: "Unable to give output",
-            error: error
+            message: "Unable to save message",
+            error: error instanceof Error ? error.message : "Unknown error"
         });
     }
 });
