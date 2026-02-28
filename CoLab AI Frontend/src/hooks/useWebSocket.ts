@@ -336,7 +336,8 @@ export const useWebSocket = (projectId: string) => {
     if (ws.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:5000';
+      const WS_URL = import.meta.env.VITE_WS_URL
+        ?? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
       ws.current = new WebSocket(WS_URL);
 
       ws.current.onopen = () => {
