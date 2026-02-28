@@ -3,53 +3,87 @@
 import type React from "react"
 import { useState } from "react"
 import { Send, Loader2 } from "lucide-react"
+import { Button } from "./ui/button"
+import { Input } from "./ui/input"
+
+const BACKEND_MODELS = [
+  {
+    id: "openrouter",
+    label: "GPT-OSS 120B",
+    provider: "openrouter",
+    model: "openai/gpt-oss-120b:free",
+    icon: "https://openrouter.ai/favicon.ico",
+  },
+  {
+    id: "anthropic",
+    label: "Claude Haiku 4.5",
+    provider: "anthropic",
+    model: "claude-haiku-4-5",
+    icon: "https://www.anthropic.com/favicon.ico",
+  },
+] as const
 
 interface MessageBoxProps {
-  onSendMessage: (message: string) => void
+  onSendMessage: (message: string, provider: string, model: string) => void
   isGenerating: boolean
-  currentStatus: string
 }
 
-export const MessageBox: React.FC<MessageBoxProps> = ({ onSendMessage, isGenerating, currentStatus }) => {
+export const MessageBox: React.FC<MessageBoxProps> = ({ onSendMessage, isGenerating }) => {
   const [message, setMessage] = useState("")
+  const [selectedModel, setSelectedModel] = useState(0)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (message.trim() && !isGenerating) {
-      onSendMessage(message.trim())
+      const chosen = BACKEND_MODELS[selectedModel]
+      onSendMessage(message.trim(), chosen.provider, chosen.model)
       setMessage("")
     }
   }
 
   return (
-    <div className="w-full max-w-4xl items-center justify-center">
-      {isGenerating && (
-        <div className="mb-4 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#D9C4B0]/80 backdrop-blur-sm border border-[#CFAB8D]/50 rounded-lg shadow-sm">
-            <Loader2 className="w-4 h-4 animate-spin text-amber-700" />
-            <span className="text-sm text-amber-800 font-medium">{currentStatus}</span>
+    <div className="w-full max-w-4xl flex flex-col items-center justify-center p-2">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3 w-full backdrop-blur-xl bg-card/60 p-4 rounded-[2rem] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+        <div className="flex gap-2 text-sm items-center">
+          <span className="text-xs text-muted-foreground font-medium px-2 whitespace-nowrap">Backend Model:</span>
+          <div className="flex gap-1.5">
+            {BACKEND_MODELS.map((m, i) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setSelectedModel(i)}
+                disabled={isGenerating}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${selectedModel === i
+                  ? "bg-primary text-primary-foreground border-primary shadow-[0_0_12px_rgba(var(--primary-rgb),0.4)] shadow-gold-glow scale-105"
+                  : "bg-white/5 backdrop-blur-sm text-foreground border-white/10 hover:border-primary/50"
+                  } disabled:opacity-50`}
+              >
+                <img src={m.icon} alt="" className={`w-4 h-4 rounded-sm ${selectedModel === i && m.id !== "anthropic" ? "brightness-0" : ""}`} />
+                {m.label}
+              </button>
+            ))}
           </div>
         </div>
-      )}
-      <form onSubmit={handleSubmit} className="flex gap-3">
-        <div className="flex-1 relative">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={isGenerating ? "AI is working..." : "Describe your project idea..."}
-            disabled={isGenerating}
-            className="w-full px-4 py-3 bg-white/90 backdrop-blur-sm border border-[#CFAB8D]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#CFAB8D] focus:border-transparent disabled:bg-[#D9C4B0]/20 disabled:cursor-not-allowed transition-all duration-200 shadow-sm font-medium text-gray-800 placeholder-gray-500"
-          />
+        <div className="flex gap-3 relative">
+          <div className="flex-1 relative">
+            <Input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={isGenerating ? "AI is working..." : "Describe your project idea..."}
+              disabled={isGenerating}
+              className="w-full h-auto min-h-[60px] px-8 py-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl focus-visible:ring-primary focus-visible:ring-offset-0 focus-visible:shadow-gold-glow disabled:opacity-50 transition-bouncy font-medium text-foreground placeholder:text-muted-foreground text-lg tracking-wide"
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={isGenerating || !message.trim()}
+            className="h-[60px] px-6 bg-gradient-to-r from-primary to-gold-600 hover:opacity-90 text-primary-foreground rounded-full disabled:opacity-50 transition-bouncy hover:scale-105 hover:-translate-y-0.5 shadow-gold-glow font-bold flex items-center gap-2"
+          >
+            {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            <span className="hidden sm:inline">Send</span>
+          </Button>
         </div>
-        <button
-          type="submit"
-          disabled={isGenerating || !message.trim()}
-          className="px-6 py-3 bg-[#CFAB8D] hover:bg-[#C19B7A] text-amber-900 rounded-lg disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-all duration-200 shadow-sm font-medium flex items-center gap-2 backdrop-blur-sm"
-        >
-          {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          <span className="hidden sm:inline">Send</span>
-        </button>
       </form>
     </div>
   )
