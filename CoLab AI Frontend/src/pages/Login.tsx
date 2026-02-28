@@ -3,21 +3,27 @@
 import type React from "react"
 
 import { useRef, useState } from "react"
+import { useNavigate, Link } from "react-router-dom"
 import { Header } from "../components/header"
 import { sendLogin } from "../functions/send"
+import { useAuth } from "../context/AuthContext"
 import toast, { Toaster } from "react-hot-toast"
 import { Mail, Lock, LogIn, Loader2 } from "lucide-react"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../components/ui/card"
+import { Input } from "../components/ui/input"
+import { Label } from "../components/ui/label"
+import { Button } from "../components/ui/button"
 
 function Login() {
   const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const navigate = useNavigate()
+  const { refresh } = useAuth()
 
-  const emailRef = useRef<HTMLInputElement>(null)
   const passRef = useRef<HTMLInputElement>(null)
 
   async function handleinput() {
-    const email = emailRef.current?.value ?? ""
-    const password = passRef.current?.value ?? ""
-
     if (!email || !password) {
       toast.error("Please fill in all fields", {
         style: {
@@ -52,8 +58,9 @@ function Login() {
             secondary: "#FFFAEE",
           },
         })
+        await refresh()
         setTimeout(() => {
-          window.location.href = "/"
+          navigate("/projects")
         }, 1000)
       } else {
         toast.error(response?.res?.message || "Login failed", {
@@ -70,7 +77,7 @@ function Login() {
         })
       }
     } catch (err) {
-      console.log(err)
+      console.error("[login]", err)
       toast.error("An error occurred. Please try again.", {
         style: {
           border: "1px solid #713200",
@@ -101,67 +108,84 @@ function Login() {
   }
 
   return (
-    <div className="flex flex-col grow p-6 gap-10 items-center align-middle h-screen w-screen bg-gradient-to-br from-[#ECEEDF] via-[#E8EAD8] to-[#E4E6D1]">
+    <div className="flex flex-col grow p-6 gap-6 items-center align-middle min-h-screen w-screen bg-background bg-grainy">
       <Toaster position="bottom-right" reverseOrder={false} />
       <Header />
 
       <div className="flex flex-col w-full h-full items-center justify-center">
-        <div className="flex flex-col font-mono justify-between items-center w-full max-w-md h-auto gap-8 p-8 bg-[#D9C4B0]/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-[#CFAB8D]/30">
-          <div className="flex items-center gap-3">
-            <LogIn className="w-6 h-6 text-[#8B7355]" />
-            <h1 className="text-3xl font-bold text-[#5D4E37] text-balance">Welcome Back</h1>
-          </div>
+        <Card className="w-full max-w-md shadow-gold-glow border-primary/20 bg-card/90 backdrop-blur-sm rounded-[2.5rem]">
+          <CardHeader className="flex flex-col items-center gap-2 pb-8 pt-8">
+            <div className="flex items-center gap-3">
+              <LogIn className="w-8 h-8 text-primary" />
+              <CardTitle className="text-3xl font-bold tracking-wide text-foreground">Welcome Back</CardTitle>
+            </div>
+          </CardHeader>
 
-          <div className="flex flex-col gap-6 items-center justify-center text-base w-full">
-            <div className="flex flex-row bg-[#CFAB8D]/70 backdrop-blur-sm rounded-xl items-center justify-start px-4 py-3 text-base w-full border border-[#B8A082]/30 hover:bg-[#CFAB8D]/90 transition-all duration-200 focus-within:ring-2 focus-within:ring-[#8B7355]/30">
-              <Mail className="w-5 h-5 text-[#8B7355] mr-3 flex-shrink-0" />
-              <div className="flex flex-col flex-1">
-                <label className="text-sm text-[#8B7355] font-medium mb-1">Email</label>
-                <input
+          <CardContent className="flex flex-col gap-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-muted-foreground flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-primary" />
+                  Email
+                </Label>
+                <Input
+                  id="email"
                   type="email"
-                  placeholder="Enter your email"
-                  className="focus:outline-0 bg-transparent text-[#5D4E37] placeholder-[#8B7355]/60 w-full"
-                  ref={emailRef}
+                  placeholder="name@example.com"
+                  className="bg-background/50 focus-visible:ring-primary h-12 font-mono text-base rounded-full"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   onKeyUp={onInputKeyHandler}
                   disabled={isLoading}
                 />
               </div>
-            </div>
 
-            <div className="flex flex-row bg-[#CFAB8D]/70 backdrop-blur-sm rounded-xl items-center justify-start px-4 py-3 text-base w-full border border-[#B8A082]/30 hover:bg-[#CFAB8D]/90 transition-all duration-200 focus-within:ring-2 focus-within:ring-[#8B7355]/30">
-              <Lock className="w-5 h-5 text-[#8B7355] mr-3 flex-shrink-0" />
-              <div className="flex flex-col flex-1">
-                <label className="text-sm text-[#8B7355] font-medium mb-1">Password</label>
-                <input
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-muted-foreground flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-primary" />
+                  Password
+                </Label>
+                <Input
+                  id="password"
                   type="password"
                   placeholder="Enter your password"
-                  className="focus:outline-0 bg-transparent text-[#5D4E37] placeholder-[#8B7355]/60 w-full"
+                  className="bg-background/50 focus-visible:ring-primary h-12 font-mono text-base rounded-full"
                   ref={passRef}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   onKeyUp={onInputKey}
                   disabled={isLoading}
                 />
               </div>
             </div>
-          </div>
+          </CardContent>
 
-          <button
-            className="cursor-pointer bg-gradient-to-r from-[#CFAB8D] to-[#B8A082] hover:from-[#B8A082] hover:to-[#A69070] disabled:from-[#CFAB8D]/50 disabled:to-[#B8A082]/50 disabled:cursor-not-allowed rounded-xl px-8 py-3 items-center justify-center w-full h-fit font-semibold text-[#5D4E37] shadow-lg hover:shadow-xl transition-all duration-200 flex gap-2 backdrop-blur-sm border border-[#B8A082]/30"
-            onClick={handleinput}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Signing In...
-              </>
-            ) : (
-              <>
-                <LogIn className="w-5 h-5" />
-                Sign In
-              </>
-            )}
-          </button>
-        </div>
+          <CardFooter className="flex flex-col gap-4 pb-8">
+            <Button
+              className="w-full h-12 text-lg shadow-gold-glow hover:bg-gold-600 transition-bouncy hover:scale-105 hover:-translate-y-1 font-bold rounded-full"
+              onClick={handleinput}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Signing In...
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5 mr-2" />
+                  Sign In
+                </>
+              )}
+            </Button>
+            <p className="text-sm text-muted-foreground text-center mt-4">
+              Don't have an account?{" "}
+              <Link to="/signup" className="text-primary hover:text-gold-400 font-bold transition-colors">
+                Sign Up
+              </Link>
+            </p>
+          </CardFooter>
+        </Card>
       </div>
     </div>
   )

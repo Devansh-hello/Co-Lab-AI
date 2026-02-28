@@ -1,5 +1,22 @@
+# env files – never commit real secrets
 CoLab AI Backend/.env
+CoLab AI Frontend/.env
+
+# compiled output
 CoLab AI Backend/dist/
+CoLab AI Frontend/dist/
 dist/
+
+# dependencies
 node_modules/
+CoLab AI Backend/node_modules/
+CoLab AI Frontend/node_modules/
+
+# OS / editor
+*.Zone.Identifier
+.DS_Store
+
+# misc
+*.docx
+CoLab AI Backend/tsc_out.txt
 .env

@@ -1,10 +1,10 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { RouterProvider } from 'react-router-dom';
+import { RouterProvider, type Router } from 'react-router-dom';
 import MainLoadingScreen from './MainLoadingScreen';
 
 interface AppWrapperProps {
-  router: any; // Replace with proper router type
+  router: Router;
 }
 
 const AppWrapper: React.FC<AppWrapperProps> = ({ router }) => {

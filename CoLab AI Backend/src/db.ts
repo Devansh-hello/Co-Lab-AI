@@ -1,10 +1,6 @@
-import { response } from "express";
 import mongoose from "mongoose";
-import dotenv from "dotenv"
 
-dotenv.config()
-
-async function mongo() {
+export async function mongo() {
     try {
         await mongoose.connect(process.env.DATABASE_URL as string);
     } catch (err) {
@@ -12,13 +8,11 @@ async function mongo() {
         process.exit(1);
     }
 }
-mongo()
 
 const user = new mongoose.Schema({
     username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true },
-    userId: { type: mongoose.Schema.Types.ObjectId }
+    password: { type: String, required: true }
 })
 
 const project = new mongoose.Schema({
@@ -32,6 +26,7 @@ const project = new mongoose.Schema({
 const message = new mongoose.Schema({
     projectId: { type: mongoose.Schema.Types.ObjectId, ref: "project", required: true },
     userMessage: { type: String, required: true },
+    intent: { type: String, enum: ['build', 'iterate', 'debug'] },
     timestamp: { type: Date, default: Date.now },
 
     coordinatorResponse: {
@@ -46,7 +41,7 @@ const message = new mongoose.Schema({
         content: { type: mongoose.Schema.Types.Mixed },
         timestamp: { type: Date }
     },
-    documentationResponse: {
+    reviewResponse: {
         content: { type: mongoose.Schema.Types.Mixed },
         timestamp: { type: Date }
     },
@@ -54,8 +49,15 @@ const message = new mongoose.Schema({
     status: { type: String, enum: ['processing', 'completed', 'error'], default: 'processing' }
 });
 
-
+const projectSnapshot = new mongoose.Schema({
+    projectId: { type: mongoose.Schema.Types.ObjectId, ref: "project", required: true, unique: true },
+    frontendCode: { type: mongoose.Schema.Types.Mixed },
+    backendCode: { type: mongoose.Schema.Types.Mixed },
+    taskFile: { type: mongoose.Schema.Types.Mixed },
+    updatedAt: { type: Date, default: Date.now }
+});
 
 export const User = mongoose.model("user", user);
 export const Project = mongoose.model("project", project);
 export const Message = mongoose.model("message", message);
+export const ProjectSnapshot = mongoose.model("projectSnapshot", projectSnapshot);

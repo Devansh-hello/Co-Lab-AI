@@ -1,9 +1,10 @@
+import type React from 'react';
+
 type MyButtonProps = {
   content: string;
   image?: string;
-  width?: number,
-  onclick?: any
-
+  width?: number;
+  onclick?: React.MouseEventHandler<HTMLButtonElement>;
 };
 
 

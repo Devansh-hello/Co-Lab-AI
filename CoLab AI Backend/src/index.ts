@@ -1,16 +1,29 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import jwt from "jsonwebtoken";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import bcrypt from "bcryptjs";
+import z from "zod";
+import * as http from "http";
 
-import { User, Project, Message } from "./db.js";
-import { zodMiddleware, authCheck } from "./middleware.js";
+import { User, Project, Message, mongo } from "./db.js";
+import { validate, authCheck, type AuthRequest } from "./middleware.js";
+import { setupWebSocket } from "./function.js";
 
-import("./function.js");
-
-interface AuthRequest extends Request{
-    userId?: string;
+// ─── Env validation ──────────────────────────────────────────────
+const REQUIRED_ENV = ["DATABASE_URL", "JWT_SECRET"] as const;
+const missingEnv = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingEnv.length > 0) {
+    console.error(`[startup] Missing required environment variables: ${missingEnv.join(", ")}`);
+    process.exit(1);
 }
+
+const ALLOWED_ORIGINS = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+    : ["http://localhost:5173", "http://localhost:3000"];
 
 const app = express();
 app.use(express.json());
@@ -18,163 +31,202 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use(cors({
-    origin: 'http://localhost:5173', 
-    credentials: true 
+    origin: (origin, callback) => {
+        // allow requests with no origin (e.g. curl, Postman in dev)
+        if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS: origin '${origin}' not allowed`));
+        }
+    },
+    credentials: true
 }));
 
-const JWT_PASSWORD: string = "wioefiowiwhfe897g897e234fw";
+const server = http.createServer(app);
 
-app.post("/api/v1/signup", zodMiddleware, async (req,res)=>{
+// Attach WebSocket Server to HTTP server
+setupWebSocket(server);
 
-    const {username,email,password}= req.body;
+const signupSchema = z.object({
+    username: z.string().trim().min(3, "Username must be at least 3 characters"),
+    email: z.string().email(),
+    password: z.string().min(8)
+});
 
-    try{
+const signinSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(8)
+});
+
+app.post("/api/v1/signup", validate(signupSchema), async (req, res) => {
+    const { username, email, password } = req.body;
+
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
         await User.create({
             username: username,
             email: email,
-            password: password
-        })
+            password: hashedPassword
+        });
 
         res.json({
-            Message: "account created"
-        })
+            message: "account created"
+        });
     }
-    catch(error){
-        res.status(411).json({
-        message: "user already exit"
-        })
-    }
-})
-   
-
-app.post("/api/v1/signin",zodMiddleware, async(req,res)=>{
-    const {email,password}= req.body;
-
-    const query= await User.findOne({email: email, password:password})
-
-    if (!query){
-        res.status(400).json({
-            Message: "unable to find user"
-        })
-    }
-
-    else{
-        if (!req.cookies.token){
-            const token = jwt.sign({id: query.id}, JWT_PASSWORD);
-
-            res.cookie("token", token).status(200).json({
-                message: "Signed in succesfully"
-            })
-        }else{
-            res.json({
-                message:"You are already signed in "
-            })
+    catch (error: unknown) {
+        const mongoError = error as { code?: number; message?: string };
+        if (mongoError.code === 11000) {
+            res.status(409).json({
+                message: "user already exists"
+            });
+        } else {
+            console.error("[signup] error:", error);
+            res.status(400).json({
+                message: "error creating user"
+            });
         }
-        
+    }
+});
 
+app.post("/api/v1/signin", validate(signinSchema), async (req, res) => {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email: email });
+
+    if (!user) {
+        res.status(400).json({
+            message: "unable to find user"
+        });
+        return;
     }
 
+    const isPasswordValid = await bcrypt.compare(password, user.password as string);
+    if (!isPasswordValid) {
+        res.status(400).json({
+            message: "invalid credentials"
+        });
+        return;
+    }
+
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET as string, { expiresIn: '7d' });
+
+    res.cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    }).status(200).json({
+        message: "Signed in successfully"
+    });
 });
-app.get("/api/v1/loggedin", authCheck,(req: any,res)=>{
-    res.status(200).json({
-        loggedin: true
-    })
-    
-})
 
-app.post("/api/v1/project",authCheck,async (req: any,res)=>{
+app.post("/api/v1/logout", (req, res) => {
+    res.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict"
+    }).status(200).json({
+        message: "Logged out successfully"
+    });
+});
 
-    const {name, description} = req.body;
+app.get("/api/v1/loggedin", authCheck, async (req: AuthRequest, res) => {
+    try {
+        const user = await User.findById(req.userId).select("-password -__v");
+        res.status(200).json({
+            loggedin: true,
+            user: user
+        });
+    } catch (error) {
+        res.status(500).json({
+            loggedin: false,
+            message: "Server error"
+        });
+    }
+});
 
-    try{
+app.post("/api/v1/project", authCheck, async (req: AuthRequest, res) => {
+    const { name, description } = req.body;
+
+    try {
         await Project.create({
             name: name,
             description: description,
             userId: req.userId
-        })
+        });
         res.status(200).json({
-            message:"Project created succesfully"
-        })
-    }catch{
+            message: "Project created successfully"
+        });
+    } catch {
         res.status(400).json({
-            message:"unable to create"
-        })
+            message: "unable to create project"
+        });
     }
 });
 
-app.get("/api/v1/project",authCheck, async (req: any,res)=>{
+app.get("/api/v1/project", authCheck, async (req: AuthRequest, res) => {
     const userId = req.userId;
-    const posts = await Project.find({userId: userId})
+    const projects = await Project.find({ userId: userId });
 
-    res.json(
-        posts
-    )
+    res.json(projects);
 });
 
-
-
-app.post("/api/v1/message",authCheck, async(req:any,res)=>{
+app.post("/api/v1/message", authCheck, async (req: AuthRequest, res) => {
     const message = req.body.message;
-    const userId = req.userId;
+    const projectId = req.body.projectId;
 
-    try{
-        Message.create({
+    try {
+        const newMsg = await Message.create({
+            projectId: projectId,
+            userMessage: message,
+            status: "processing"
+        });
 
-            chatId: userId,
-            sender: "User",
-            content: message
-        }
-        )
-
+        res.status(200).json({
+            message: "Message recorded",
+            data: newMsg
+        });
     }
-    catch(error){
+    catch (error) {
         res.status(400).json({
             message: "Unable to give output",
             error: error
-        })
+        });
     }
 });
-app.get("/api/v1/chat-message",(req,res)=>{
-    
-});
-// Get chat history for a specific chat
-app.get("/api/v1/chats/:chatId/messages", authCheck, async (req: any, res) => {
-    const { chatId } = req.params;
-    const messages = await Message.find({ chatId })
-        .sort({ timestamp: 1 })
-        .lean();
-    
-    res.json({ messages });
-});
 
-
-app.get("/api/v1/projects/:projectId/messages", authCheck, async (req: any, res) => {
+app.get("/api/v1/projects/:projectId/messages", authCheck, async (req: AuthRequest, res) => {
     try {
         const { projectId } = req.params;
         const userId = req.userId;
-        
-        console.log("Fetching messages for project:", projectId, "User:", userId);
-        
+
         // Verify user owns the project
         const project = await Project.findOne({ _id: projectId, userId });
         if (!project) {
-            console.error("Project not found for user:", userId, "Project:", projectId);
-            return res.status(404).json({ error: "Project not found" });
+            res.status(404).json({ error: "Project not found" });
+            return;
         }
-        
+
         const messages = await Message.find({ projectId })
             .sort({ timestamp: 1 })
             .lean();
-        
-        console.log("Found", messages.length, "messages for project:", projectId);
-        
+
         res.json({ messages: messages || [] });
     } catch (error) {
         console.error("Error fetching messages:", error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: "Failed to fetch messages",
             details: error instanceof Error ? error.message : "Unknown error"
         });
     }
 });
-app.listen(5000);
+
+async function startServer() {
+    await mongo();
+    const PORT = Number(process.env.PORT) || 5000;
+    server.listen(PORT, () => {
+        console.log(`[server] Listening on port ${PORT}`);
+    });
+}
+
+startServer();

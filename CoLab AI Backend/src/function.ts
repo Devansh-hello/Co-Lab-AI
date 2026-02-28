@@ -1,737 +1,563 @@
 import OpenAI from 'openai';
-import { WebSocketServer } from "ws"
-import { z } from "zod"
-import dotenv from "dotenv"
-import { Message, Project } from './db.js';
+import { WebSocketServer, WebSocket } from "ws"
+import { Message, Project, ProjectSnapshot } from './db.js';
+import { Server, type IncomingMessage } from "http";
+import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
+import cookie from "cookie";
 
-dotenv.config()
+dotenv.config();
 
-const wss = new WebSocketServer({ port: 8080 });
+import { GoogleGenAI } from '@google/genai';
+import Anthropic from '@anthropic-ai/sdk';
 
 const openrouter = new OpenAI({
-    apiKey: process.env.OPENROUTER_API_KEY,
+    apiKey: process.env.OPENROUTER_API_KEY || "",
     baseURL: "https://openrouter.ai/api/v1"
 });
 
-// Schemas remain the same
-const ProjectAnalysisSchema = z.object({
-  project: z.object({
-    name: z.string(),
-    description: z.string()
-  }),
-  features: z.array(z.string()),
-  overall_structure: z.object({
-    architecture: z.string(),
-    file_structure: z.object({
-      root: z.array(z.string())
-    }),
-    user_flow: z.string()
-  }),
-  frontend: z.object({
-    technologies: z.array(z.string()),
-    components: z.record(z.object({
-      description: z.string(),
-      interactions: z.string().nullable(),
-      layout: z.string().nullable()
-    })),
-    requirements: z.array(z.string())
-  }),
-  backend: z.object({
-    needed: z.boolean(),
-    description: z.string(),
-    optional_extensions: z.array(z.string()).nullable()
-  }),
-  deployment_notes: z.string(),
-  references: z.array(z.string())
+const openrouterFree = new OpenAI({
+    apiKey: process.env.OPENROUTER_FREE_API_KEY || "",
+    baseURL: "https://openrouter.ai/api/v1"
 });
 
-const FrontendSchema = z.object({
-  components: z.array(z.object({
-    name: z.string(),
-    code: z.string(),
-    description: z.string(),
-    dependencies: z.array(z.string())
-  })),
-  styling: z.object({
-    framework: z.string(),
-    custom_css: z.string(),
-    responsive_design: z.string()
-  }),
-  state_management: z.object({
-    approach: z.string(),
-    implementation: z.string()
-  }),
-  setup_instructions: z.array(z.string())
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY || ""
 });
 
-const BackendSchema = z.object({
-  api_endpoints: z.array(z.object({
-    method: z.string(),
-    path: z.string(),
-    description: z.string(),
-    code: z.string()
-  })),
-  database: z.object({
-    type: z.string(),
-    schema: z.string(),
-    connection_code: z.string()
-  }),
-  authentication: z.object({
-    method: z.string(),
-    implementation: z.string()
-  }),
-  server_setup: z.string(),
-  deployment_config: z.string()
+const gemini = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY || ""
 });
 
-const DocumentationSchema = z.object({
-  readme: z.object({
-    title: z.string(),
-    description: z.string(),
-    installation: z.array(z.string()),
-    usage: z.string(),
-    api_documentation: z.string(),
-    contributing: z.string()
-  }),
-  setup_guide: z.object({
-    prerequisites: z.array(z.string()),
-    environment_setup: z.array(z.string()),
-    configuration: z.string(),
-    troubleshooting: z.array(z.object({
-      issue: z.string(),
-      solution: z.string()
-    }))
-  }),
-  code_documentation: z.array(z.object({
-    file: z.string(),
-    description: z.string(),
-    functions: z.array(z.object({
-      name: z.string(),
-      purpose: z.string(),
-      parameters: z.string(),
-      returns: z.string()
-    }))
-  })),
-  deployment_guide: z.string()
+const anthropic = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY || ""
 });
 
-wss.on("connection", function connection(ws, req) {
-    console.log("connected");
-   
-    ws.on("message", async function message(data) {
-        let messageDoc: any = null;
-        
-        try {
-            const parsed = JSON.parse(data.toString());
-            const { message: userMessage, projectId } = parsed;
-            
-            console.log("Received:", userMessage, "ProjectID:", projectId);
-            
-            // Create new message document
-            messageDoc = new Message({
-                projectId: projectId,
-                userMessage: userMessage,
-                status: 'processing'
-            });
-            await messageDoc.save();
-            
-            // Get conversation context from the same project
-            const conversationHistory = await Message.find({ projectId: projectId })
-                .sort({ timestamp: -1 })
-                .limit(5)
-                .lean();
-            
-            // Step 1: Coordinator Agent with context
-            ws.send(JSON.stringify({
-                type: 'status',
-                message: 'Analyzing project requirements...'
-            }));
-            
-            const analysis = await CoordinatorAgent(userMessage, conversationHistory, ws);
-            
-            messageDoc.coordinatorResponse = {
-                content: analysis,
-                timestamp: new Date()
-            };
-            await messageDoc.save();
-            
-            ws.send(JSON.stringify({
-                type: 'analysis_complete',
-                content: analysis
-            }));
-            
-            let frontendResult = null;
-            let backendResult = null;
-            
-            // Step 2: Frontend Agent with context and streaming
-            if (analysis.frontend && analysis.frontend.technologies.length > 0) {
-                ws.send(JSON.stringify({
-                    type: 'status',
-                    message: 'Generating frontend code...'
-                }));
-                
-                frontendResult = await FrontendAgentStreaming(analysis, conversationHistory, ws);
-                
-                messageDoc.frontendResponse = {
-                    content: frontendResult,
-                    timestamp: new Date()
-                };
-                await messageDoc.save();
-            }
-            
-            // Step 3: Backend Agent with context and streaming
-            if (analysis.backend && analysis.backend.needed) {
-                ws.send(JSON.stringify({
-                    type: 'status',
-                    message: 'Generating backend code...'
-                }));
-                
-                backendResult = await BackendAgentStreaming(analysis, conversationHistory, ws);
-                
-                messageDoc.backendResponse = {
-                    content: backendResult,
-                    timestamp: new Date()
-                };
-                await messageDoc.save();
-            }
-            
-            // Step 4: Documentation Agent
-            ws.send(JSON.stringify({
-                type: 'status',
-                message: 'Generating documentation...'
-            }));
-            
-            const documentationResult = await DocumentationAgentStreaming(
-                analysis, 
-                frontendResult, 
-                backendResult, 
-                ws
-            );
-            
-            messageDoc.documentationResponse = {
-                content: documentationResult,
-                timestamp: new Date()
-            };
-            await messageDoc.save();
-            
-            // Update project's updatedAt
-            await Project.findByIdAndUpdate(projectId, { updatedAt: new Date() });
-            
-            // Mark as completed
-            messageDoc.status = 'completed';
-            await messageDoc.save();
-            
-            ws.send(JSON.stringify({
-                type: 'all_complete',
-                message: 'Project generation completed!',
-                messageId: messageDoc._id
-            }));
-           
-        } catch (error: any) {
-            console.error("Error:", error);
-            
-            if (messageDoc) {
-                messageDoc.status = 'error';
-                await messageDoc.save();
-            }
-            
-            ws.send(JSON.stringify({
-                type: 'error',
-                message: error.message
-            }));
-        }
-    });
-
-    // Coordinator Agent with context
-    async function CoordinatorAgent(userMessage: string, conversationHistory: any[], ws: any): Promise<any> {
-        try {
-            // Build context from previous messages
-            const contextMessages = conversationHistory
-                .reverse()
-                .map(msg => ({
-                    user: msg.userMessage,
-                    analysis: msg.coordinatorResponse?.content
-                }))
-                .filter(msg => msg.analysis)
-                .slice(0, 3);
-            
-            const contextPrompt = contextMessages.length > 0 
-                ? `\n\nPREVIOUS CONVERSATION CONTEXT:\n${contextMessages.map((msg, i) => 
-                    `${i + 1}. User: ${msg.user}\n   Analysis: Project "${msg.analysis.project.name}" - ${msg.analysis.project.description}`
-                  ).join('\n\n')}\n\nCURRENT REQUEST:`
-                : '';
-
-            const systemPrompt = `You are a senior project coordinator. Analyze user requests and create comprehensive project breakdowns.
-            ${contextPrompt ? 'Use the previous conversation context to understand the project better and maintain consistency.' : ''}
-
-            CRITICAL: You MUST respond with ONLY valid JSON in this EXACT format:
-            {
-              "project": {"name": "Project Name", "description": "Description"},
-              "features": ["feature1", "feature2"],
-              "overall_structure": {
-                "architecture": "Architecture description",
-                "file_structure": {"root": ["file1.js", "folder1/"]},
-                "user_flow": "User flow description"
-              },
-              "frontend": {
-                "technologies": ["React", "CSS"],
-                "components": {
-                  "ComponentName": {
-                    "description": "What this does",
-                    "interactions": "How it interacts",
-                    "layout": "Layout description"
-                  }
-                },
-                "requirements": ["requirement1"]
-              },
-              "backend": {
-                "needed": true,
-                "description": "Backend description",
-                "optional_extensions": ["extension1"]
-              },
-              "deployment_notes": "Deployment info",
-              "references": ["reference1"]
-            }
-
-            NO other text. NO markdown. ONLY JSON.`;
-
-            const response = await openrouter.chat.completions.create({
-                model: "x-ai/grok-4-fast:free",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: contextPrompt + userMessage }
-                ],
-                temperature: 0.3,
-                max_tokens: 2000
-            });
-            
-            const content = response.choices[0]?.message?.content?.trim();
-            
-            if (!content) {
-                return createFallbackAnalysis(userMessage);
-            }
-            
-            try {
-                const jsonData = extractJSON(content);
-                const validatedData = ProjectAnalysisSchema.parse(jsonData);
-                return validatedData;
-            } catch (parseError) {
-                console.warn("JSON parsing failed, using fallback:", parseError);
-                return createFallbackAnalysis(userMessage);
-            }
-            
-        } catch (error) {
-            console.error("Coordinator Agent Error:", error);
-            return createFallbackAnalysis(userMessage);
-        }
-    }
-
-    // Frontend Agent with context and streaming
-    async function FrontendAgentStreaming(analysis: any, conversationHistory: any[], ws: any) {
-        try {
-            // Get previous frontend responses for context
-            const previousFrontend = conversationHistory
-                .reverse()
-                .map(msg => msg.frontendResponse?.content)
-                .filter(Boolean)
-                .slice(0, 2);
-            
-            const contextPrompt = previousFrontend.length > 0
-                ? `\n\nPREVIOUS FRONTEND CONTEXT:\nLast generated ${previousFrontend[0]?.components?.length || 0} components using ${previousFrontend[0]?.styling?.framework || 'CSS'}.\n\n`
-                : '';
-
-            const frontendPrompt = `${contextPrompt}Based on this project analysis, create complete frontend implementation:
-
-            Project: ${analysis.project.name}
-            Description: ${analysis.project.description}
-            Technologies: ${analysis.frontend.technologies.join(', ')}
-
-            Respond with ONLY valid JSON in this format:
-            {
-              "components": [{"name": "ComponentName", "code": "Complete code", "description": "Description", "dependencies": ["dep1"]}],
-              "styling": {"framework": "CSS", "custom_css": "CSS code", "responsive_design": "Approach"},
-              "state_management": {"approach": "Approach", "implementation": "Details"},
-              "setup_instructions": ["step1", "step2"]
-            }
-
-            NO markdown, only JSON.`;
-
-            const stream = await openrouter.chat.completions.create({
-                model: "x-ai/grok-4-fast:free",
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a senior frontend developer. Generate production-ready React code.
-                        Respond with ONLY valid JSON. No markdown, no explanations.`
-                    },
-                    { role: "user", content: frontendPrompt }
-                ],
-                stream: true,
-                temperature: 0.3
-            });
-
-            let fullContent = '';
-            
-            for await (const chunk of stream) {
-                const content = chunk.choices[0]?.delta?.content || '';
-                if (content) {
-                    fullContent += content;
-                    
-                    ws.send(JSON.stringify({
-                        type: 'frontend_stream',
-                        content: content,
-                        accumulated: fullContent
-                    }));
-                }
-            }
-            
-            try {
-                const jsonData = extractJSON(fullContent.trim());
-                const validatedResult = FrontendSchema.parse(jsonData);
-                
-                ws.send(JSON.stringify({
-                    type: 'frontend_complete',
-                    content: validatedResult
-                }));
-                
-                return validatedResult;
-            } catch (parseError) {
-                console.warn("Frontend parsing failed, using fallback");
-                const fallbackResult = createFrontendFallback(analysis);
-                
-                ws.send(JSON.stringify({
-                    type: 'frontend_complete',
-                    content: fallbackResult
-                }));
-                
-                return fallbackResult;
-            }
-            
-        } catch (error) {
-            console.error("Frontend Agent Error:", error);
-            throw error;
-        }
-    }
-
-    // Backend Agent with context and streaming
-    async function BackendAgentStreaming(analysis: any, conversationHistory: any[], ws: any) {
-        try {
-            const previousBackend = conversationHistory
-                .reverse()
-                .map(msg => msg.backendResponse?.content)
-                .filter(Boolean)
-                .slice(0, 2);
-            
-            const contextPrompt = previousBackend.length > 0
-                ? `\n\nPREVIOUS BACKEND CONTEXT:\nLast generated ${previousBackend[0]?.api_endpoints?.length || 0} endpoints using ${previousBackend[0]?.database?.type || 'database'}.\n\n`
-                : '';
-
-            const backendPrompt = `${contextPrompt}Based on this project analysis, create complete backend implementation:
-
-              Project: ${analysis.project.name}
-              Description: ${analysis.project.description}
-              Backend: ${analysis.backend.description}
-
-              Respond with ONLY valid JSON in this format:
-              {
-                "api_endpoints": [{"method": "GET", "path": "/api/endpoint", "description": "Description", "code": "Complete code"}],
-                "database": {"type": "MongoDB", "schema": "Schema", "connection_code": "Code"},
-                "authentication": {"method": "JWT", "implementation": "Implementation"},
-                "server_setup": "Complete server code",
-                "deployment_config": "Deployment config"
-              }
-
-              NO markdown, only JSON.`;
-
-            const stream = await openrouter.chat.completions.create({
-                model: "x-ai/grok-4-fast:free",
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a senior backend developer. Generate production-ready Node.js code.
-                        Respond with ONLY valid JSON.`
-                    },
-                    { role: "user", content: backendPrompt }
-                ],
-                stream: true,
-                temperature: 0.3
-            });
-
-            let fullContent = '';
-            
-            for await (const chunk of stream) {
-                const content = chunk.choices[0]?.delta?.content || '';
-                if (content) {
-                    fullContent += content;
-                    
-                    ws.send(JSON.stringify({
-                        type: 'backend_stream',
-                        content: content,
-                        accumulated: fullContent
-                    }));
-                }
-            }
-            
-            try {
-                const jsonData = extractJSON(fullContent.trim());
-                const validatedResult = BackendSchema.parse(jsonData);
-                
-                ws.send(JSON.stringify({
-                    type: 'backend_complete',
-                    content: validatedResult
-                }));
-                
-                return validatedResult;
-            } catch (parseError) {
-                console.warn("Backend parsing failed, using fallback");
-                const fallbackResult = createBackendFallback(analysis);
-                
-                ws.send(JSON.stringify({
-                    type: 'backend_complete',
-                    content: fallbackResult
-                }));
-                
-                return fallbackResult;
-            }
-            
-        } catch (error) {
-            console.error("Backend Agent Error:", error);
-            throw error;
-        }
-    }
-
-    async function DocumentationAgentStreaming(
-        analysis: any, 
-        frontendResult: any, 
-        backendResult: any, 
-        ws: any
-    ) {
-        try {
-            const docPrompt = `Generate comprehensive documentation for this project:
-
-            PROJECT: ${analysis.project.name}
-            DESCRIPTION: ${analysis.project.description}
-
-            Create documentation in JSON format with readme, setup_guide, code_documentation, and deployment_guide.
-            NO markdown, only JSON.`;
-
-            const stream = await openrouter.chat.completions.create({
-                model: "x-ai/grok-4-fast:free",
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are a technical documentation specialist. Respond with ONLY valid JSON.`
-                    },
-                    { role: "user", content: docPrompt }
-                ],
-                stream: true,
-                temperature: 0.3
-            });
-
-            let fullContent = '';
-            
-            for await (const chunk of stream) {
-                const content = chunk.choices[0]?.delta?.content || '';
-                if (content) {
-                    fullContent += content;
-                    
-                    ws.send(JSON.stringify({
-                        type: 'documentation_stream',
-                        content: content,
-                        accumulated: fullContent
-                    }));
-                }
-            }
-            
-            try {
-                const jsonData = extractJSON(fullContent.trim());
-                const validatedResult = DocumentationSchema.parse(jsonData);
-                
-                ws.send(JSON.stringify({
-                    type: 'documentation_complete',
-                    content: validatedResult
-                }));
-                
-                return validatedResult;
-            } catch (parseError) {
-                console.warn("Documentation parsing failed, using fallback");
-                const fallbackResult = createDocsFallback(analysis);
-                
-                ws.send(JSON.stringify({
-                    type: 'documentation_complete',
-                    content: fallbackResult
-                }));
-                
-                return fallbackResult;
-            }
-            
-        } catch (error) {
-            console.error("Documentation Agent Error:", error);
-            throw error;
-        }
-    }
+const glm = new OpenAI({
+    apiKey: process.env.GLM_API_KEY || "",
+    baseURL: "https://api.z.ai/api/paas/v4"
 });
 
-// Helper functions
-function extractJSON(text: string): any {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-        try {
-            return JSON.parse(jsonMatch[0]);
-        } catch (e) {
-            let cleaned = jsonMatch[0]
-                .replace(/```json/g, '')
-                .replace(/```/g, '')
-                .replace(/\n\s*\/\/.*$/gm, '')
-                .trim();
-            return JSON.parse(cleaned);
+// ─── AI Call Helpers ─────────────────────────────────────────────
+
+async function callAIGenerate(provider: string, model: string, systemPrompt: string, userPrompt: string): Promise<string> {
+    if (provider === 'gemini') {
+        const response = await gemini.models.generateContent({
+            model: model,
+            contents: userPrompt,
+            config: { systemInstruction: systemPrompt, temperature: 0.3 }
+        });
+        return response.text || "";
+    } else if (provider === 'anthropic') {
+        const response = await anthropic.messages.create({
+            model: model,
+            max_tokens: 8000,
+            temperature: 0.3,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }]
+        });
+        const block = response.content[0];
+        return block && block.type === 'text' ? block.text : "";
+    } else {
+        let client = model.endsWith(':free') ? openrouterFree : openrouter;
+        if (provider === 'openai') client = openai;
+        if (provider === 'glm') client = glm;
+
+        const response = await client.chat.completions.create({
+            model: model,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            temperature: 0.3,
+            max_tokens: 8000
+        });
+        return response.choices[0]?.message?.content || "";
+    }
+}
+
+async function* callAIGenerateStream(provider: string, model: string, systemPrompt: string, userPrompt: string) {
+    if (provider === 'gemini') {
+        const responseStream = await gemini.models.generateContentStream({
+            model: model,
+            contents: userPrompt,
+            config: { systemInstruction: systemPrompt, temperature: 0.3 }
+        });
+        for await (const chunk of responseStream) {
+            yield chunk.text || "";
+        }
+    } else if (provider === 'anthropic') {
+        const stream = await anthropic.messages.create({
+            model: model,
+            max_tokens: 8000,
+            temperature: 0.3,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userPrompt }],
+            stream: true,
+        });
+        for await (const chunk of stream) {
+            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+                yield chunk.delta.text;
+            }
+        }
+    } else {
+        let client = model.endsWith(':free') ? openrouterFree : openrouter;
+        if (provider === 'openai') client = openai;
+        if (provider === 'glm') client = glm;
+
+        const stream = await client.chat.completions.create({
+            model: model,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            stream: true,
+            temperature: 0.3
+        });
+        for await (const chunk of stream) {
+            yield chunk.choices[0]?.delta?.content || "";
         }
     }
+}
+
+// ─── JSON Extraction ─────────────────────────────────────────────
+
+function tryParseJSON(text: string): unknown {
+    // Strategy 1: direct parse
+    try { return JSON.parse(text); } catch { /* continue */ }
+
+    // Strategy 2: extract outermost { ... }
+    const objMatch = text.match(/\{[\s\S]*\}/);
+    if (objMatch) {
+        try { return JSON.parse(objMatch[0]); } catch { /* continue */ }
+
+        // Strategy 3: strip markdown code fences and comments
+        const cleaned = objMatch[0]
+            .replace(/```json\s*/g, '')
+            .replace(/```\s*/g, '')
+            .replace(/\/\/[^\n]*/g, '')
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .trim();
+        try { return JSON.parse(cleaned); } catch { /* continue */ }
+    }
+
+    // Strategy 4: extract outermost [ ... ]
+    const arrMatch = text.match(/\[[\s\S]*\]/);
+    if (arrMatch) {
+        try { return JSON.parse(arrMatch[0]); } catch { /* continue */ }
+    }
+
     throw new Error("No valid JSON found in response");
 }
 
-function createFallbackAnalysis(userMessage: string): any {
-    return {
-        project: {
-            name: "Generated Project",
-            description: userMessage || "Project generated from user request"
-        },
-        features: ["Basic functionality", "User interface", "Core features"],
-        overall_structure: {
-            architecture: "Standard web application architecture",
-            file_structure: {
-                root: ["src/", "public/", "package.json", "README.md"]
-            },
-            user_flow: "User interacts with frontend, which communicates with backend"
-        },
-        frontend: {
-            technologies: ["React", "HTML", "CSS", "JavaScript"],
-            components: {
-                "App": {
-                    description: "Main application component",
-                    interactions: "Root component that renders other components",
-                    layout: "Standard application layout"
+function extractJSON(text: string): unknown {
+    return tryParseJSON(text);
+}
+
+// ─── Agent Definitions ──────────────────────────────────────────
+
+async function OrchestratorAgent(
+    userMessage: string,
+    conversationHistory: any[],
+    snapshot: any | null,
+    ws: WebSocket
+): Promise<any> {
+    const contextMessages = conversationHistory
+        .reverse()
+        .map(msg => ({
+            user: msg.userMessage,
+            intent: msg.intent,
+            tasks: msg.coordinatorResponse?.content
+        }))
+        .filter(msg => msg.tasks)
+        .slice(0, 3);
+
+    const previousContext = contextMessages.length > 0
+        ? `\n\nPREVIOUS CONVERSATION:\n${contextMessages.map((msg, i) =>
+            `${i + 1}. [${msg.intent?.toUpperCase() || 'BUILD'}] User: ${msg.user}`
+        ).join('\n')}`
+        : '';
+
+    const snapshotContext = snapshot
+        ? `\n\nEXISTING PROJECT CODE:\nFrontend files: ${JSON.stringify(Object.keys(snapshot.frontendCode || {}))}\nBackend files: ${JSON.stringify(Object.keys(snapshot.backendCode || {}))}\nPrevious tasks: ${JSON.stringify(snapshot.taskFile?.features || [])}`
+        : '';
+
+    const systemPrompt = `You are a senior project orchestrator. Your job:
+1. CLASSIFY the user's intent as exactly one of: "build", "iterate", or "debug"
+   - "build": user wants a new project from scratch or this is the first message
+   - "iterate": user wants to add/change/improve features on existing code
+   - "debug": user is reporting a bug or issue to fix
+2. DECIDE the tech stack: If the user has NOT specified a framework, library, or language, YOU must pick the best-fit stack for the project. Consider modern, popular, well-documented options. If the user HAS specified preferences, respect them.
+3. Create a task breakdown dividing work between frontend and backend agents. Include the chosen tech stack in each task so agents know exactly what to use.
+4. For "debug" intent, identify if the issue is frontend or backend and only assign tasks to the relevant agent (leave the other empty)
+
+${previousContext ? 'Use conversation history to understand context.' : ''}
+${snapshotContext ? 'An existing codebase exists. Consider this when classifying intent.' : 'No existing code exists yet. This is likely a "build" intent.'}
+
+RESPOND WITH ONLY VALID JSON:
+{
+  "intent": "build" | "iterate" | "debug",
+  "projectMeta": { "name": "string", "description": "string" },
+  "techStack": {
+    "frontend": { "framework": "e.g. React, Vue, Svelte", "styling": "e.g. Tailwind CSS, CSS Modules", "libraries": ["lib1", "lib2"] },
+    "backend": { "runtime": "e.g. Node.js, Python", "framework": "e.g. Express, FastAPI", "database": "e.g. MongoDB, PostgreSQL", "libraries": ["lib1", "lib2"] }
+  },
+  "features": ["feature1", "feature2"],
+  "frontendTasks": [
+    { "task": "description", "details": "specifics including which libraries/components to use" }
+  ],
+  "backendTasks": [
+    { "task": "description", "details": "specifics including which libraries/endpoints to use" }
+  ],
+  "architecture": "brief architecture description",
+  "notes": "any important notes for the code agents"
+}
+
+NO other text. NO markdown. ONLY JSON.`;
+
+    const content = await callAIGenerate('glm', 'GLM-4.7-Flash', systemPrompt, previousContext + snapshotContext + '\n\nUSER REQUEST: ' + userMessage);
+
+    try {
+        return extractJSON(content.trim());
+    } catch {
+        console.warn("Orchestrator JSON parse failed, using fallback");
+        return {
+            intent: snapshot ? 'iterate' : 'build',
+            projectMeta: { name: "Generated Project", description: userMessage },
+            features: ["Core functionality"],
+            frontendTasks: [{ task: "Build the UI", details: userMessage }],
+            backendTasks: [{ task: "Build the API", details: userMessage }],
+            architecture: "Standard web application",
+            notes: ""
+        };
+    }
+}
+
+async function FrontendCodeAgent(
+    taskFile: any,
+    previousCode: any | null,
+    ws: WebSocket
+): Promise<unknown> {
+    if (!taskFile.frontendTasks || taskFile.frontendTasks.length === 0) return "";
+
+    const previousContext = previousCode
+        ? `\n\nEXISTING FRONTEND CODE TO BUILD UPON:\n${JSON.stringify(previousCode, null, 2)}`
+        : '';
+
+    const systemPrompt = `You are a frontend code generator. You ONLY write code. No explanations, no markdown headings, no commentary.
+Output a JSON object where keys are filenames and values are the complete file contents.
+Example: { "App.jsx": "import React...", "styles.css": "body { ... }" }
+ONLY output valid JSON. Nothing else.`;
+
+    const userPrompt = `Project: ${taskFile.projectMeta.name}
+Description: ${taskFile.projectMeta.description}
+Architecture: ${taskFile.architecture}
+
+FRONTEND TASKS:
+${taskFile.frontendTasks.map((t: any, i: number) => `${i + 1}. ${t.task}: ${t.details}`).join('\n')}
+${previousContext}
+
+Generate complete frontend code files as JSON. Keys = filenames, values = file contents.`;
+
+    let fullContent = '';
+    for await (const chunk of callAIGenerateStream('openrouter', 'moonshotai/kimi-k2.5', systemPrompt, userPrompt)) {
+        if (chunk) {
+            fullContent += chunk;
+            ws.send(JSON.stringify({ type: 'frontend_stream', content: chunk, accumulated: fullContent }));
+        }
+    }
+
+    try {
+        return extractJSON(fullContent.trim());
+    } catch {
+        return fullContent;
+    }
+}
+
+async function BackendCodeAgent(
+    taskFile: any,
+    previousCode: any | null,
+    provider: string,
+    model: string,
+    ws: WebSocket
+): Promise<unknown> {
+    if (!taskFile.backendTasks || taskFile.backendTasks.length === 0) return "";
+
+    const previousContext = previousCode
+        ? `\n\nEXISTING BACKEND CODE TO BUILD UPON:\n${JSON.stringify(previousCode, null, 2)}`
+        : '';
+
+    const systemPrompt = `You are a backend code generator. You ONLY write code. No explanations, no markdown headings, no commentary.
+Output a JSON object where keys are filenames and values are the complete file contents.
+Example: { "server.js": "const express...", "db.js": "const mongoose..." }
+ONLY output valid JSON. Nothing else.`;
+
+    const userPrompt = `Project: ${taskFile.projectMeta.name}
+Description: ${taskFile.projectMeta.description}
+Architecture: ${taskFile.architecture}
+
+BACKEND TASKS:
+${taskFile.backendTasks.map((t: any, i: number) => `${i + 1}. ${t.task}: ${t.details}`).join('\n')}
+${previousContext}
+
+Generate complete backend code files as JSON. Keys = filenames, values = file contents.`;
+
+    let fullContent = '';
+    for await (const chunk of callAIGenerateStream(provider, model, systemPrompt, userPrompt)) {
+        if (chunk) {
+            fullContent += chunk;
+            ws.send(JSON.stringify({ type: 'backend_stream', content: chunk, accumulated: fullContent }));
+        }
+    }
+
+    try {
+        return extractJSON(fullContent.trim());
+    } catch {
+        return fullContent;
+    }
+}
+
+async function ReviewAgent(
+    taskFile: any,
+    frontendCode: any,
+    backendCode: any,
+    ws: WebSocket
+): Promise<any> {
+    const systemPrompt = `You are a senior code reviewer. You receive:
+1. A task file listing what was supposed to be built
+2. The generated frontend and backend code
+
+Your job:
+1. Verify every task in the task file was completed
+2. Flag any missing implementations
+3. Create a setup guide for the user
+
+RESPOND WITH ONLY VALID JSON:
+{
+  "completionStatus": {
+    "frontendComplete": true/false,
+    "backendComplete": true/false,
+    "missingItems": ["item1", "item2"]
+  },
+  "setupGuide": {
+    "prerequisites": ["Node.js", "npm"],
+    "steps": ["step 1", "step 2"],
+    "envVariables": ["VAR1=value"],
+    "runCommands": { "frontend": "npm start", "backend": "node server.js" }
+  },
+  "codeReview": {
+    "issues": ["issue1"],
+    "suggestions": ["suggestion1"]
+  },
+  "summary": "Brief project summary"
+}
+
+NO other text. ONLY JSON.`;
+
+    const userPrompt = `TASK FILE:
+${JSON.stringify(taskFile, null, 2)}
+
+FRONTEND CODE:
+${JSON.stringify(frontendCode, null, 2)}
+
+BACKEND CODE:
+${JSON.stringify(backendCode, null, 2)}
+
+Review the code against the task file and generate the setup documentation.`;
+
+    let fullContent = '';
+    for await (const chunk of callAIGenerateStream('glm', 'GLM-4.7-Flash', systemPrompt, userPrompt)) {
+        if (chunk) {
+            fullContent += chunk;
+            ws.send(JSON.stringify({ type: 'review_stream', content: chunk, accumulated: fullContent }));
+        }
+    }
+
+    try {
+        return extractJSON(fullContent.trim());
+    } catch {
+        return {
+            completionStatus: { frontendComplete: true, backendComplete: true, missingItems: [] },
+            setupGuide: { prerequisites: ["Node.js"], steps: ["npm install", "npm start"], envVariables: [], runCommands: { frontend: "npm start", backend: "node server.js" } },
+            codeReview: { issues: [], suggestions: [] },
+            summary: taskFile.projectMeta?.description || "Project generated successfully"
+        };
+    }
+}
+
+// ─── WebSocket Server ───────────────────────────────────────────
+
+export function setupWebSocket(server: Server) {
+    const wss = new WebSocketServer({ server, path: undefined });
+
+    wss.on("connection", function connection(ws: WebSocket, req: IncomingMessage) {
+        // ── Authenticate via JWT cookie ──────────────────────────────
+        const rawCookies = req.headers.cookie || "";
+        const cookies = cookie.parse(rawCookies);
+        const token = cookies.token;
+
+        if (!token) {
+            ws.send(JSON.stringify({ type: "error", message: "Unauthorized - token missing" }));
+            ws.close(4401, "Unauthorized");
+            return;
+        }
+
+        let wsUserId: string;
+        try {
+            const payload = jwt.verify(token, process.env.JWT_SECRET as string) as jwt.JwtPayload;
+            wsUserId = payload.id as string;
+        } catch {
+            ws.send(JSON.stringify({ type: "error", message: "Forbidden - invalid or expired token" }));
+            ws.close(4403, "Forbidden");
+            return;
+        }
+
+        // suppress unused variable warning while still enabling future per-message auth
+        void wsUserId;
+
+        ws.on("message", async function message(data) {
+            let messageDoc: any = null;
+
+            try {
+                const parsed = JSON.parse(data.toString());
+                const { message: userMessage, projectId, provider = 'openrouter', model = 'openai/gpt-oss-120b:free' } = parsed;
+
+                messageDoc = new Message({
+                    projectId: projectId,
+                    userMessage: userMessage,
+                    status: 'processing'
+                });
+                await messageDoc.save();
+
+                const conversationHistory = await Message.find({ projectId })
+                    .sort({ timestamp: -1 })
+                    .limit(5)
+                    .lean();
+
+                const snapshot = await ProjectSnapshot.findOne({ projectId }).lean();
+
+                // ── Stage 1: Orchestrator ────────────────────────────
+                ws.send(JSON.stringify({
+                    type: 'status',
+                    agent: 'Orchestrator Agent',
+                    message: 'Analyzing requirements and creating task breakdown...',
+                    provider: 'glm',
+                    model: 'GLM-4.7-Flash'
+                }));
+
+                const taskFile = await OrchestratorAgent(userMessage, conversationHistory, snapshot, ws);
+
+                messageDoc.intent = taskFile.intent;
+                messageDoc.coordinatorResponse = { content: taskFile, timestamp: new Date() };
+                await messageDoc.save();
+
+                ws.send(JSON.stringify({
+                    type: 'orchestrator_complete',
+                    content: taskFile,
+                    intent: taskFile.intent
+                }));
+
+                // ── Stage 2: Code Agents (parallel) ─────────────────
+                let frontendResult: any = null;
+                let backendResult: any = null;
+
+                const hasFrontendTasks = taskFile.frontendTasks && taskFile.frontendTasks.length > 0;
+                const hasBackendTasks = taskFile.backendTasks && taskFile.backendTasks.length > 0;
+
+                const agentPromises: Promise<void>[] = [];
+
+                if (hasFrontendTasks) {
+                    ws.send(JSON.stringify({
+                        type: 'status',
+                        agent: 'Frontend Agent',
+                        message: 'Writing frontend code...',
+                        provider: 'openrouter',
+                        model: 'moonshotai/kimi-k2.5'
+                    }));
+
+                    agentPromises.push(
+                        FrontendCodeAgent(taskFile, snapshot?.frontendCode || null, ws).then(result => {
+                            frontendResult = result;
+                            messageDoc.frontendResponse = { content: result, timestamp: new Date() };
+                            ws.send(JSON.stringify({ type: 'frontend_complete', content: result }));
+                        })
+                    );
                 }
-            },
-            requirements: ["Modern web browser", "Node.js for development"]
-        },
-        backend: {
-            needed: true,
-            description: "RESTful API server with database integration",
-            optional_extensions: ["Authentication", "Real-time features", "File upload"]
-        },
-        deployment_notes: "Can be deployed to various cloud platforms",
-        references: ["React documentation", "Node.js guides", "Best practices"]
-    };
-}
 
-function createFrontendFallback(analysis: any) {
-    return {
-        components: [{
-            name: "App",
-            code: `import React, { useState } from 'react';
-import './App.css';
+                if (hasBackendTasks) {
+                    ws.send(JSON.stringify({
+                        type: 'status',
+                        agent: 'Backend Agent',
+                        message: 'Writing backend code...',
+                        provider: provider,
+                        model: model
+                    }));
 
-function App() {
-  const [count, setCount] = useState(0);
+                    agentPromises.push(
+                        BackendCodeAgent(taskFile, snapshot?.backendCode || null, provider, model, ws).then(result => {
+                            backendResult = result;
+                            messageDoc.backendResponse = { content: result, timestamp: new Date() };
+                            ws.send(JSON.stringify({ type: 'backend_complete', content: result }));
+                        })
+                    );
+                }
 
-  return (
-    <div className="App">
-      <header className="App-header">
-        <h1>${analysis.project.name}</h1>
-        <p>${analysis.project.description}</p>
-        <button onClick={() => setCount(count + 1)}>
-          Count: {count}
-        </button>
-      </header>
-    </div>
-  );
-}
+                await Promise.all(agentPromises);
+                await messageDoc.save();
 
-export default App;`,
-            description: "Main application component",
-            dependencies: ["react"]
-        }],
-        styling: {
-            framework: "CSS",
-            custom_css: `.App { text-align: center; padding: 20px; }
-.App-header { background-color: #282c34; color: white; padding: 20px; border-radius: 8px; }`,
-            responsive_design: "Mobile-first responsive design"
-        },
-        state_management: {
-            approach: "React useState",
-            implementation: "Using React hooks for local state management"
-        },
-        setup_instructions: ["npm install", "npm start"]
-    };
-}
+                // ── Stage 3: Review Agent ────────────────────────────
+                ws.send(JSON.stringify({
+                    type: 'status',
+                    agent: 'Review Agent',
+                    message: 'Reviewing code and generating setup guide...',
+                    provider: 'glm',
+                    model: 'GLM-4.7-Flash'
+                }));
 
-function createBackendFallback(analysis: any) {
-    return {
-        api_endpoints: [{
-            method: "GET",
-            path: "/api/health",
-            description: "Health check endpoint",
-            code: `app.get('/api/health', (req, res) => {
-              res.json({ status: 'OK', message: 'Server is running' });
-          });`
-        }],
-        database: {
-            type: "MongoDB",
-            schema: "Basic schema for the application",
-            connection_code: `const mongoose = require('mongoose');
-              mongoose.connect('mongodb://localhost:27017/database');`
-        },
-        authentication: {
-            method: "JWT",
-            implementation: "Basic JWT authentication setup"
-        },
-        server_setup: `const express = require('express');
-          const app = express();
-          const PORT = process.env.PORT || 3000;
+                const reviewResult = await ReviewAgent(taskFile, frontendResult, backendResult, ws);
 
-          app.use(express.json());
+                messageDoc.reviewResponse = { content: reviewResult, timestamp: new Date() };
+                await messageDoc.save();
 
-          app.listen(PORT, () => {
-            console.log(\`Server running on port \${PORT}\`);
-          });`,
-        deployment_config: "Configure environment variables and deploy to cloud platform"
-    };
-}
+                ws.send(JSON.stringify({ type: 'review_complete', content: reviewResult }));
 
-function createDocsFallback(analysis: any) {
-    return {
-        readme: {
-            title: analysis.project.name,
-            description: analysis.project.description,
-            installation: ["npm install", "npm start"],
-            usage: "Follow the setup instructions and start the development server",
-            api_documentation: "API endpoints are documented in the code",
-            contributing: "Please follow standard GitHub contribution guidelines"
-        },
-        setup_guide: {
-            prerequisites: ["Node.js", "npm", "Git"],
-            environment_setup: ["Clone the repository", "Install dependencies", "Configure environment variables"],
-            configuration: "Set up your environment variables and database connections",
-            troubleshooting: [
-                {issue: "Port already in use", solution: "Change the port in your configuration"},
-                {issue: "Module not found", solution: "Run npm install to install dependencies"}
-            ]
-        },
-        code_documentation: [
-            {
-                file: "app.js",
-                description: "Main application file",
-                functions: [
+                // ── Save Snapshot ────────────────────────────────────
+                await ProjectSnapshot.findOneAndUpdate(
+                    { projectId },
                     {
-                        name: "main",
-                        purpose: "Initialize and start the application",
-                        parameters: "None",
-                        returns: "Application instance"
-                    }
-                ]
+                        projectId,
+                        frontendCode: frontendResult || snapshot?.frontendCode || null,
+                        backendCode: backendResult || snapshot?.backendCode || null,
+                        taskFile: taskFile,
+                        updatedAt: new Date()
+                    },
+                    { upsert: true, new: true }
+                );
+
+                await Project.findByIdAndUpdate(projectId, { updatedAt: new Date() });
+
+                messageDoc.status = 'completed';
+                await messageDoc.save();
+
+                ws.send(JSON.stringify({
+                    type: 'all_complete',
+                    message: 'Project generation completed!',
+                    messageId: messageDoc._id
+                }));
+
+            } catch (error: any) {
+                console.error("Error:", error);
+
+                if (messageDoc) {
+                    messageDoc.status = 'error';
+                    await messageDoc.save();
+                }
+
+                ws.send(JSON.stringify({
+                    type: 'error',
+                    message: error.message
+                }));
             }
-        ],
-        deployment_guide: "Deploy to your preferred cloud platform (Vercel, Netlify, Heroku, etc.)"
-    };
+        });
+    });
 }

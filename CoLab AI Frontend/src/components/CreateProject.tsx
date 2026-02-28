@@ -23,7 +23,6 @@ export function CreateProjectModal({ open, onclose }: projectmodal) {
 
     if (!name || !description) return;
 
-    console.log("hello")
     setLoading(true)
     try {
       const response = await sendProject(name, description)
@@ -33,7 +32,7 @@ export function CreateProjectModal({ open, onclose }: projectmodal) {
       }
 
     } catch (err) {
-      console.log(err)
+      console.error("[createProject]", err)
     } finally {
       setLoading(false)
     }
@@ -56,32 +55,32 @@ export function CreateProjectModal({ open, onclose }: projectmodal) {
       {open && (
         <div className="flex w-screen h-screen bg-black/40 backdrop-blur-sm fixed top-0 left-0 z-50 transition-all duration-300 ease-in-out">
           <div className="flex justify-center items-center w-full h-full p-4">
-            <div className="bg-white/90 backdrop-blur-md flex flex-col p-8 gap-6 rounded-2xl w-[90%] max-w-md border border-white/30 shadow-2xl">
-              <div className="flex flex-row justify-between items-center bg-[#CFAB8D]/30 backdrop-blur-sm p-4 rounded-xl border border-white/20">
-                <h1 className="font-montserrat text-xl font-semibold text-black">Create Project</h1>
+            <div className="bg-card flex flex-col p-8 gap-6 rounded-2xl w-[90%] max-w-md border border-border shadow-directional">
+              <div className="flex flex-row justify-between items-center bg-primary/10 p-4 rounded-xl border border-primary/20">
+                <h1 className="font-sans text-xl font-semibold text-foreground tracking-wide">Create Project</h1>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={onclose}
-                  className="hover:bg-red-100 hover:text-red-600 transition-colors duration-200 p-2 rounded-lg"
+                  className="hover:bg-destructive/20 hover:text-destructive text-muted-foreground transition-colors duration-200 p-2 rounded-lg"
                 >
                   <X size={20} />
                 </Button>
               </div>
               <div className="flex flex-col gap-4">
                 <div className="space-y-2">
-                  <label className="font-SourceCodePro text-sm font-medium text-gray-700">Project Name</label>
+                  <label className="font-mono text-sm font-medium text-muted-foreground">Project Name</label>
                   <input
-                    className="w-full border border-gray-200 rounded-lg p-3 font-SourceCodePro bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#CFAB8D] focus:border-transparent transition-all duration-200"
+                    className="w-full border border-border rounded-lg p-3 font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 text-foreground"
                     placeholder="Enter Your Project Name"
                     ref={projectNameRef}
                     onKeyUp={onInputKeyHandler}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="font-SourceCodePro text-sm font-medium text-gray-700">Description</label>
+                  <label className="font-mono text-sm font-medium text-muted-foreground">Description</label>
                   <input
-                    className="w-full border border-gray-200 rounded-lg p-3 font-SourceCodePro bg-white/50 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-[#CFAB8D] focus:border-transparent transition-all duration-200"
+                    className="w-full border border-border rounded-lg p-3 font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 text-foreground"
                     placeholder="Enter Your Project Description"
                     ref={projectDescriptionRef}
                     onKeyUp={onInputKey}
@@ -91,7 +90,7 @@ export function CreateProjectModal({ open, onclose }: projectmodal) {
               <Button
                 onClick={createProject}
                 disabled={loading}
-                className="w-full bg-[#CFAB8D] hover:bg-[#B8956F] text-black font-medium py-3 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg backdrop-blur-sm border border-white/20 flex items-center justify-center gap-2"
+                className="w-full bg-primary hover:bg-gold-600 text-primary-foreground font-bold py-3 rounded-xl transition-all duration-300 shadow-gold-glow flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>

@@ -12,7 +12,6 @@ function ProjectPage() {
   const [open, setOpen] = useState(false)
   const projects = useContent()
 
-  console.log(projects)
   function modalState() {
     setOpen(true)
   }
@@ -26,15 +25,15 @@ function ProjectPage() {
         }}
       />
 
-      <div className="flex flex-col grow p-6 gap-6 h-screen w-screen bg-gradient-to-br from-[#ECEEDF] to-[#D9C4B0] items-center">
+      <div className="flex flex-col grow p-6 gap-6 min-h-screen w-full bg-background bg-grainy items-center">
         <Header />
 
-        <div className="flex flex-row justify-between items-center p-6 gap-4 w-[55%] bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 shadow-lg">
-          <h1 className="text-black text-3xl font-montserrat font-semibold">Your Projects</h1>
+        <div className="flex flex-row justify-between items-center p-6 gap-4 w-full max-w-4xl bg-card rounded-[2.5rem] border border-border shadow-directional">
+          <h1 className="text-foreground text-3xl font-bold tracking-wide">Your Projects</h1>
 
           <Button
             onClick={modalState}
-            className="bg-[#CFAB8D] hover:bg-[#B8956F] text-black font-medium px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105 hover:shadow-lg backdrop-blur-sm border border-white/20 flex items-center gap-2"
+            className="bg-primary hover:bg-gold-600 text-primary-foreground font-bold px-6 py-3 rounded-full transition-bouncy duration-300 hover:-translate-y-1 hover:scale-105 shadow-gold-glow flex items-center gap-2"
           >
             <Plus size={18} />
             New Project
@@ -44,16 +43,16 @@ function ProjectPage() {
         {projects.map(({ name, description, _id }) => (
           <div
             key={_id}
-            className="flex flex-row p-6 bg-white/20 backdrop-blur-md rounded-2xl w-[50%] min-h-[120px] justify-between items-center border border-white/30 hover:bg-white/30 hover:scale-102 hover:cursor-pointer transition-all duration-300 ease-in-out shadow-lg hover:shadow-xl"
+            className="flex flex-row p-6 bg-card rounded-[2.5rem] w-full max-w-4xl min-h-[120px] justify-between items-center border border-border hover:border-primary/50 hover:cursor-pointer transition-bouncy hover:-translate-y-1 hover:scale-[1.02] shadow-directional hover:shadow-gold-glow"
           >
             <Link to={"/chat/" + _id} className="flex-1">
               <div>
-                <h1 className="text-xl font-montserrat font-semibold text-black mb-2">{name}</h1>
-                <p className="font-SourceCodePro text-[15px] text-gray-700 leading-relaxed">{description}</p>
+                <h1 className="text-xl font-bold text-foreground mb-2">{name}</h1>
+                <p className="font-mono text-sm text-muted-foreground leading-relaxed">{description}</p>
               </div>
             </Link>
 
-            <Button className="bg-[#D9C4B0] hover:bg-[#CFAB8D] text-black font-medium px-4 py-2 rounded-lg transition-all duration-300 hover:scale-105 backdrop-blur-sm border border-white/20 flex items-center gap-2 ml-4">
+            <Button variant="outline" className="rounded-full border-border hover:border-primary text-foreground font-medium px-4 py-2 transition-bouncy hover:scale-105 hover:-translate-y-1 flex items-center gap-2 ml-4">
               <Edit3 size={16} />
               Edit
             </Button>
