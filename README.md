@@ -1,6 +1,6 @@
 # Co-Lab-AI
 
-Co-Lab-AI is an intelligent, agentic coding assistant platform designed to accelerate software development. It leverages a multi-agent AI system to analyze requirements, coordinate tasks, and generate full-stack applications (Frontend + Backend + Documentation) in real-time.
+Co-Lab-AI is an intelligent, agentic coding assistant platform designed to accelerate software development. It leverages a multi-agent AI system to analyze requirements, coordinate tasks, and generate full-stack application (Frontend + Backend + Documentation) in real-time.
 
 ## 🚀 Features
 
