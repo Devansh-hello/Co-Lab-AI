@@ -5,7 +5,7 @@ import { IntegrationSection } from "../components/integration-section"
 
 export default function Home() {
   return (
-    <div className="flex flex-col min-h-screen bg-background p-6 gap-3.5 justify-center align-middle bg-[#ECEEDF] items-center">
+    <div className="flex flex-col min-h-screen bg-background bg-grainy p-6 gap-3.5 justify-center align-middle items-center">
       <Header />
       <main>
         <HeroSection />

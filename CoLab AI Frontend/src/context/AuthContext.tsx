@@ -21,46 +21,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refresh = async () => {
     try {
       setIsLoading(true);
-      
-      // Ensure minimum loading time for smooth UX
-      const startTime = Date.now();
-      const minLoadingTime = 1500; // 1.5 seconds minimum
-      
       const res = await api.get("/loggedin");
       setUser(res.data.loggedin);
-      setIsInitialized(true);
-      
-      // Calculate remaining time to meet minimum loading duration
-      const elapsed = Date.now() - startTime;
-      const remainingTime = Math.max(0, minLoadingTime - elapsed);
-      
-      // Wait for remaining time, then allow app to show with fade transition
-      setTimeout(() => {
-        setIsLoading(false);
-        // Small delay before allowing app to show for smooth transition
-        setTimeout(() => {
-          setCanShowApp(true);
-        }, 100);
-      }, remainingTime);
-      
     } catch (err: unknown) {
-      if (err instanceof AxiosError && err.response) {
-        setUser(false);
-      } else {
-        setUser(false);
+      if (err instanceof AxiosError && err.response && err.response.status !== 401) {
+        // Log unexpected errors
+        console.error("Auth check failed:", err);
       }
+      setUser(false);
+    } finally {
       setIsInitialized(true);
-      
-      // Same timing logic for error case
-      const elapsed = Date.now() - (Date.now() - 1500);
-      const remainingTime = Math.max(0, 1500 - elapsed);
-      
+      setIsLoading(false);
+      // Small delay before allowing app to show for smooth transition
       setTimeout(() => {
-        setIsLoading(false);
-        setTimeout(() => {
-          setCanShowApp(true);
-        }, 100);
-      }, remainingTime);
+        setCanShowApp(true);
+      }, 100);
     }
   };
 

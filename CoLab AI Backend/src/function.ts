@@ -76,15 +76,34 @@ async function callAIGenerate(provider: string, model: string, systemPrompt: str
     }
 }
 
-async function* callAIGenerateStream(provider: string, model: string, systemPrompt: string, userPrompt: string) {
+interface TokenUsage {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+}
+
+async function* callAIGenerateStream(
+    provider: string,
+    model: string,
+    systemPrompt: string,
+    userPrompt: string,
+    onUsage?: (usage: TokenUsage) => void
+) {
     if (provider === 'gemini') {
         const responseStream = await gemini.models.generateContentStream({
             model: model,
             contents: userPrompt,
             config: { systemInstruction: systemPrompt, temperature: 0.3 }
         });
+        let charCount = 0;
         for await (const chunk of responseStream) {
-            yield chunk.text || "";
+            const text = chunk.text || "";
+            charCount += text.length;
+            yield text;
+        }
+        if (onUsage) {
+            const est = Math.ceil(charCount / 4);
+            onUsage({ promptTokens: 0, completionTokens: est, totalTokens: est });
         }
     } else if (provider === 'anthropic') {
         const stream = await anthropic.messages.create({
@@ -95,27 +114,58 @@ async function* callAIGenerateStream(provider: string, model: string, systemProm
             messages: [{ role: "user", content: userPrompt }],
             stream: true,
         });
+        let inputTokens = 0;
+        let outputTokens = 0;
         for await (const chunk of stream) {
-            if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            if (chunk.type === 'message_start') {
+                inputTokens = chunk.message.usage.input_tokens;
+            } else if (chunk.type === 'message_delta') {
+                outputTokens = (chunk as any).usage?.output_tokens ?? outputTokens;
+            } else if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
                 yield chunk.delta.text;
             }
+        }
+        if (onUsage) {
+            onUsage({ promptTokens: inputTokens, completionTokens: outputTokens, totalTokens: inputTokens + outputTokens });
         }
     } else {
         let client = model.endsWith(':free') ? openrouterFree : openrouter;
         if (provider === 'openai') client = openai;
         if (provider === 'glm') client = glm;
 
-        const stream = await client.chat.completions.create({
+        // include_usage supported by openai/openrouter; glm falls back to char estimate
+        const supportsUsage = provider === 'openai' || provider === 'openrouter';
+
+        const baseParams = {
             model: model,
             messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt }
+                { role: "system" as const, content: systemPrompt },
+                { role: "user" as const, content: userPrompt }
             ],
-            stream: true,
-            temperature: 0.3
-        });
+            stream: true as const,
+            temperature: 0.3,
+        };
+
+        const stream = supportsUsage
+            ? await client.chat.completions.create({ ...baseParams, stream_options: { include_usage: true } })
+            : await client.chat.completions.create(baseParams);
+
+        let charCount = 0;
+        let usageFired = false;
         for await (const chunk of stream) {
-            yield chunk.choices[0]?.delta?.content || "";
+            if ((chunk as any).usage && onUsage) {
+                const u = (chunk as any).usage;
+                onUsage({ promptTokens: u.prompt_tokens, completionTokens: u.completion_tokens, totalTokens: u.total_tokens });
+                usageFired = true;
+            }
+            const text = chunk.choices[0]?.delta?.content || "";
+            charCount += text.length;
+            yield text;
+        }
+        // Fallback for providers that don't return usage (e.g. glm)
+        if (!usageFired && onUsage) {
+            const est = Math.ceil(charCount / 4);
+            onUsage({ promptTokens: 0, completionTokens: est, totalTokens: est });
         }
     }
 }
@@ -215,7 +265,7 @@ RESPOND WITH ONLY VALID JSON:
 
 NO other text. NO markdown. ONLY JSON.`;
 
-    const content = await callAIGenerate('glm', 'GLM-4.7-Flash', systemPrompt, previousContext + snapshotContext + '\n\nUSER REQUEST: ' + userMessage);
+    const content = await callAIGenerate('glm', 'GLM-4.7-FlashX', systemPrompt, previousContext + snapshotContext + '\n\nUSER REQUEST: ' + userMessage);
 
     try {
         return extractJSON(content.trim());
@@ -260,10 +310,18 @@ ${previousContext}
 Generate complete frontend code files as JSON. Keys = filenames, values = file contents.`;
 
     let fullContent = '';
-    for await (const chunk of callAIGenerateStream('openrouter', 'moonshotai/kimi-k2.5', systemPrompt, userPrompt)) {
+    const onFrontendUsage = (usage: TokenUsage) => {
+        ws.send(JSON.stringify({ type: 'token_usage', agent: 'Frontend Agent', usage }));
+    };
+    for await (const chunk of callAIGenerateStream('openai', 'gpt-5-mini', systemPrompt, userPrompt, onFrontendUsage)) {
         if (chunk) {
             fullContent += chunk;
-            ws.send(JSON.stringify({ type: 'frontend_stream', content: chunk, accumulated: fullContent }));
+            ws.send(JSON.stringify({
+                type: 'frontend_stream',
+                content: chunk,
+                accumulated: fullContent,
+                tokenEstimate: Math.ceil(fullContent.length / 4)
+            }));
         }
     }
 
@@ -303,10 +361,18 @@ ${previousContext}
 Generate complete backend code files as JSON. Keys = filenames, values = file contents.`;
 
     let fullContent = '';
-    for await (const chunk of callAIGenerateStream(provider, model, systemPrompt, userPrompt)) {
+    const onBackendUsage = (usage: TokenUsage) => {
+        ws.send(JSON.stringify({ type: 'token_usage', agent: 'Backend Agent', usage }));
+    };
+    for await (const chunk of callAIGenerateStream(provider, model, systemPrompt, userPrompt, onBackendUsage)) {
         if (chunk) {
             fullContent += chunk;
-            ws.send(JSON.stringify({ type: 'backend_stream', content: chunk, accumulated: fullContent }));
+            ws.send(JSON.stringify({
+                type: 'backend_stream',
+                content: chunk,
+                accumulated: fullContent,
+                tokenEstimate: Math.ceil(fullContent.length / 4)
+            }));
         }
     }
 
@@ -366,10 +432,18 @@ ${JSON.stringify(backendCode, null, 2)}
 Review the code against the task file and generate the setup documentation.`;
 
     let fullContent = '';
-    for await (const chunk of callAIGenerateStream('glm', 'GLM-4.7-Flash', systemPrompt, userPrompt)) {
+    const onReviewUsage = (usage: TokenUsage) => {
+        ws.send(JSON.stringify({ type: 'token_usage', agent: 'Review Agent', usage }));
+    };
+    for await (const chunk of callAIGenerateStream('glm', 'GLM-4.7-FlashX', systemPrompt, userPrompt, onReviewUsage)) {
         if (chunk) {
             fullContent += chunk;
-            ws.send(JSON.stringify({ type: 'review_stream', content: chunk, accumulated: fullContent }));
+            ws.send(JSON.stringify({
+                type: 'review_stream',
+                content: chunk,
+                accumulated: fullContent,
+                tokenEstimate: Math.ceil(fullContent.length / 4)
+            }));
         }
     }
 
@@ -442,7 +516,7 @@ export function setupWebSocket(server: Server) {
                     agent: 'Orchestrator Agent',
                     message: 'Analyzing requirements and creating task breakdown...',
                     provider: 'glm',
-                    model: 'GLM-4.7-Flash'
+                    model: 'GLM-4.7-FlashX'
                 }));
 
                 const taskFile = await OrchestratorAgent(userMessage, conversationHistory, snapshot, ws);
@@ -471,8 +545,8 @@ export function setupWebSocket(server: Server) {
                         type: 'status',
                         agent: 'Frontend Agent',
                         message: 'Writing frontend code...',
-                        provider: 'openrouter',
-                        model: 'moonshotai/kimi-k2.5'
+                        provider: 'openai',
+                        model: 'gpt-5-mini'
                     }));
 
                     agentPromises.push(
@@ -511,7 +585,7 @@ export function setupWebSocket(server: Server) {
                     agent: 'Review Agent',
                     message: 'Reviewing code and generating setup guide...',
                     provider: 'glm',
-                    model: 'GLM-4.7-Flash'
+                    model: 'GLM-4.7-FlashX'
                 }));
 
                 const reviewResult = await ReviewAgent(taskFile, frontendResult, backendResult, ws);

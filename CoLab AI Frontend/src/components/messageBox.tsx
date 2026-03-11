@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { Send, Loader2 } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Send, Loader2, ChevronUp, Check, Settings2 } from "lucide-react"
 import { Button } from "./ui/button"
 import { Input } from "./ui/input"
 
@@ -31,6 +31,23 @@ interface MessageBoxProps {
 export const MessageBox: React.FC<MessageBoxProps> = ({ onSendMessage, isGenerating }) => {
   const [message, setMessage] = useState("")
   const [selectedModel, setSelectedModel] = useState(0)
+  const [showModelPicker, setShowModelPicker] = useState(false)
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  // Close picker on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        pickerRef.current && !pickerRef.current.contains(e.target as Node) &&
+        btnRef.current && !btnRef.current.contains(e.target as Node)
+      ) {
+        setShowModelPicker(false)
+      }
+    }
+    if (showModelPicker) document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [showModelPicker])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,49 +58,83 @@ export const MessageBox: React.FC<MessageBoxProps> = ({ onSendMessage, isGenerat
     }
   }
 
+  const currentModel = BACKEND_MODELS[selectedModel]
+
   return (
-    <div className="w-full max-w-4xl flex flex-col items-center justify-center p-2">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3 w-full backdrop-blur-xl bg-card/60 p-4 rounded-[2rem] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-        <div className="flex gap-2 text-sm items-center">
-          <span className="text-xs text-muted-foreground font-medium px-2 whitespace-nowrap">Backend Model:</span>
-          <div className="flex gap-1.5">
-            {BACKEND_MODELS.map((m, i) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setSelectedModel(i)}
-                disabled={isGenerating}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${selectedModel === i
-                  ? "bg-primary text-primary-foreground border-primary shadow-[0_0_12px_rgba(var(--primary-rgb),0.4)] shadow-gold-glow scale-105"
-                  : "bg-white/5 backdrop-blur-sm text-foreground border-white/10 hover:border-primary/50"
-                  } disabled:opacity-50`}
-              >
-                <img src={m.icon} alt="" className={`w-4 h-4 rounded-sm ${selectedModel === i && m.id !== "anthropic" ? "brightness-0" : ""}`} />
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex gap-3 relative">
-          <div className="flex-1 relative">
-            <Input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={isGenerating ? "AI is working..." : "Describe your project idea..."}
+    <div className="w-full max-w-4xl relative">
+      {/* Model picker popover */}
+      {showModelPicker && (
+        <div
+          ref={pickerRef}
+          className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-xl p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] z-50 min-w-[200px] animate-spring-in"
+        >
+          <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase tracking-wider">
+            Select Backend Model
+          </p>
+          {BACKEND_MODELS.map((m, i) => (
+            <button
+              key={m.id}
+              type="button"
               disabled={isGenerating}
-              className="w-full h-auto min-h-[60px] px-8 py-4 bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl focus-visible:ring-primary focus-visible:ring-offset-0 focus-visible:shadow-gold-glow disabled:opacity-50 transition-bouncy font-medium text-foreground placeholder:text-muted-foreground text-lg tracking-wide"
-            />
-          </div>
-          <Button
-            type="submit"
-            disabled={isGenerating || !message.trim()}
-            className="h-[60px] px-6 bg-gradient-to-r from-primary to-gold-600 hover:opacity-90 text-primary-foreground rounded-full disabled:opacity-50 transition-bouncy hover:scale-105 hover:-translate-y-0.5 shadow-gold-glow font-bold flex items-center gap-2"
-          >
-            {isGenerating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-            <span className="hidden sm:inline">Send</span>
-          </Button>
+              onClick={() => { setSelectedModel(i); setShowModelPicker(false) }}
+              className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-all group
+                ${selectedModel === i
+                  ? "bg-primary/12 text-primary"
+                  : "text-foreground hover:bg-white/8 hover:text-foreground"
+                } disabled:opacity-50`}
+            >
+              <img src={m.icon} alt="" className="w-4 h-4 rounded-sm flex-shrink-0" />
+              <span className="text-xs font-medium flex-1 text-left">{m.label}</span>
+              {selectedModel === i && <Check className="w-3 h-3 text-primary" />}
+            </button>
+          ))}
         </div>
+      )}
+
+      {/* Input form */}
+      <form
+        onSubmit={handleSubmit}
+        className="flex items-center gap-2 w-full px-2 py-1.5 backdrop-blur-xl bg-card/70 rounded-2xl border border-white/10 shadow-[0_4px_24px_rgba(0,0,0,0.4)]"
+      >
+        {/* Model toggle button */}
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={() => setShowModelPicker(s => !s)}
+          disabled={isGenerating}
+          title="Select model"
+          className={`flex items-center gap-1 px-2 py-1.5 rounded-xl flex-shrink-0 transition-all group disabled:opacity-50
+            ${showModelPicker ? "bg-primary/12 text-primary" : "hover:bg-white/8 text-muted-foreground hover:text-foreground"}`}
+        >
+          <img src={currentModel.icon} alt="" className="w-3.5 h-3.5 rounded-sm" />
+          <Settings2 className="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+          <ChevronUp className={`w-3 h-3 opacity-60 transition-transform duration-300 ${showModelPicker ? "rotate-180" : ""}`} />
+        </button>
+
+        {/* Divider */}
+        <div className="w-px h-5 bg-white/10 flex-shrink-0" />
+
+        {/* Text input */}
+        <Input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder={isGenerating ? "AI is generating..." : "Describe your project idea..."}
+          disabled={isGenerating}
+          className="flex-1 h-9 bg-transparent border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm text-foreground placeholder:text-muted-foreground/60 disabled:opacity-50 px-1"
+        />
+
+        {/* Send button */}
+        <Button
+          type="submit"
+          disabled={isGenerating || !message.trim()}
+          className="h-8 w-8 p-0 rounded-xl bg-primary hover:bg-gold-600 text-primary-foreground disabled:opacity-35 transition-bouncy hover:scale-110 active:scale-90 shadow-gold-glow flex-shrink-0 shine-effect shine-gold"
+        >
+          {isGenerating
+            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            : <Send className="w-3.5 h-3.5" />
+          }
+        </Button>
       </form>
     </div>
   )

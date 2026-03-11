@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { api } from '../functions/send';
 
 export interface Message {
   id: string;
@@ -10,6 +11,20 @@ export interface Message {
   data?: any;
   intent?: 'build' | 'iterate' | 'debug';
   isStreaming?: boolean;
+}
+
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface TokenUsageState {
+  frontend?: TokenUsage;
+  backend?: TokenUsage;
+  review?: TokenUsage;
+  // live character-based estimate for the active stream
+  currentEstimate: number;
 }
 
 export interface StreamingState {
@@ -28,6 +43,7 @@ export interface WebSocketState {
   currentModel?: string;
   error: string | null;
   streaming: StreamingState;
+  tokenUsage: TokenUsageState;
 }
 
 export const useWebSocket = (projectId: string) => {
@@ -46,7 +62,8 @@ export const useWebSocket = (projectId: string) => {
       backendStream: '',
       reviewStream: '',
       activeAgent: null
-    }
+    },
+    tokenUsage: { currentEstimate: 0 }
   });
 
   const ws = useRef<WebSocket | null>(null);
@@ -61,17 +78,8 @@ export const useWebSocket = (projectId: string) => {
 
       try {
         setIsLoading(true);
-        const response = await fetch(`http://localhost:5000/api/v1/projects/${projectId}/messages`, {
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include'
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: 'Failed to load messages' }));
-          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
+        const response = await api.get(`/projects/${projectId}/messages`);
+        const data = response.data;
 
         if (!data.messages || data.messages.length === 0) {
           setMessages([]);
@@ -212,23 +220,37 @@ export const useWebSocket = (projectId: string) => {
       case 'frontend_stream':
         setWsState(prev => ({
           ...prev,
-          streaming: { ...prev.streaming, frontendStream: data.accumulated, activeAgent: 'Frontend Agent' }
+          streaming: { ...prev.streaming, frontendStream: data.accumulated, activeAgent: 'Frontend Agent' },
+          tokenUsage: { ...prev.tokenUsage, currentEstimate: data.tokenEstimate ?? Math.ceil((data.accumulated?.length ?? 0) / 4) }
         }));
         break;
 
       case 'backend_stream':
         setWsState(prev => ({
           ...prev,
-          streaming: { ...prev.streaming, backendStream: data.accumulated, activeAgent: 'Backend Agent' }
+          streaming: { ...prev.streaming, backendStream: data.accumulated, activeAgent: 'Backend Agent' },
+          tokenUsage: { ...prev.tokenUsage, currentEstimate: data.tokenEstimate ?? Math.ceil((data.accumulated?.length ?? 0) / 4) }
         }));
         break;
 
       case 'review_stream':
         setWsState(prev => ({
           ...prev,
-          streaming: { ...prev.streaming, reviewStream: data.accumulated, activeAgent: 'Review Agent' }
+          streaming: { ...prev.streaming, reviewStream: data.accumulated, activeAgent: 'Review Agent' },
+          tokenUsage: { ...prev.tokenUsage, currentEstimate: data.tokenEstimate ?? Math.ceil((data.accumulated?.length ?? 0) / 4) }
         }));
         break;
+
+      case 'token_usage': {
+        const agentKey = data.agent === 'Frontend Agent' ? 'frontend'
+          : data.agent === 'Backend Agent' ? 'backend'
+          : 'review';
+        setWsState(prev => ({
+          ...prev,
+          tokenUsage: { ...prev.tokenUsage, [agentKey]: data.usage }
+        }));
+        break;
+      }
 
       case 'orchestrator_complete':
         setWsState(prev => ({
@@ -301,7 +323,8 @@ export const useWebSocket = (projectId: string) => {
           currentAgent: undefined,
           currentProvider: undefined,
           currentModel: undefined,
-          streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null }
+          streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null },
+          tokenUsage: { currentEstimate: 0 }
         }));
         addMessage({
           sender: 'agent',
@@ -320,7 +343,8 @@ export const useWebSocket = (projectId: string) => {
           currentAgent: undefined,
           currentProvider: undefined,
           currentModel: undefined,
-          streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null }
+          streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null },
+          tokenUsage: { currentEstimate: 0 }
         }));
         addMessage({
           sender: 'agent',
@@ -398,7 +422,8 @@ export const useWebSocket = (projectId: string) => {
       currentStatus: 'Processing your request...',
       currentAgent: 'Orchestrator Agent',
       error: null,
-      streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null }
+      streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null },
+      tokenUsage: { currentEstimate: 0 }
     }));
   }, [addMessage, projectId]);
 
