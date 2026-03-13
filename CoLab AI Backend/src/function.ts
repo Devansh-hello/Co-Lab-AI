@@ -69,7 +69,7 @@ async function callAIGenerate(provider: string, model: string, systemPrompt: str
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt }
             ],
-            temperature: 0.3,
+            ...(model !== 'gpt-5-mini' && { temperature: 0.3 }),
             max_tokens: 8000
         });
         return response.choices[0]?.message?.content || "";
@@ -136,6 +136,7 @@ async function* callAIGenerateStream(
         // include_usage supported by openai/openrouter; glm falls back to char estimate
         const supportsUsage = provider === 'openai' || provider === 'openrouter';
 
+        const supportsTemperature = model !== 'gpt-5-mini';
         const baseParams = {
             model: model,
             messages: [
@@ -143,7 +144,7 @@ async function* callAIGenerateStream(
                 { role: "user" as const, content: userPrompt }
             ],
             stream: true as const,
-            temperature: 0.3,
+            ...(supportsTemperature && { temperature: 0.3 }),
         };
 
         const stream = supportsUsage
