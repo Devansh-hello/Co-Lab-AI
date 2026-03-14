@@ -9,7 +9,7 @@ import bcrypt from "bcryptjs";
 import z from "zod";
 import * as http from "http";
 
-import { User, Project, Message, mongo } from "./db.js";
+import { User, Project, Message, ProjectSnapshot, mongo } from "./db.js";
 import { validate, authCheck, type AuthRequest } from "./middleware.js";
 import { setupWebSocket } from "./function.js";
 
@@ -174,6 +174,29 @@ app.get("/api/v1/project", authCheck, async (req: AuthRequest, res) => {
     const projects = await Project.find({ userId: userId });
 
     res.json(projects);
+});
+
+app.delete("/api/v1/project/:id", authCheck, async (req: AuthRequest, res) => {
+    try {
+        const projectId = req.params.id;
+        const userId = req.userId;
+
+        const project = await Project.findOne({ _id: projectId, userId });
+        if (!project) {
+            res.status(404).json({ message: "Project not found" });
+            return;
+        }
+
+        await Promise.all([
+            Message.deleteMany({ projectId }),
+            ProjectSnapshot.deleteMany({ projectId }),
+            Project.findByIdAndDelete(projectId)
+        ]);
+
+        res.status(200).json({ message: "Project deleted successfully" });
+    } catch {
+        res.status(500).json({ message: "Unable to delete project" });
+    }
 });
 
 app.post("/api/v1/message", authCheck, async (req: AuthRequest, res) => {

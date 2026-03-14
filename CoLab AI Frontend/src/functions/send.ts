@@ -107,6 +107,11 @@ export async function sendProject(name: string, description
 
     }
 }
+
+export async function deleteProject(id: string) {
+    return api.delete(`/project/${id}`)
+}
+
 export async function getPosts() {
     try {
         const response = await api.get("/project")
