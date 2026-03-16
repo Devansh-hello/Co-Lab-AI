@@ -32,7 +32,7 @@ export const StreamingMessage: React.FC<StreamingMessageProps> = ({
   }, [content, isStreaming, currentIndex, displayContent, onStreamComplete]);
 
   return (
-    <div className="font-mono text-sm">
+    <div className="font-mono text-base">
       {displayContent}
       {isStreaming && currentIndex < content.length && (
         <span className="animate-pulse">|</span>

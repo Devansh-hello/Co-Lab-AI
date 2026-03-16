@@ -1,13 +1,13 @@
-import React from 'react';
+import { type FC, type ComponentProps } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { RouterProvider, type Router } from 'react-router-dom';
+import { RouterProvider } from 'react-router-dom';
 import MainLoadingScreen from './MainLoadingScreen';
 
 interface AppWrapperProps {
-  router: Router;
+  router: ComponentProps<typeof RouterProvider>['router'];
 }
 
-const AppWrapper: React.FC<AppWrapperProps> = ({ router }) => {
+const AppWrapper: FC<AppWrapperProps> = ({ router }) => {
   const { isInitialized } = useAuth();
 
   if (!isInitialized) {

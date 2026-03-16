@@ -29,7 +29,7 @@ const router = createBrowserRouter([
 ]);
 
 const AppContent = () => {
-  const { canShowApp, isLoading } = useAuth();
+  const { canShowApp } = useAuth();
 
   return (
     <div className="relative min-h-screen">
@@ -44,7 +44,7 @@ const AppContent = () => {
       
       {/* Loading Screen */}
       {!canShowApp && (
-        <MainLoadingScreen isExiting={!isLoading && canShowApp} />
+        <MainLoadingScreen />
       )}
     </div>
   );
