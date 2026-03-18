@@ -5,16 +5,20 @@ import { IntegrationSection } from "../components/integration-section"
 
 export default function Home() {
   return (
-    <div className="flex flex-col min-h-screen bg-background bg-grainy p-6 gap-3.5 justify-center align-middle items-center">
-      <Header />
-      <main>
+    <div className="flex flex-col min-h-screen bg-background bg-grainy">
+      <div className="p-6">
+        <Header />
+      </div>
+      <main className="flex-1 w-full">
         <HeroSection />
         <FeaturesSection />
         <IntegrationSection />
       </main>
-      <footer className="border-t border-border py-8 px-6 bg-card/30">
+      <footer className="border-t border-border py-8 px-6 bg-card/30 w-full">
         <div className="container mx-auto text-center">
-          <p className="text-muted-foreground">© 2025 Co Lab AI. Building the future of collaborative AI systems.</p>
+          <p className="text-muted-foreground/60 text-sm">
+            © 2025 Co-Lab Minds. Distributed multi-agent architecture for production-ready full-stack development.
+          </p>
         </div>
       </footer>
     </div>
