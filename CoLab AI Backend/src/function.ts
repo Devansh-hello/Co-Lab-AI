@@ -462,6 +462,16 @@ Review the code against the task file and generate the setup documentation.`;
 
 // ─── WebSocket Server ───────────────────────────────────────────
 
+// Per-connection state for the interactive pipeline
+interface PipelineState {
+    projectId: string;
+    provider: string;
+    model: string;
+    taskFile: any;
+    messageDoc: any;
+    snapshot: any;
+}
+
 export function setupWebSocket(server: Server) {
     const wss = new WebSocketServer({ server, path: undefined });
 
@@ -487,145 +497,282 @@ export function setupWebSocket(server: Server) {
             return;
         }
 
-        // suppress unused variable warning while still enabling future per-message auth
         void wsUserId;
 
-        ws.on("message", async function message(data) {
-            let messageDoc: any = null;
+        // Pipeline state persists between messages for multi-step flow
+        let pipeline: PipelineState | null = null;
 
+        ws.on("message", async function message(data) {
             try {
                 const parsed = JSON.parse(data.toString());
-                const { message: userMessage, projectId, provider = 'openrouter', model = 'openai/gpt-oss-120b:free' } = parsed;
+                const msgType = parsed.type || 'message';
 
-                messageDoc = new Message({
-                    projectId: projectId,
-                    userMessage: userMessage,
-                    status: 'processing'
-                });
-                await messageDoc.save();
+                // ── Handle: User sends a new message ─────────────────
+                if (msgType === 'message') {
+                    const { message: userMessage, projectId, provider = 'openrouter', model = 'openai/gpt-oss-120b:free' } = parsed;
 
-                const conversationHistory = await Message.find({ projectId })
-                    .sort({ timestamp: -1 })
-                    .limit(5)
-                    .lean();
-
-                const snapshot = await ProjectSnapshot.findOne({ projectId }).lean();
-
-                // ── Stage 1: Orchestrator ────────────────────────────
-                ws.send(JSON.stringify({
-                    type: 'status',
-                    agent: 'Orchestrator Agent',
-                    message: 'Analyzing requirements and creating task breakdown...',
-                    provider: 'glm',
-                    model: 'GLM-4.7-FlashX'
-                }));
-
-                const taskFile = await OrchestratorAgent(userMessage, conversationHistory, snapshot, ws);
-
-                messageDoc.intent = taskFile.intent;
-                messageDoc.coordinatorResponse = { content: taskFile, timestamp: new Date() };
-                await messageDoc.save();
-
-                ws.send(JSON.stringify({
-                    type: 'orchestrator_complete',
-                    content: taskFile,
-                    intent: taskFile.intent
-                }));
-
-                // ── Stage 2: Code Agents (parallel) ─────────────────
-                let frontendResult: any = null;
-                let backendResult: any = null;
-
-                const hasFrontendTasks = taskFile.frontendTasks && taskFile.frontendTasks.length > 0;
-                const hasBackendTasks = taskFile.backendTasks && taskFile.backendTasks.length > 0;
-
-                const agentPromises: Promise<void>[] = [];
-
-                if (hasFrontendTasks) {
-                    ws.send(JSON.stringify({
-                        type: 'status',
-                        agent: 'Frontend Agent',
-                        message: 'Writing frontend code...',
-                        provider: 'openai',
-                        model: 'gpt-5-mini'
-                    }));
-
-                    agentPromises.push(
-                        FrontendCodeAgent(taskFile, snapshot?.frontendCode || null, ws).then(result => {
-                            frontendResult = result;
-                            messageDoc.frontendResponse = { content: result, timestamp: new Date() };
-                            ws.send(JSON.stringify({ type: 'frontend_complete', content: result }));
-                        })
-                    );
-                }
-
-                if (hasBackendTasks) {
-                    ws.send(JSON.stringify({
-                        type: 'status',
-                        agent: 'Backend Agent',
-                        message: 'Writing backend code...',
-                        provider: provider,
-                        model: model
-                    }));
-
-                    agentPromises.push(
-                        BackendCodeAgent(taskFile, snapshot?.backendCode || null, provider, model, ws).then(result => {
-                            backendResult = result;
-                            messageDoc.backendResponse = { content: result, timestamp: new Date() };
-                            ws.send(JSON.stringify({ type: 'backend_complete', content: result }));
-                        })
-                    );
-                }
-
-                await Promise.all(agentPromises);
-                await messageDoc.save();
-
-                // ── Stage 3: Review Agent ────────────────────────────
-                ws.send(JSON.stringify({
-                    type: 'status',
-                    agent: 'Review Agent',
-                    message: 'Reviewing code and generating setup guide...',
-                    provider: 'glm',
-                    model: 'GLM-4.7-FlashX'
-                }));
-
-                const reviewResult = await ReviewAgent(taskFile, frontendResult, backendResult, ws);
-
-                messageDoc.reviewResponse = { content: reviewResult, timestamp: new Date() };
-                await messageDoc.save();
-
-                ws.send(JSON.stringify({ type: 'review_complete', content: reviewResult }));
-
-                // ── Save Snapshot ────────────────────────────────────
-                await ProjectSnapshot.findOneAndUpdate(
-                    { projectId },
-                    {
+                    const messageDoc = new Message({
                         projectId,
-                        frontendCode: frontendResult || snapshot?.frontendCode || null,
-                        backendCode: backendResult || snapshot?.backendCode || null,
-                        taskFile: taskFile,
-                        updatedAt: new Date()
-                    },
-                    { upsert: true, new: true }
-                );
+                        userMessage,
+                        status: 'processing'
+                    });
+                    await messageDoc.save();
 
-                await Project.findByIdAndUpdate(projectId, { updatedAt: new Date() });
+                    const snapshot = await ProjectSnapshot.findOne({ projectId }).lean();
 
-                messageDoc.status = 'completed';
-                await messageDoc.save();
+                    // Send project_confirmation with parsed project info
+                    ws.send(JSON.stringify({
+                        type: 'status',
+                        agent: 'Orchestrator Agent',
+                        message: 'Analyzing your project requirements...',
+                        provider: 'glm',
+                        model: 'GLM-4.7-FlashX'
+                    }));
 
-                ws.send(JSON.stringify({
-                    type: 'all_complete',
-                    message: 'Project generation completed!',
-                    messageId: messageDoc._id
-                }));
+                    const conversationHistory = await Message.find({ projectId })
+                        .sort({ timestamp: -1 })
+                        .limit(5)
+                        .lean();
+
+                    const taskFile = await OrchestratorAgent(userMessage, conversationHistory, snapshot, ws);
+
+                    messageDoc.intent = taskFile.intent;
+                    messageDoc.coordinatorResponse = { content: taskFile, timestamp: new Date() };
+                    await messageDoc.save();
+
+                    // Store pipeline state for subsequent steps
+                    pipeline = { projectId, provider, model, taskFile, messageDoc, snapshot };
+
+                    // Send confirmation request to frontend
+                    ws.send(JSON.stringify({
+                        type: 'project_confirmation',
+                        projectInfo: {
+                            name: taskFile.projectMeta?.name || 'Generated Project',
+                            description: taskFile.projectMeta?.description || userMessage,
+                            intent: taskFile.intent || 'build',
+                            techStack: taskFile.techStack || null,
+                        }
+                    }));
+
+                    return;
+                }
+
+                // ── Handle: User confirms or rejects project ─────────
+                if (msgType === 'confirm') {
+                    if (!pipeline) {
+                        ws.send(JSON.stringify({ type: 'error', message: 'No pending project to confirm' }));
+                        return;
+                    }
+
+                    const { proceed, additionalInput } = parsed;
+
+                    if (!proceed) {
+                        pipeline.messageDoc.status = 'cancelled';
+                        await pipeline.messageDoc.save();
+                        ws.send(JSON.stringify({ type: 'cancelled', message: 'Project cancelled by user.' }));
+                        pipeline = null;
+                        return;
+                    }
+
+                    // If user provided additional input, re-run orchestrator with enriched prompt
+                    if (additionalInput && additionalInput.trim()) {
+                        const originalMessage = pipeline.messageDoc.userMessage;
+                        const enrichedMessage = `${originalMessage}\n\nADDITIONAL REQUIREMENTS FROM USER:\n${additionalInput.trim()}`;
+
+                        ws.send(JSON.stringify({
+                            type: 'status',
+                            agent: 'Orchestrator Agent',
+                            message: 'Re-analyzing with your additional requirements...',
+                            provider: 'glm',
+                            model: 'GLM-4.7-FlashX'
+                        }));
+
+                        const conversationHistory = await Message.find({ projectId: pipeline.projectId })
+                            .sort({ timestamp: -1 })
+                            .limit(5)
+                            .lean();
+
+                        const updatedTaskFile = await OrchestratorAgent(enrichedMessage, conversationHistory, pipeline.snapshot, ws);
+
+                        pipeline.taskFile = updatedTaskFile;
+                        pipeline.messageDoc.intent = updatedTaskFile.intent;
+                        pipeline.messageDoc.coordinatorResponse = { content: updatedTaskFile, timestamp: new Date() };
+                        await pipeline.messageDoc.save();
+                    }
+
+                    // Send orchestrator result and feature review
+                    ws.send(JSON.stringify({
+                        type: 'orchestrator_complete',
+                        content: pipeline.taskFile,
+                        intent: pipeline.taskFile.intent
+                    }));
+
+                    ws.send(JSON.stringify({
+                        type: 'feature_review',
+                        content: pipeline.taskFile
+                    }));
+
+                    return;
+                }
+
+                // ── Handle: User proceeds, stops, or clarifies after feature review ──
+                if (msgType === 'proceed') {
+                    if (!pipeline) {
+                        ws.send(JSON.stringify({ type: 'error', message: 'No pending pipeline to proceed' }));
+                        return;
+                    }
+
+                    const { proceed, clarification } = parsed;
+
+                    if (!proceed && !clarification) {
+                        pipeline.messageDoc.status = 'cancelled';
+                        await pipeline.messageDoc.save();
+                        ws.send(JSON.stringify({ type: 'cancelled', message: 'Generation stopped by user.' }));
+                        pipeline = null;
+                        return;
+                    }
+
+                    // User sent clarification — re-run orchestrator with feedback
+                    if (!proceed && clarification) {
+                        const originalMessage = pipeline.messageDoc.userMessage;
+                        const enrichedMessage = `${originalMessage}\n\nUSER FEEDBACK ON PLANNED FEATURES:\n${clarification.trim()}`;
+
+                        ws.send(JSON.stringify({
+                            type: 'status',
+                            agent: 'Orchestrator Agent',
+                            message: 'Re-planning based on your feedback...',
+                            provider: 'glm',
+                            model: 'GLM-4.7-FlashX'
+                        }));
+
+                        const conversationHistory = await Message.find({ projectId: pipeline.projectId })
+                            .sort({ timestamp: -1 })
+                            .limit(5)
+                            .lean();
+
+                        const updatedTaskFile = await OrchestratorAgent(enrichedMessage, conversationHistory, pipeline.snapshot, ws);
+
+                        pipeline.taskFile = updatedTaskFile;
+                        pipeline.messageDoc.intent = updatedTaskFile.intent;
+                        pipeline.messageDoc.coordinatorResponse = { content: updatedTaskFile, timestamp: new Date() };
+                        await pipeline.messageDoc.save();
+
+                        ws.send(JSON.stringify({
+                            type: 'orchestrator_complete',
+                            content: pipeline.taskFile,
+                            intent: pipeline.taskFile.intent
+                        }));
+
+                        // Send updated feature review
+                        ws.send(JSON.stringify({
+                            type: 'feature_review',
+                            content: pipeline.taskFile
+                        }));
+
+                        return;
+                    }
+
+                    // User proceeded — run code agents + review
+                    const { taskFile, messageDoc, snapshot, provider, model, projectId } = pipeline;
+
+                    // ── Stage 2: Code Agents (parallel) ─────────────────
+                    let frontendResult: any = null;
+                    let backendResult: any = null;
+
+                    const hasFrontendTasks = taskFile.frontendTasks && taskFile.frontendTasks.length > 0;
+                    const hasBackendTasks = taskFile.backendTasks && taskFile.backendTasks.length > 0;
+
+                    const agentPromises: Promise<void>[] = [];
+
+                    if (hasFrontendTasks) {
+                        ws.send(JSON.stringify({
+                            type: 'status',
+                            agent: 'Frontend Agent',
+                            message: 'Writing frontend code...',
+                            provider: 'openai',
+                            model: 'gpt-5-mini'
+                        }));
+
+                        agentPromises.push(
+                            FrontendCodeAgent(taskFile, snapshot?.frontendCode || null, ws).then(result => {
+                                frontendResult = result;
+                                messageDoc.frontendResponse = { content: result, timestamp: new Date() };
+                                ws.send(JSON.stringify({ type: 'frontend_complete', content: result }));
+                            })
+                        );
+                    }
+
+                    if (hasBackendTasks) {
+                        ws.send(JSON.stringify({
+                            type: 'status',
+                            agent: 'Backend Agent',
+                            message: 'Writing backend code...',
+                            provider: provider,
+                            model: model
+                        }));
+
+                        agentPromises.push(
+                            BackendCodeAgent(taskFile, snapshot?.backendCode || null, provider, model, ws).then(result => {
+                                backendResult = result;
+                                messageDoc.backendResponse = { content: result, timestamp: new Date() };
+                                ws.send(JSON.stringify({ type: 'backend_complete', content: result }));
+                            })
+                        );
+                    }
+
+                    await Promise.all(agentPromises);
+                    await messageDoc.save();
+
+                    // ── Stage 3: Review Agent ────────────────────────────
+                    ws.send(JSON.stringify({
+                        type: 'status',
+                        agent: 'Review Agent',
+                        message: 'Reviewing code and generating setup guide...',
+                        provider: 'glm',
+                        model: 'GLM-4.7-FlashX'
+                    }));
+
+                    const reviewResult = await ReviewAgent(taskFile, frontendResult, backendResult, ws);
+
+                    messageDoc.reviewResponse = { content: reviewResult, timestamp: new Date() };
+                    await messageDoc.save();
+
+                    ws.send(JSON.stringify({ type: 'review_complete', content: reviewResult }));
+
+                    // ── Save Snapshot ────────────────────────────────────
+                    await ProjectSnapshot.findOneAndUpdate(
+                        { projectId },
+                        {
+                            projectId,
+                            frontendCode: frontendResult || snapshot?.frontendCode || null,
+                            backendCode: backendResult || snapshot?.backendCode || null,
+                            taskFile: taskFile,
+                            updatedAt: new Date()
+                        },
+                        { upsert: true, new: true }
+                    );
+
+                    await Project.findByIdAndUpdate(projectId, { updatedAt: new Date() });
+
+                    messageDoc.status = 'completed';
+                    await messageDoc.save();
+
+                    ws.send(JSON.stringify({
+                        type: 'all_complete',
+                        message: 'Project generation completed!',
+                        messageId: messageDoc._id
+                    }));
+
+                    pipeline = null;
+                    return;
+                }
 
             } catch (error: any) {
                 console.error("Error:", error);
 
-                if (messageDoc) {
-                    messageDoc.status = 'error';
-                    await messageDoc.save();
+                if (pipeline?.messageDoc) {
+                    pipeline.messageDoc.status = 'error';
+                    await pipeline.messageDoc.save();
                 }
 
                 ws.send(JSON.stringify({
