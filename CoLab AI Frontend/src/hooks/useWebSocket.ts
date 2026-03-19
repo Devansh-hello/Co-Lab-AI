@@ -7,7 +7,7 @@ export interface Message {
   username: string;
   content: string;
   timestamp: Date;
-  type?: 'text' | 'orchestrator' | 'frontend' | 'backend' | 'review' | 'status' | 'error' | 'streaming';
+  type?: 'text' | 'orchestrator' | 'frontend' | 'backend' | 'review' | 'status' | 'error' | 'streaming' | 'confirmation' | 'feature_review';
   data?: any;
   intent?: 'build' | 'iterate' | 'debug';
   isStreaming?: boolean;
@@ -23,7 +23,6 @@ export interface TokenUsageState {
   frontend?: TokenUsage;
   backend?: TokenUsage;
   review?: TokenUsage;
-  // live character-based estimate for the active stream
   currentEstimate: number;
 }
 
@@ -33,6 +32,16 @@ export interface StreamingState {
   reviewStream: string;
   activeAgent: string | null;
 }
+
+export type FlowStage =
+  | 'idle'
+  | 'waiting_confirmation'
+  | 'confirmed'
+  | 'orchestrating'
+  | 'waiting_review'
+  | 'generating'
+  | 'reviewing'
+  | 'completed';
 
 export interface WebSocketState {
   isConnected: boolean;
@@ -44,6 +53,15 @@ export interface WebSocketState {
   error: string | null;
   streaming: StreamingState;
   tokenUsage: TokenUsageState;
+  flowStage: FlowStage;
+  completedAgents: string[];
+  currentIntent?: 'build' | 'iterate' | 'debug';
+  confirmationData?: {
+    name: string;
+    description: string;
+    techStack?: any;
+  };
+  featureReviewData?: any;
 }
 
 export const useWebSocket = (projectId: string) => {
@@ -63,11 +81,16 @@ export const useWebSocket = (projectId: string) => {
       reviewStream: '',
       activeAgent: null
     },
-    tokenUsage: { currentEstimate: 0 }
+    tokenUsage: { currentEstimate: 0 },
+    flowStage: 'idle',
+    completedAgents: [],
+    confirmationData: undefined,
+    featureReviewData: undefined,
   });
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const intentRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     const loadHistory = async () => {
@@ -105,7 +128,7 @@ export const useWebSocket = (projectId: string) => {
               id: `${msg._id}-orchestrator`,
               sender: 'agent',
               username: 'Orchestrator Agent',
-              content: `Task breakdown created for **${coord.projectMeta?.name || 'Project'}**\n\n**Features:** ${(coord.features || []).join(', ')}\n**Frontend Tasks:** ${(coord.frontendTasks || []).length}\n**Backend Tasks:** ${(coord.backendTasks || []).length}`,
+              content: `Plan ready for **${coord.projectMeta?.name || 'Project'}**`,
               timestamp: new Date(msg.coordinatorResponse.timestamp),
               type: 'orchestrator',
               data: coord,
@@ -205,6 +228,45 @@ export const useWebSocket = (projectId: string) => {
 
   const handleWebSocketMessage = useCallback((data: any) => {
     switch (data.type) {
+      // ── New interactive flow messages ──────────────────────
+      case 'project_confirmation':
+        setWsState(prev => ({
+          ...prev,
+          isGenerating: true,
+          flowStage: 'waiting_confirmation',
+          currentStatus: 'Awaiting your confirmation...',
+          currentAgent: undefined,
+          confirmationData: data.projectInfo,
+        }));
+        addMessage({
+          sender: 'agent',
+          username: 'System',
+          content: `I've analyzed your project requirements.`,
+          type: 'confirmation',
+          data: data.projectInfo,
+        });
+        break;
+
+      case 'feature_review':
+        setWsState(prev => ({
+          ...prev,
+          flowStage: 'waiting_review',
+          currentStatus: 'Review the planned features...',
+          currentAgent: undefined,
+          featureReviewData: data.content,
+          completedAgents: [...prev.completedAgents, 'Orchestrator Agent'],
+        }));
+        addMessage({
+          sender: 'agent',
+          username: 'Orchestrator Agent',
+          content: `Task breakdown created for **${data.content.projectMeta?.name || 'Project'}**`,
+          type: 'feature_review',
+          data: data.content,
+          intent: data.content.intent,
+        });
+        break;
+
+      // ── Existing messages ──────────────────────────────────
       case 'status':
         setWsState(prev => ({
           ...prev,
@@ -213,7 +275,10 @@ export const useWebSocket = (projectId: string) => {
           currentAgent: data.agent,
           currentProvider: data.provider,
           currentModel: data.model,
-          streaming: { ...prev.streaming, activeAgent: data.agent }
+          streaming: { ...prev.streaming, activeAgent: data.agent },
+          flowStage: data.agent === 'Orchestrator Agent' ? 'orchestrating'
+            : data.agent === 'Review Agent' ? 'reviewing'
+            : 'generating',
         }));
         break;
 
@@ -253,14 +318,17 @@ export const useWebSocket = (projectId: string) => {
       }
 
       case 'orchestrator_complete':
+        intentRef.current = data.intent || data.content?.intent;
         setWsState(prev => ({
           ...prev,
-          streaming: { ...prev.streaming, activeAgent: null }
+          streaming: { ...prev.streaming, activeAgent: null },
+          completedAgents: [...prev.completedAgents, 'Orchestrator Agent'],
+          currentIntent: intentRef.current as any,
         }));
         addMessage({
           sender: 'agent',
           username: 'Orchestrator Agent',
-          content: `Task breakdown created for **${data.content.projectMeta?.name || 'Project'}**\n\n**Features:** ${(data.content.features || []).join(', ')}\n**Frontend Tasks:** ${(data.content.frontendTasks || []).length}\n**Backend Tasks:** ${(data.content.backendTasks || []).length}`,
+          content: `Plan ready for **${data.content.projectMeta?.name || 'Project'}**`,
           type: 'orchestrator',
           data: data.content,
           intent: data.intent
@@ -272,16 +340,20 @@ export const useWebSocket = (projectId: string) => {
           ...prev,
           currentStatus: 'Preparing review...',
           currentAgent: undefined,
-          streaming: { ...prev.streaming, frontendStream: '', activeAgent: null }
+          streaming: { ...prev.streaming, frontendStream: '', activeAgent: null },
+          completedAgents: [...prev.completedAgents, 'Frontend Agent'],
         }));
-        const feCodeKeys = typeof data.content === 'object' ? Object.keys(data.content) : [];
-        addMessage({
-          sender: 'agent',
-          username: 'Frontend Agent',
-          content: `Frontend code generated\n\n**Files:** ${feCodeKeys.length > 0 ? feCodeKeys.join(', ') : 'Code generated'}`,
-          type: 'frontend',
-          data: data.content
-        });
+        {
+          const feCodeKeys = typeof data.content === 'object' ? Object.keys(data.content) : [];
+          addMessage({
+            sender: 'agent',
+            username: 'Frontend Agent',
+            content: `Frontend code generated\n\n**Files:** ${feCodeKeys.length > 0 ? feCodeKeys.join(', ') : 'Code generated'}`,
+            type: 'frontend',
+            data: data.content,
+            intent: intentRef.current as any
+          });
+        }
         break;
 
       case 'backend_complete':
@@ -289,22 +361,27 @@ export const useWebSocket = (projectId: string) => {
           ...prev,
           currentStatus: 'Preparing review...',
           currentAgent: undefined,
-          streaming: { ...prev.streaming, backendStream: '', activeAgent: null }
+          streaming: { ...prev.streaming, backendStream: '', activeAgent: null },
+          completedAgents: [...prev.completedAgents, 'Backend Agent'],
         }));
-        const beCodeKeys = typeof data.content === 'object' ? Object.keys(data.content) : [];
-        addMessage({
-          sender: 'agent',
-          username: 'Backend Agent',
-          content: `Backend code generated\n\n**Files:** ${beCodeKeys.length > 0 ? beCodeKeys.join(', ') : 'Code generated'}`,
-          type: 'backend',
-          data: data.content
-        });
+        {
+          const beCodeKeys = typeof data.content === 'object' ? Object.keys(data.content) : [];
+          addMessage({
+            sender: 'agent',
+            username: 'Backend Agent',
+            content: `Backend code generated\n\n**Files:** ${beCodeKeys.length > 0 ? beCodeKeys.join(', ') : 'Code generated'}`,
+            type: 'backend',
+            data: data.content,
+            intent: intentRef.current as any
+          });
+        }
         break;
 
       case 'review_complete':
         setWsState(prev => ({
           ...prev,
-          streaming: { ...prev.streaming, reviewStream: '', activeAgent: null }
+          streaming: { ...prev.streaming, reviewStream: '', activeAgent: null },
+          completedAgents: [...prev.completedAgents, 'Review Agent'],
         }));
         addMessage({
           sender: 'agent',
@@ -324,7 +401,10 @@ export const useWebSocket = (projectId: string) => {
           currentProvider: undefined,
           currentModel: undefined,
           streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null },
-          tokenUsage: { currentEstimate: 0 }
+          tokenUsage: { currentEstimate: 0 },
+          flowStage: 'completed',
+          confirmationData: undefined,
+          featureReviewData: undefined,
         }));
         addMessage({
           sender: 'agent',
@@ -344,12 +424,14 @@ export const useWebSocket = (projectId: string) => {
           currentProvider: undefined,
           currentModel: undefined,
           streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null },
-          tokenUsage: { currentEstimate: 0 }
+          tokenUsage: { currentEstimate: 0 },
+          flowStage: 'idle',
+          completedAgents: [],
         }));
         addMessage({
           sender: 'agent',
           username: 'System',
-          content: `❌ Error: ${data.message}`,
+          content: `Error: ${data.message}`,
           type: 'error'
         });
         break;
@@ -385,7 +467,8 @@ export const useWebSocket = (projectId: string) => {
           isGenerating: false,
           currentStatus: '',
           currentAgent: undefined,
-          streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null }
+          streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null },
+          flowStage: 'idle',
         }));
         reconnectTimeoutRef.current = setTimeout(connect, 3000);
       };
@@ -401,6 +484,7 @@ export const useWebSocket = (projectId: string) => {
     }
   }, [handleWebSocketMessage]);
 
+  // Send initial message
   const sendMessage = useCallback((message: string, provider: string, model: string) => {
     if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
       setWsState(prev => ({ ...prev, error: 'Not connected to server' }));
@@ -414,17 +498,100 @@ export const useWebSocket = (projectId: string) => {
 
     addMessage({ sender: 'user', username: 'You', content: message, type: 'text' });
 
-    ws.current.send(JSON.stringify({ message, projectId, provider, model }));
+    ws.current.send(JSON.stringify({ type: 'message', message, projectId, provider, model }));
 
     setWsState(prev => ({
       ...prev,
       isGenerating: true,
-      currentStatus: 'Processing your request...',
-      currentAgent: 'Orchestrator Agent',
+      currentStatus: 'Analyzing your project...',
+      currentAgent: undefined,
       error: null,
       streaming: { frontendStream: '', backendStream: '', reviewStream: '', activeAgent: null },
-      tokenUsage: { currentEstimate: 0 }
+      tokenUsage: { currentEstimate: 0 },
+      flowStage: 'idle',
+      completedAgents: [],
+      confirmationData: undefined,
+      featureReviewData: undefined,
     }));
+  }, [addMessage, projectId]);
+
+  // Send confirmation response (Yes/No)
+  const sendConfirmation = useCallback((proceed: boolean, additionalInput?: string) => {
+    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return;
+
+    ws.current.send(JSON.stringify({
+      type: 'confirm',
+      proceed,
+      additionalInput,
+      projectId,
+    }));
+
+    if (proceed) {
+      setWsState(prev => ({
+        ...prev,
+        flowStage: 'confirmed',
+        currentStatus: 'Starting orchestrator...',
+        currentAgent: 'Orchestrator Agent',
+      }));
+    } else {
+      setWsState(prev => ({
+        ...prev,
+        isGenerating: false,
+        flowStage: 'idle',
+        currentStatus: '',
+        currentAgent: undefined,
+        completedAgents: [],
+      }));
+      addMessage({
+        sender: 'agent',
+        username: 'System',
+        content: 'Generation stopped by user.',
+        type: 'text',
+      });
+    }
+  }, [addMessage, projectId]);
+
+  // Send proceed response after feature review
+  const sendProceed = useCallback((proceed: boolean, clarification?: string) => {
+    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return;
+
+    ws.current.send(JSON.stringify({
+      type: 'proceed',
+      proceed,
+      clarification,
+      projectId,
+    }));
+
+    if (proceed) {
+      setWsState(prev => ({
+        ...prev,
+        flowStage: 'generating',
+        currentStatus: 'Starting code generation...',
+      }));
+    } else if (clarification) {
+      setWsState(prev => ({
+        ...prev,
+        flowStage: 'orchestrating',
+        currentStatus: 'Re-analyzing with your feedback...',
+        currentAgent: 'Orchestrator Agent',
+        completedAgents: [],
+      }));
+    } else {
+      setWsState(prev => ({
+        ...prev,
+        isGenerating: false,
+        flowStage: 'idle',
+        currentStatus: '',
+        currentAgent: undefined,
+        completedAgents: [],
+      }));
+      addMessage({
+        sender: 'agent',
+        username: 'System',
+        content: 'Generation stopped by user.',
+        type: 'text',
+      });
+    }
   }, [addMessage, projectId]);
 
   useEffect(() => {
@@ -435,5 +602,15 @@ export const useWebSocket = (projectId: string) => {
     };
   }, [connect]);
 
-  return { messages, isLoading, wsState, sendMessage, connect, addMessage, updateMessage };
+  return {
+    messages,
+    isLoading,
+    wsState,
+    sendMessage,
+    sendConfirmation,
+    sendProceed,
+    connect,
+    addMessage,
+    updateMessage,
+  };
 };
