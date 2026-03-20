@@ -8,3 +8,5 @@
 - Implemented strict API contract generation via Orchestrator.
 ## Frontend
 - Standardized on Vite + React 19 + Tailwind CSS.
+## Auth
+- Utilizing JWTs and secure HttpOnly cookies for session management.
