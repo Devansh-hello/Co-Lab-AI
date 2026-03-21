@@ -10,3 +10,5 @@
 - Standardized on Vite + React 19 + Tailwind CSS.
 ## Auth
 - Utilizing JWTs and secure HttpOnly cookies for session management.
+## Performance
+- Focusing on reducing token overhead in agent communication loops.
