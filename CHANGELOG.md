@@ -12,3 +12,5 @@
 - Utilizing JWTs and secure HttpOnly cookies for session management.
 ## Performance
 - Focusing on reducing token overhead in agent communication loops.
+## WebSockets
+- Streaming active execution states directly to the React UI.
