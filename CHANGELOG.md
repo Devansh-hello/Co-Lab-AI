@@ -14,3 +14,5 @@
 - Focusing on reducing token overhead in agent communication loops.
 ## WebSockets
 - Streaming active execution states directly to the React UI.
+## Testing
+- Test Agent will generate independent test suites strictly from the Orchestrator API contract.
