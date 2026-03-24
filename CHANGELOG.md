@@ -16,3 +16,5 @@
 - Streaming active execution states directly to the React UI.
 ## Testing
 - Test Agent will generate independent test suites strictly from the Orchestrator API contract.
+## Security
+- Ensuring all generated code is sandboxed tightly within WebContainers isolated context.
