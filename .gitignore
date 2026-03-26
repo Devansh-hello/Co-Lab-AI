@@ -1,22 +1,39 @@
-# env files – never commit real secrets
-CoLab AI Backend/.env
-CoLab AI Frontend/.env
-
-# compiled output
-CoLab AI Backend/dist/
-CoLab AI Frontend/dist/
-dist/
-
-# dependencies
+# Dependencies
 node_modules/
-CoLab AI Backend/node_modules/
-CoLab AI Frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# OS / editor
-*.Zone.Identifier
-.DS_Store
+# Turborepo
+.turbo/
 
-# misc
-*.docx
-CoLab AI Backend/tsc_out.txt
+# Build output
+dist/
+dist-ssr/
+build/
+coverage/
+*.tsbuildinfo
+
+# Env files - DO NOT COMMIT SECRETS
 .env
+.env.*.local
+.env.local
+
+# Editor and OS
+.DS_Store
+*.Zone.Identifier
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+*.docx
+tsc_out.txt
+*.log
+Docs/

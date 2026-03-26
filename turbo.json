@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["NODE_ENV"],
+  "tasks": {
+    "build": {
+      "inputs": ["src/**", "package.json", "tsconfig.json", "vite.config.ts"],
+      "outputs": ["dist/**", "build/**", "public/**"],
+      "dependsOn": ["^build"]
+    },
+    "lint": {
+      "inputs": ["src/**", "package.json", "eslint.config.js"],
+      "dependsOn": ["^lint"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

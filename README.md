@@ -1,113 +1,81 @@
-# Co-Lab-AI
+# Co-Lab AI
 
-Co-Lab-AI is an intelligent, agentic coding assistant platform designed to accelerate software development. It leverages a multi-agent AI system to analyze requirements, coordinate tasks, and generate full-stack application (Frontend + Backend + Documentation) in real-time.
+**The Multi-Agent AI Platform That Builds Full-Stack Web Applications**
 
-## 🚀 Features
+Co-Lab AI is a research-driven, multi-agent AI coding platform that generates complete, working full-stack web applications. By utilizing a specialized team of AI agents, Co-Lab AI divides software development tasks—planning, frontend UI, backend API, review, and testing—into distinct expert roles, mimicking a real engineering team.
 
--   **Multi-Agent Architecture**:
-    -   **Coordinator Agent**: Orchestrates the development process, breaking down user requests into actionable technical plans.
-    -   **Frontend Agent**: Generates production-ready React code with modern styling.
-    -   **Backend Agent**: Creates robust Node.js/Express APIs and database schemas.
-    -   **Documentation Agent**: Automatically authors comprehensive documentation for generated projects.
--   **Real-time Streaming**: Utilizes WebSockets to stream AI responses and code generation updates instantly to the user.
--   **Project Management**: Organize work into "Projects" with dedicated chat contexts and specific requirements.
--   **Modern Tech Stack**: Built with the latest web technologies for performance and scalability.
+---
 
-## 🛠️ Technology Stack
+## 1. Overview
 
-### Frontend (`CoLab AI Frontend`)
--   **Framework**: [React 19](https://react.dev/)
--   **Build Tool**: [Vite 7](https://vitejs.dev/)
--   **Language**: TypeScript
--   **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
--   **Icons**: [Lucide React](https://lucide.dev/)
--   **HTTP Client**: Axios
--   **UI Components**: Radix UI primitives, framer-motion
+Unlike single-shot generalist chatbots (which output unvalidated code blobs), Co-Lab AI leverages a coordinated pipeline grounded in explicit API contracts and parallel generation. The system handles the entire software lifecycle:
+- **Understanding Agent:** Analyzes project requirements, flags ambiguity, and asks clarifying questions.
+- **Orchestrator Agent:** Plans the architecture, selects the optimal technology stack, and writes a formal API contract.
+- **Frontend Agent & Backend Agent:** Develop the user interface and server environment in parallel, ensuring cross-compatibility through the strict API contract.
+- **Review Agent:** Verifies feature completeness, endpoint compatibility, and platform security.
+- **Test Agent:** Generates independent test coverage against the initial specification to prevent implementation bias.
+- **Feedback & Fix Agent:** Retrieves automatic reports from the Quality Evaluator and selectively re-runs the necessary agents to fix breakage autonomously over multiple feedback loops.
 
-### Backend (`CoLab AI Backend`)
--   **Runtime**: [Node.js](https://nodejs.org/)
--   **Framework**: [Express](https://expressjs.com/)
--   **Language**: TypeScript
--   **Database**: [MongoDB](https://www.mongodb.com/) (ODM: Mongoose)
--   **Real-time**: [ws](https://www.npmjs.com/package/ws) (WebSocket)
--   **AI Integration**: OpenAI SDK (connected to OpenRouter / x-ai models)
--   **Validation**: Zod
+## 2. Key Features
 
-## 🏁 Getting Started
+- **Multi-Agent Pipeline:** 6 specialized autonomous agents handling distinct stages of software development.
+- **API Contract Specification:** Frontend and backend share a common contract, guaranteeing cross-layer robustness.
+- **Independent Test Generation:** Unit and integration tests evaluate the software against the architectural specification rather than the generated code.
+- **Automated Quality Grading:** Comprehensive evaluation derived from the analysis of completeness, security, API compatibility, code cleanliness, and test coverage (graded A-F).
+- **Human-in-the-Loop Checks:** The platform requires user review and approval of the architectural plan prior to resource-intensive code generation.
+- **In-Browser Execution Environment:** Embedded WebContainer allows zero-configuration live previews of your generated application directly within the browser interface.
+
+## 3. Technology Stack
+
+The platform's core applications are designed around a modern full-stack ecosystem:
+- **Frontend Workspace:** React 19, TypeScript, Tailwind CSS, Vite, Monaco Editor, WebContainer API.
+- **Backend Workspace:** Node.js, Express 5, TypeScript, Mongoose, WebSockets (`ws`).
+- **Data Persistence:** MongoDB Atlas for platform data, Turso/SQLite for dynamic project database provisioning.
+- **AI Infrastructure:** Modular abstraction layer supporting OpenAI, Anthropic, Google GenAI, OpenRouter, and GLM.
+
+## 4. Platform Architecture
+
+The project is structured as an NPM Workspaces monorepo orchestrated by Turborepo:
+- `apps/web/`: The React-based frontend client, interactive chat interface, and embedded terminal IDE.
+- `apps/api/`: The Express-based backend application handling authentication, REST endpoints, structured memory, and the real-time agent pipeline.
+
+### Communication Flow
+- **HTTP / REST:** Manages Authentication, Project CRUD, and Settings.
+- **WebSockets:** Underpins the real-time agent pipeline via token-by-token streaming, continuous status updates, and dynamic phase changes.
+- **WebContainers:** In-browser Node.js runtime executing the finalized code for local, safe evaluation securely bounded to the frontend.
+
+## 5. Built on Research
+
+The architectural decisions driving Co-Lab AI's specialized orchestration combine insights from multiple academic papers across tier-1 AI conferences (ICLR, NeurIPS, ACL, FSE). 
+
+Core methodologies feature:
+- **Structured Communication & Contracts:** (Inspired by MetaGPT & MAGIS) Utilizing publish-subscribe patterns and SOP-based execution where frontend and backend are constrained strictly by the Orchestrator's API contract.
+- **Independent Verifications:** (AgentCoder principles) Test suites are drafted against specifications rather than the LLM's initial output to prevent test hallucination bias. 
+- **Token Efficiency & Context Reduction:** (AgentDiet / AgentDropout patterns) Trajectory filtration selectively routes context data. The Feedback loop drops agents with zero issues to save computation overhead, isolating the prompt fix to specifically damaged components.
+- **Chain-of-Verification Outputs:** Agent outputs pass through validation checkpoints parsing JSON schema, with real-time automatic retries on invalid shapes without human intervention.
+
+## 6. Getting Started
 
 ### Prerequisites
--   **Node.js** (v20+ recommended)
--   **MongoDB** (Local instance or Atlas URI)
+- Node.js (v18+) and standard node package manager (`npm`).
+- Active API tokens for AI providers (e.g., OpenAI, Anthropic, Gemini) and Database URIs (MongoDB/Turso).
 
-### Installation
+### Installation & Launch
+1. Clone the repository to your local environment.
+2. Install dependencies mapping the monorepo packages from the project root:
+   ```bash
+   npm install
+   ```
+3. Establish your environment files using the respective root directories of each workspace:
+   - Provide database URIs and LLM provider tokens in `apps/api/.env`.
+   - Provide client-facing configuration keys in `apps/web/.env.local`.
+4. Start the development server using the Turborepo concurrent execution profile:
+   ```bash
+   npm run dev
+   ```
+   Both the Frontend interface and the Backend REST/WebSocket server will initialize simultaneously.
 
-1.  **Clone the repository**
-    ```bash
-    git clone <repository-url>
-    cd Co-Lab-AI
-    ```
+---
 
-2.  **Backend Setup**
-    ```bash
-    cd "CoLab AI Backend"
-    npm install
-    ```
-
-    Create a `.env` file in the backend directory (see [Environment Variables](#-environment-variables) below).
-
-    Start the backend server:
-    ```bash
-    npm run dev
-    ```
-    *The server runs on port 5000 (HTTP) and 8080 (WebSocket).*
-
-3.  **Frontend Setup**
-    Open a new terminal:
-    ```bash
-    cd "CoLab AI Frontend"
-    npm install
-    ```
-
-    Start the development server:
-    ```bash
-    npm run dev
-    ```
-    *Access the app at `http://localhost:5173`.*
-
-## 🔐 Environment Variables
-
-You must configure the backend environment variables for the application to function.
-
-Create a `.env` file in **`CoLab AI Backend/`**:
-
-```ini
-# Database Connection
-DATABASE_URL="mongodb://localhost:27017/colab"
-
-# AI Provider (OpenRouter / x-ai)
-OPENROUTER_API_KEY="your_openrouter_api_key_here"
-
-# JWT Secret (for Authentication)
-# Note: Currently hardcoded in index.ts for dev, but best practice is to move it here.
-JWT_SECRET="your_jwt_secret" 
-```
-
-## 🏗️ Project Structure
-
-```
-Co-Lab-AI/
-├── CoLab AI Backend/       # Express + WebSocket Server
-│   ├── src/
-│   │   ├── index.ts        # HTTP Server Entry & API Routes
-│   │   ├── function.ts     # AI Agent Logic (Coordinator, Frontend, Backend)
-│   │   ├── db.ts           # Database Connection & Models
-│   │   └── middleware.ts   # Auth & Validation Middleware
-│   └── dist/               # Compiled JS
-│
-└── CoLab AI Frontend/      # React + Vite Application
-    ├── src/
-    │   ├── components/     # UI Components
-    │   ├── pages/          # Route Pages
-    │   └── hooks/          # Custom React Hooks
-    └── package.json
-```
+## Development Status
+This project is continuously evolving. Expect frequent updates.
