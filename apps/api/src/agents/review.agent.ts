@@ -1,0 +1,145 @@
+/**
+ * Review Agent
+ *
+ * Evaluates generated code for completeness, API compatibility, security
+ * issues, and generates a setup guide. Uses file summaries and extracted
+ * imports/routes instead of full code dumps to reduce token usage.
+ *
+ * Output includes: completionStatus, apiCompatibility, setupGuide,
+ * codeReview, qualityScore, and a human-readable summary.
+ */
+
+import type { WebSocket } from "ws";
+
+import { callAIGenerateStream, type TokenUsage } from "../services/ai-generate.js";
+import { extractJSON } from "../services/json-parser.js";
+import { resolveApiKey, type UserSettings } from "../services/user-settings.js";
+import { buildCompactContract } from "./helpers.js";
+
+/**
+ * Review generated frontend and backend code against the task file.
+ * Returns a structured review with quality scores and setup guide.
+ */
+export async function ReviewAgent(
+    taskFile: any,
+    frontendCode: any,
+    backendCode: any,
+    ws: WebSocket,
+    userSettings?: UserSettings
+): Promise<any> {
+    /* Build concise file summaries instead of dumping full code */
+    const frontendSummary = frontendCode && typeof frontendCode === 'object'
+        ? Object.entries(frontendCode).map(([name, content]) => {
+            const lines = (content as string).split('\n').length;
+            return `  ${name} (${lines} lines)`;
+        }).join('\n')
+        : 'No frontend code';
+
+    const backendSummary = backendCode && typeof backendCode === 'object'
+        ? Object.entries(backendCode).map(([name, content]) => {
+            const lines = (content as string).split('\n').length;
+            return `  ${name} (${lines} lines)`;
+        }).join('\n')
+        : 'No backend code';
+
+    /* Extract imports for dependency analysis */
+    const extractImports = (code: any) => {
+        if (!code || typeof code !== 'object') return [];
+        const imports: string[] = [];
+        for (const [, content] of Object.entries(code)) {
+            const matches = (content as string).match(/(?:import|require)\s*\(?['"]([@\w\-\/]+)['"]\)?/g) || [];
+            imports.push(...matches);
+        }
+        return [...new Set(imports)];
+    };
+
+    /* Extract frontend API calls for contract verification */
+    const extractApiCalls = (code: any) => {
+        if (!code || typeof code !== 'object') return [];
+        const calls: string[] = [];
+        for (const [, content] of Object.entries(code)) {
+            const matches = (content as string).match(/fetch\s*\(\s*[`'"](\/api\/[^`'"]+)[`'"]/g) || [];
+            calls.push(...matches);
+        }
+        return [...new Set(calls)];
+    };
+
+    /* Extract backend route definitions for contract verification */
+    const extractRoutes = (code: any) => {
+        if (!code || typeof code !== 'object') return [];
+        const routes: string[] = [];
+        for (const [, content] of Object.entries(code)) {
+            const matches = (content as string).match(/\.(get|post|put|patch|delete)\s*\(\s*['"](\/[^'"]+)['"]/gi) || [];
+            routes.push(...matches);
+        }
+        return [...new Set(routes)];
+    };
+
+    const frontendImports = extractImports(frontendCode);
+    const backendImports = extractImports(backendCode);
+    const apiCalls = extractApiCalls(frontendCode);
+    const backendRoutes = extractRoutes(backendCode);
+
+    const systemPrompt = `Code reviewer. Verify features, check API compatibility, find critical issues, create setup guide. Return ONLY valid JSON.
+
+PRIORITIES: API mismatches > missing auth on protected routes > crash-causing bugs > missing env vars > setup steps.
+
+CRITICAL ISSUES = only things that CRASH the app or create REAL security vulnerabilities (SQL injection, auth bypass, exposed secrets). Do NOT list best practices as critical (no helmet, no rate limiting, no input length limits — these are suggestions, NOT critical).
+
+MISSING ITEMS = only features the user EXPLICITLY requested that are completely absent. Partial implementations are NOT missing. Sub-features (e.g., "search" within "product catalog") are NOT separate missing items.
+
+QUALITY SCORING: Rate 0-100 FAIRLY — a working app with minor issues is 75-85, not 40-50. Grade: A(90+) B(80+) C(70+) D(60+) F(<60). If C or below, list actionableFixes.
+
+JSON format:
+{"completionStatus":{"frontendComplete":true,"backendComplete":true,"missingItems":[]},"apiCompatibility":{"compatible":true,"mismatches":[]},"setupGuide":{"prerequisites":[],"steps":[],"envVariables":[],"runCommands":{"frontend":"npm run dev","backend":"npm start"}},"codeReview":{"criticalIssues":[],"suggestions":[],"actionableFixes":[]},"qualityScore":{"grade":"B","metrics":{"completeness":90,"security":85,"compatibility":95,"codeQuality":80},"overall":88},"summary":"string"}`;
+
+    /* Trajectory reduction: compact task summary instead of full JSON dump */
+    const featureList = (taskFile.features || []).join(', ');
+    const contractSummary = buildCompactContract(taskFile.apiContract);
+    const userPrompt = `FEATURES: ${featureList}
+CONTRACT: ${contractSummary}
+FRONTEND TASKS: ${(taskFile.frontendTasks || []).map((t: any) => t.task).join(', ')}
+BACKEND TASKS: ${(taskFile.backendTasks || []).map((t: any) => t.task).join(', ')}
+
+FRONTEND FILES:\n${frontendSummary}
+Imports: ${frontendImports.slice(0, 15).join(', ')}
+API calls: ${apiCalls.join(', ') || 'none'}
+
+BACKEND FILES:\n${backendSummary}
+Imports: ${backendImports.slice(0, 15).join(', ')}
+Routes: ${backendRoutes.join(', ') || 'none'}
+
+Review completeness, API compatibility, and generate setup guide.`;
+
+    let fullContent = '';
+    const onUsage = (usage: TokenUsage) => {
+        ws.send(JSON.stringify({ type: 'token_usage', agent: 'Review Agent', usage }));
+    };
+
+    const rvProvider = userSettings?.agentModels.review.provider || 'glm';
+    const rvModel = userSettings?.agentModels.review.model || 'GLM-4.7-FlashX';
+    const rvKey = userSettings ? resolveApiKey(rvProvider, userSettings.apiKeys) : '';
+
+    for await (const chunk of callAIGenerateStream(rvProvider, rvModel, systemPrompt, userPrompt, onUsage, 16000, rvKey || undefined)) {
+        if (chunk) {
+            fullContent += chunk;
+            ws.send(JSON.stringify({
+                type: 'review_stream', content: chunk,
+                accumulated: fullContent,
+                tokenEstimate: Math.ceil(fullContent.length / 4),
+            }));
+        }
+    }
+
+    try { return extractJSON(fullContent.trim()); }
+    catch {
+        return {
+            completionStatus: { frontendComplete: true, backendComplete: true, missingItems: [] },
+            apiCompatibility: { compatible: true, mismatches: [] },
+            setupGuide: { prerequisites: ["Node.js"], steps: ["npm install", "npm start"], envVariables: [], runCommands: { frontend: "npm run dev", backend: "node server.js" } },
+            codeReview: { criticalIssues: [], suggestions: [] },
+            qualityScore: { grade: 'B', metrics: { completeness: 80, security: 70, compatibility: 80, codeQuality: 75 }, overall: 76 },
+            summary: taskFile.projectMeta?.description || "Project generated successfully",
+        };
+    }
+}

@@ -1,0 +1,63 @@
+/**
+ * Plugin Routes
+ *
+ * Manages user plugin integrations (Supabase, GitHub, Firebase, etc.).
+ * Each plugin can be enabled/disabled with optional credentials.
+ *
+ * Routes:
+ *   GET    /api/v1/plugins             - List all plugin states for the user
+ *   PUT    /api/v1/plugins/:pluginId   - Enable/disable a plugin + save credentials
+ *   DELETE /api/v1/plugins/:pluginId   - Reset a plugin (delete config)
+ */
+
+import { Router } from "express";
+
+import { UserPlugin } from "../models/index.js";
+import { authCheck, type AuthRequest } from "../middleware/index.js";
+
+export const pluginRouter = Router();
+
+// ─── List Plugins ───────────────────────────────────────────────
+
+pluginRouter.get("/api/v1/plugins", authCheck, async (req: AuthRequest, res) => {
+    try {
+        const plugins = await UserPlugin.find({ userId: req.userId }).lean();
+        res.json({ plugins });
+    } catch {
+        res.status(500).json({ message: "Failed to fetch plugins" });
+    }
+});
+
+// ─── Enable/Disable Plugin ──────────────────────────────────────
+
+pluginRouter.put("/api/v1/plugins/:pluginId", authCheck, async (req: AuthRequest, res) => {
+    try {
+        const { pluginId } = req.params;
+        const { enabled, credentials } = req.body;
+
+        const update: Record<string, unknown> = { enabled: !!enabled };
+        if (enabled) update.enabledAt = new Date();
+        if (credentials && typeof credentials === 'object') update.credentials = credentials;
+
+        const plugin = await UserPlugin.findOneAndUpdate(
+            { userId: req.userId, pluginId },
+            { $set: update, $setOnInsert: { userId: req.userId, pluginId } },
+            { upsert: true, new: true }
+        );
+
+        res.json({ plugin });
+    } catch {
+        res.status(500).json({ message: "Failed to update plugin" });
+    }
+});
+
+// ─── Reset Plugin ───────────────────────────────────────────────
+
+pluginRouter.delete("/api/v1/plugins/:pluginId", authCheck, async (req: AuthRequest, res) => {
+    try {
+        await UserPlugin.deleteOne({ userId: req.userId, pluginId: req.params.pluginId });
+        res.json({ message: "Plugin reset" });
+    } catch {
+        res.status(500).json({ message: "Failed to reset plugin" });
+    }
+});

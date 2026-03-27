@@ -1,12 +1,12 @@
 {
-  "name": "CoLab AI",
+  "name": "@colab/api",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "build": "tsc -b",
     "start": "node dist/index.js",
-    "dev": "npm run build && npm run start"
+    "dev": "npm run build && node --watch dist/index.js"
   },
   "keywords": [],
   "author": "",
@@ -23,9 +23,12 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.3.2",
+    "google-auth-library": "^10.6.2",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.0",
     "openai": "^5.22.0",
+    "tslib": "^2.8.1",
     "ws": "^8.18.3",
     "zod": "^3.25.76"
   },
