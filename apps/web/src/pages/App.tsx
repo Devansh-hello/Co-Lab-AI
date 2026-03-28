@@ -1,0 +1,937 @@
+import { useMemo, useState, useRef, useEffect } from "react"
+import { useParams, useSearchParams, Navigate } from "react-router-dom"
+import { MessageBox } from "../components/messageBox"
+import { MessageCard, StreamingDropdown, type BubbleGroupPos } from "../components/messageCard"
+import { IDEModal } from "../components/IDEModal"
+import { Sidebar } from "../components/sidebar"
+import { UnderstandingCard } from "../components/UnderstandingCard"
+import { ClarifyingQuestion } from "../components/ClarifyingQuestion"
+import { FeatureReviewCard } from "../components/FeatureReviewCard"
+import { EnvSetupCard, EnvButton } from "../components/EnvSetupCard"
+import { Collapse } from "../components/Collapse"
+import { BGPattern } from "../components/ui/bg-pattern"
+import { useWebSocket } from "../hooks/useWebSocket"
+import { TestResultsCard } from "../components/TestResultsCard"
+import { QualityScoreCard } from "../components/QualityScoreCard"
+import MainLoadingScreen from "../components/MainLoadingScreen"
+import {
+  WifiOff,
+  Sparkles,
+  Zap,
+  Code2,
+  RotateCcw,
+  CheckCircle2,
+  Circle,
+  ChevronRight,
+  Check,
+  Menu,
+  Shield,
+} from "lucide-react"
+
+// ── Agent status config ──────────────────────────────────────
+
+const AGENT_STATUS: Record<string, { color: string; label: string }> = {
+  "Orchestrator Agent": { color: "#D4AF37", label: "Orchestrator" },
+  "Frontend Agent":     { color: "#10b981", label: "Frontend" },
+  "Backend Agent":      { color: "#3b82f6", label: "Backend" },
+  "Review Agent":       { color: "#a855f7", label: "Review" },
+  "Test Agent":         { color: "#f59e0b", label: "Test" },
+}
+
+const PIPELINE_ORDER = ["Orchestrator Agent", "Frontend Agent", "Backend Agent", "Review Agent", "Test Agent"]
+
+// ── Pipeline Status Bar ──────────────────────────────────────
+
+function PipelineStatusBar({ currentAgent, completedAgents, currentStatus, tokenCount }: {
+  currentAgent?: string
+  completedAgents: string[]
+  currentStatus: string
+  tokenCount: number
+}) {
+  const barRef = useRef<HTMLDivElement>(null)
+  const prevAgentCount = useRef(0)
+
+  // Animate new completions
+  useEffect(() => {
+    if (!barRef.current) return
+    const count = completedAgents.length
+    if (count > prevAgentCount.current) {
+      // Flash the newly completed badge
+      const badges = barRef.current.querySelectorAll(".pipe-badge")
+      const newBadge = badges[count - 1]
+      if (newBadge) {
+        import("animejs").then(({ animate: anim }) => {
+          anim(newBadge, {
+            scale: [1.15, 1],
+            duration: 400,
+            ease: "outBack(2)",
+          })
+        })
+      }
+      // Animate the connecting line
+      const lines = barRef.current.querySelectorAll(".pipe-line")
+      const newLine = lines[count - 1]
+      if (newLine) {
+        import("animejs").then(({ animate: anim }) => {
+          anim(newLine, {
+            scaleX: [0, 1],
+            opacity: [0, 0.15],
+            duration: 500,
+            ease: "outQuart",
+          })
+        })
+      }
+    }
+    prevAgentCount.current = count
+  }, [completedAgents.length])
+
+  return (
+    <div ref={barRef} className="flex items-center gap-2 w-full max-w-3xl px-1 animate-spring-in overflow-x-auto">
+      <div className="flex items-center gap-1 flex-1 min-w-0">
+        {PIPELINE_ORDER.map((agent, i) => {
+          const cfg = AGENT_STATUS[agent]
+          const isActive = currentAgent === agent
+          const isCompleted = completedAgents.includes(agent)
+          const isIdle = !isActive && !isCompleted
+
+          return (
+            <div key={agent} className="flex items-center">
+              <div
+                className={`pipe-badge flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all whitespace-nowrap tracking-[-0.02em]
+                  ${isActive
+                    ? "bg-[#111] border border-[#2a2a2a]"
+                    : isCompleted
+                      ? "bg-[#0a0a0a] border border-[#1c1c1c]"
+                      : "opacity-25"
+                  }`}
+                style={isActive ? { boxShadow: `0 0 12px ${cfg.color}15` } : undefined}
+              >
+                {isActive ? (
+                  <div className="w-2 h-2 rounded-full flex-shrink-0 animate-agent-pulse" style={{ backgroundColor: cfg.color }} />
+                ) : isCompleted ? (
+                  <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: cfg.color }} />
+                ) : (
+                  <Circle className="w-2 h-2 flex-shrink-0 text-white/15" />
+                )}
+                <span style={{ color: isIdle ? undefined : cfg.color }} className={isIdle ? "text-white/20" : ""}>
+                  {cfg.label}
+                </span>
+              </div>
+              {i < PIPELINE_ORDER.length - 1 && (
+                <div
+                  className={`pipe-line w-4 h-px mx-0.5 origin-left ${isCompleted ? "bg-white/10" : "bg-white/[0.04]"}`}
+                  style={isCompleted ? { boxShadow: `0 0 4px ${cfg.color}20` } : undefined}
+                />
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {currentStatus && (
+          <span className="text-[10px] text-white/20 truncate max-w-[140px] font-medium">{currentStatus}</span>
+        )}
+        {tokenCount > 0 && (
+          <div className="flex items-center gap-1 text-[10px] text-white/15 font-mono">
+            <Zap className="w-2.5 h-2.5 text-white/25" />
+            ~{tokenCount.toLocaleString()}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Feedback Loop Card (anime.js powered) ───────────────────
+
+function FeedbackCard({ iteration, issues }: { iteration: number; issues: string[] }) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const orbitRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!cardRef.current) return
+    import("animejs").then(({ animate: anim, stagger: stag }) => {
+      // Card entrance
+      anim(cardRef.current!, {
+        opacity: [0, 1],
+        translateY: [12, 0],
+        scale: [0.97, 1],
+        duration: 500,
+        ease: "outExpo",
+      })
+      // Stagger issues
+      const items = cardRef.current!.querySelectorAll(".fb-issue")
+      if (items.length > 0) {
+        anim(items, {
+          opacity: [0, 1],
+          translateX: [-6, 0],
+          duration: 350,
+          delay: stag(80, { start: 200 }),
+          ease: "outQuart",
+        })
+      }
+      // Orbit spin
+      if (orbitRef.current) {
+        anim(orbitRef.current, {
+          rotate: [0, 360],
+          duration: 4000,
+          loop: true,
+          ease: "linear",
+        })
+      }
+    })
+  }, [])
+
+  return (
+    <div ref={cardRef} className="max-w-lg" style={{ opacity: 0 }}>
+      <div className="flex items-start gap-3 px-4 py-3.5 rounded-2xl bg-amber-500/[0.03] border border-amber-500/10 relative overflow-hidden">
+        {/* Ambient glow */}
+        <div className="absolute -bottom-6 -right-6 w-24 h-24 rounded-full blur-2xl pointer-events-none" style={{ background: "radial-gradient(circle, rgba(245,158,11,0.08), transparent)" }} />
+
+        {/* Orbiting indicator */}
+        <div className="relative w-8 h-8 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <div ref={orbitRef} className="absolute inset-0">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-amber-400/60" style={{ boxShadow: "0 0 6px rgba(245,158,11,0.4)" }} />
+          </div>
+          <RotateCcw className="w-3.5 h-3.5 text-amber-400/50" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] text-amber-300/80 font-semibold tracking-[-0.02em]">
+            Feedback Loop
+            <span className="ml-1.5 text-[10px] font-mono text-amber-400/40 bg-amber-500/[0.08] px-1.5 py-0.5 rounded">
+              #{iteration}
+            </span>
+          </p>
+          {issues.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {issues.slice(0, 3).map((issue: string, i: number) => (
+                <li key={i} className="fb-issue text-[11px] text-white/28 leading-relaxed flex items-start gap-1.5" style={{ opacity: 0 }}>
+                  <span className="text-amber-400/30 mt-px font-mono text-[9px]">{i + 1}</span>
+                  <span className="line-clamp-2">{issue}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Main App ─────────────────────────────────────────────────
+
+function App() {
+  const { projectId } = useParams<{ projectId: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const safeProjectId = projectId || ""
+  const {
+    messages,
+    isLoading,
+    wsState,
+    sendMessage,
+    sendUnderstandingResponse,
+    sendQAComplete,
+    sendProceed,
+    addMessage,
+  } = useWebSocket(safeProjectId)
+
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const autoStarted = useRef(false)
+
+  // ── Q&A local state ──────────────────────────────────────
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const [qaAnswers, setQaAnswers] = useState<Array<{ questionId: string; answer: string }>>([])
+  const [qaCollapsed, setQaCollapsed] = useState(false)
+  const [firstQuestionAdded, setFirstQuestionAdded] = useState(false)
+  const [understandingExpanded, setUnderstandingExpanded] = useState(false)
+  const [planExpanded, setPlanExpanded] = useState(false)
+  const [qaSummaryExpanded, setQaSummaryExpanded] = useState(false)
+
+  const questions = wsState.understandingData?.questions || []
+  const isInQAPhase = wsState.flowStage === 'qa'
+
+  // Add the first question when entering Q&A phase
+  useEffect(() => {
+    if (isInQAPhase && questions.length > 0 && !firstQuestionAdded) {
+      setFirstQuestionAdded(true)
+      addMessage({
+        sender: 'agent',
+        username: 'System',
+        content: questions[0].question,
+        type: 'qa_question',
+        data: questions[0],
+      })
+    }
+  }, [isInQAPhase, questions, firstQuestionAdded, addMessage])
+
+  function handleQuestionAnswer(answer: string) {
+    const q = questions[currentQuestionIndex]
+    if (!q) return
+
+    const newAnswers = [...qaAnswers, { questionId: q.id, answer }]
+    setQaAnswers(newAnswers)
+
+    // Add answer as user message
+    addMessage({ sender: 'user', username: 'You', content: answer, type: 'qa_answer' })
+
+    if (currentQuestionIndex + 1 < questions.length) {
+      const nextQ = questions[currentQuestionIndex + 1]
+      setCurrentQuestionIndex(prev => prev + 1)
+      // Add next question
+      setTimeout(() => {
+        addMessage({
+          sender: 'agent',
+          username: 'System',
+          content: nextQ.question,
+          type: 'qa_question',
+          data: nextQ,
+        })
+      }, 300)
+    } else {
+      // All questions answered
+      setQaCollapsed(true)
+      sendQAComplete(newAnswers)
+    }
+  }
+
+  // Auto-send project description on first visit after creation
+  useEffect(() => {
+    if (autoStarted.current) return
+    if (!searchParams.get("autostart")) return
+    if (isLoading || !wsState.isConnected) return
+    if (messages.length > 0) return
+
+    autoStarted.current = true
+    setSearchParams({}, { replace: true })
+
+    const desc = sessionStorage.getItem(`autostart_${projectId}`)
+    sessionStorage.removeItem(`autostart_${projectId}`)
+    if (desc) {
+      sendMessage(desc)
+    }
+  }, [searchParams, setSearchParams, isLoading, wsState.isConnected, messages.length, projectId, sendMessage])
+
+  // Auto-scroll on new messages (not on status changes during parallel generation)
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [messages])
+
+  // Latest frontend files for IDE
+  const latestFrontendFiles = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.type === "frontend" && m.data && typeof m.data === "object") {
+        const files = Object.entries(m.data).filter(([, v]) => typeof v === "string") as [string, string][]
+        if (files.length > 0) return files
+      }
+    }
+    return null
+  }, [messages])
+
+  // Latest backend files for IDE
+  const latestBackendFiles = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.type === "backend" && m.data && typeof m.data === "object") {
+        const files = Object.entries(m.data).filter(([, v]) => typeof v === "string") as [string, string][]
+        if (files.length > 0) return files
+      }
+    }
+    return null
+  }, [messages])
+
+  // Latest env variables from review
+  const latestEnvVars = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m.type === "env_setup" && m.data?.envVariables) return m.data.envVariables as string[]
+    }
+    return null
+  }, [messages])
+
+  const [, setEnvValues] = useState<Record<string, string>>({})
+  const [showEnvModal, setShowEnvModal] = useState(false)
+
+  // Retry logic — determine what failed and retry from that point
+  const retryInfo = useMemo(() => {
+    if (wsState.isGenerating || messages.length === 0) return null
+
+    // Check if last message is an error
+    const lastMsg = messages[messages.length - 1]
+    if (lastMsg?.type !== 'error') return null
+
+    // Check if we had a final_plan — means build phase failed
+    const hasPlan = messages.some(m => m.type === 'final_plan')
+    if (hasPlan) {
+      return { type: 'proceed' as const, label: 'Retry build' }
+    }
+
+    // Otherwise retry from the beginning
+    const userMsg = messages.find(m => m.sender === 'user' && m.type === 'text')
+    if (userMsg) {
+      return { type: 'message' as const, label: 'Retry', content: userMsg.content }
+    }
+
+    return null
+  }, [messages, wsState.isGenerating])
+
+  const handleRetry = () => {
+    if (!retryInfo) return
+    if (retryInfo.type === 'proceed') {
+      sendProceed(true)
+    } else if (retryInfo.content) {
+      sendMessage(retryInfo.content)
+    }
+  }
+
+  if (!projectId) {
+    return <Navigate to="/projects" replace />
+  }
+
+  if (isLoading) {
+    return <MainLoadingScreen label="Loading project" />
+  }
+
+  const completedTokens =
+    (wsState.tokenUsage.frontend?.totalTokens ?? 0) +
+    (wsState.tokenUsage.backend?.totalTokens ?? 0) +
+    (wsState.tokenUsage.review?.totalTokens ?? 0) +
+    (wsState.tokenUsage.test?.totalTokens ?? 0)
+  const totalTokensDisplay = completedTokens + (wsState.tokenUsage.currentEstimate ?? 0)
+
+  const showPipeline = wsState.isGenerating && (wsState.currentAgent || wsState.completedAgents.length > 0)
+    && wsState.flowStage !== 'understanding' && wsState.flowStage !== 'waiting_understanding' && wsState.flowStage !== 'qa'
+
+  // Count Q&A messages for collapse
+  const qaQuestionCount = messages.filter(m => m.type === 'qa_question').length
+
+  // Check if understanding was already responded to (from history)
+  const understandingCompleted = messages.some(m =>
+    m.type === 'final_plan' || m.type === 'qa_summary' || m.type === 'qa_question'
+  )
+
+  return (
+    <>
+      {/* Env modal overlay */}
+      {showEnvModal && latestEnvVars && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center animate-overlay-in"
+          style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowEnvModal(false) }}
+        >
+          <div className="animate-popover-in max-w-2xl w-full mx-4">
+            <EnvSetupCard
+              envVariables={latestEnvVars}
+              onSave={(vals) => { setEnvValues(vals); setShowEnvModal(false) }}
+            />
+          </div>
+        </div>
+      )}
+
+      {previewOpen && latestFrontendFiles && (
+        <IDEModal
+          files={latestFrontendFiles}
+          backendFiles={latestBackendFiles || undefined}
+          title={latestBackendFiles ? "Full-Stack IDE" : "Frontend IDE"}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
+
+      <div className="flex flex-row h-screen w-screen bg-background overflow-hidden">
+        {/* Desktop sidebar */}
+        <div className="hidden md:block">
+          <Sidebar />
+        </div>
+
+        {/* Mobile sidebar overlay */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-black/60 animate-overlay-in" onClick={() => setSidebarOpen(false)} />
+            <div className="relative z-10 h-full w-[280px] animate-slide-in-left">
+              <Sidebar />
+            </div>
+          </div>
+        )}
+
+        {/* ── Main Chat Area ───────────────────────────────── */}
+        <div className="flex flex-col h-full flex-1 overflow-hidden min-w-0">
+
+          {/* Top bar */}
+          <div className="flex items-center justify-between px-4 md:px-6 py-1.5 border-b border-white/[0.05] flex-shrink-0 bg-[#050505]">
+            <div className="flex items-center gap-3">
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="md:hidden p-1.5 rounded-lg text-white/25 hover:text-white/50 hover:bg-white/[0.04] transition-colors"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              {!wsState.isConnected && (
+                <div className="flex items-center gap-2 text-amber-400/70 text-[12px] font-mono font-medium">
+                  <WifiOff className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{wsState.error || "Reconnecting..."}</span>
+                </div>
+              )}
+              {wsState.complexityScore !== undefined && wsState.isGenerating && (
+                <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-mono font-semibold tracking-wide uppercase ${
+                  wsState.complexityScore <= 2
+                    ? 'bg-[#D4AF37]/[0.04] border-[#D4AF37]/10 text-[#D4AF37]/50'
+                    : wsState.complexityScore <= 3
+                    ? 'bg-[#D4AF37]/[0.06] border-[#D4AF37]/15 text-[#D4AF37]/60'
+                    : 'bg-[#D4AF37]/[0.08] border-[#D4AF37]/20 text-[#D4AF37]/70'
+                }`}>
+                  <Shield className="w-3 h-3" />
+                  <span>Complexity {wsState.complexityScore}/5</span>
+                </div>
+              )}
+              {wsState.isGenerating && totalTokensDisplay > 0 && (
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.02] border border-white/[0.06] text-white/35 text-[10px] font-mono">
+                  <Zap className="w-3 h-3 text-[#D4AF37]/30" />
+                  <span>~{totalTokensDisplay.toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {latestEnvVars && (
+                <EnvButton envVariables={latestEnvVars} onClick={() => setShowEnvModal(e => !e)} />
+              )}
+              <button
+                onClick={() => latestFrontendFiles && setPreviewOpen(true)}
+                disabled={!latestFrontendFiles}
+                title={latestFrontendFiles ? "Open IDE" : "Generate a project first"}
+                className={`flex items-center gap-2 px-3 py-1 rounded-lg text-[13px] font-semibold border transition-all tracking-[-0.02em] ${
+                  latestFrontendFiles
+                    ? "text-white/90 bg-[#D4AF37]/[0.08] hover:bg-[#D4AF37]/[0.12] border-[#D4AF37]/20 hover:border-[#D4AF37]/35 shadow-[0_0_12px_rgba(212,175,55,0.06)]"
+                    : "text-white/10 bg-transparent border-white/[0.06] cursor-not-allowed"
+                }`}
+              >
+                <Code2 className={`w-4 h-4 ${latestFrontendFiles ? "text-[#D4AF37]/70" : ""}`} />
+                <span className="hidden sm:inline">IDE</span>
+              </button>
+            </div>
+          </div>
+
+          {/* ── Chat Column ────────────────────────────────── */}
+          <div className="relative flex flex-col flex-1 overflow-hidden min-w-0">
+            <BGPattern mask="fade-edges" size={28} fill="#1a1a1a" />
+
+            {/* Messages */}
+            <div
+              ref={scrollRef}
+              className="relative z-[1] flex flex-col overflow-y-auto overflow-x-hidden gap-4 md:gap-5 flex-1 px-3 md:px-8 py-4 md:py-6 pb-8 md:pb-10 chat-scroll"
+            >
+              {messages.length === 0 && !wsState.isGenerating ? (
+                /* ── Welcome state ──────────────────── */
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="flex flex-col items-center text-center max-w-lg px-6 md:p-10 animate-spring-in">
+                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-[#D4AF37]/[0.04] border border-[#D4AF37]/10 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(212,175,55,0.04)]">
+                      <Sparkles className="w-6 h-6 md:w-7 md:h-7 text-[#D4AF37]/40" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-[0.15em] text-[#D4AF37]/35 mb-3">
+                      Build something
+                    </span>
+                    <h3 className="text-xl md:text-2xl font-display italic text-white/85 mb-3 tracking-[-0.03em]">
+                      What do you want to create?
+                    </h3>
+                    <p className="text-[13px] md:text-[14px] text-white/40 mb-8 leading-relaxed max-w-sm font-medium">
+                      Describe your idea and AI agents will understand, plan, and generate complete code.
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {["Todo app with auth", "E-commerce dashboard", "Chat application"].map((hint) => (
+                        <button
+                          key={hint}
+                          onClick={() => sendMessage(hint)}
+                          className="px-3.5 py-2 rounded-xl text-[13px] font-medium text-white/35 bg-white/[0.02] border border-white/[0.06] hover:border-[#D4AF37]/25 hover:text-[#D4AF37]/70 hover:bg-[#D4AF37]/[0.03] transition-all"
+                        >
+                          {hint}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {(() => {
+                    let qaBlockRendered = false
+
+                    return messages.map((message) => {
+                      // ── Understanding card ──────────────
+                      if (message.type === 'understanding' && message.data) {
+                        if (understandingCompleted) {
+                          return (
+                            <div key={message.id} className="animate-spring-in flex gap-3">
+                              <div className="flex flex-col items-center flex-shrink-0">
+                                <Check className="w-4 h-4 text-[#D4AF37]/50" />
+                                <div className="w-px flex-1 bg-white/[0.06]" />
+                              </div>
+                              <div className="flex-1 min-w-0 -mt-0.5">
+                                <button
+                                  onClick={() => setUnderstandingExpanded(e => !e)}
+                                  className="flex items-center gap-1 hover:opacity-80 transition-opacity text-sm text-white/45"
+                                >
+                                  Project understood
+                                  <ChevronRight className={`w-3 h-3 chevron-rotate ${understandingExpanded ? "open" : ""}`} />
+                                </button>
+                                <Collapse open={understandingExpanded}>
+                                  <div className="mt-2 mb-2">
+                                    <p className="text-sm text-white/50 leading-relaxed">{message.data.summary}</p>
+                                  </div>
+                                </Collapse>
+                              </div>
+                            </div>
+                          )
+                        }
+                        return (
+                          <UnderstandingCard
+                            key={message.id}
+                            summary={message.data.summary}
+                            projectName={message.data.projectName}
+                            hasQuestions={(message.data.questions?.length ?? 0) > 0}
+                            onConfirm={() => sendUnderstandingResponse(true)}
+                            onReject={() => sendUnderstandingResponse(false)}
+                          />
+                        )
+                      }
+
+                      // ── Q&A messages (collapsible) ──────
+                      if (message.type === 'qa_question' || message.type === 'qa_answer') {
+                        if (qaCollapsed) {
+                          if (!qaBlockRendered) {
+                            qaBlockRendered = true
+                            return (
+                              <button
+                                key="qa-collapsed"
+                                onClick={() => setQaCollapsed(false)}
+                                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                              >
+                                <Check className="w-4 h-4 text-[#D4AF37]/50 flex-shrink-0" />
+                                <span className="text-sm text-white/45 flex items-center gap-1">
+                                  {qaQuestionCount} {qaQuestionCount === 1 ? 'question' : 'questions'} answered
+                                  <ChevronRight className="w-3 h-3 chevron-rotate" />
+                                </span>
+                              </button>
+                            )
+                          }
+                          return null
+                        }
+
+
+                        // Expanded Q&A
+                        if (message.type === 'qa_question' && message.data) {
+                          const qIdx = questions.findIndex(q => q.id === message.data.id)
+                          const isCurrentQuestion = qIdx === currentQuestionIndex && isInQAPhase
+                          const answeredValue = qaAnswers.find(a => a.questionId === message.data.id)?.answer
+                          const isFirst = qIdx === 0
+
+                          return (
+                            <div key={message.id}>
+                              {isFirst && !isInQAPhase && (
+                                <button
+                                  onClick={() => setQaCollapsed(true)}
+                                  className="flex items-center gap-3 hover:opacity-80 transition-opacity mb-3"
+                                >
+                                  <Check className="w-4 h-4 text-[#D4AF37]/50 flex-shrink-0" />
+                                  <span className="text-sm text-white/45 flex items-center gap-1">
+                                    {qaQuestionCount} {qaQuestionCount === 1 ? 'question' : 'questions'} answered
+                                    <ChevronRight className="w-3 h-3 chevron-rotate open" />
+                                  </span>
+                                </button>
+                              )}
+                              <ClarifyingQuestion
+                                question={message.data.question}
+                                options={message.data.options}
+                                questionNumber={qIdx + 1}
+                                totalQuestions={questions.length}
+                                onAnswer={handleQuestionAnswer}
+                                answered={isCurrentQuestion ? undefined : answeredValue}
+                              />
+                            </div>
+                          )
+                        }
+
+                        if (message.type === 'qa_answer') {
+                          // Already shown inline in ClarifyingQuestion answered state
+                          return null
+                        }
+                      }
+
+                      // ── Q&A summary (from history) ──────
+                      if (message.type === 'qa_summary') {
+                        const qaData = message.data as { answers: Array<{ questionId: string; answer: string }>; questions: Array<{ id: string; question: string }> } | null;
+                        const answers = qaData?.answers || [];
+                        const questions = qaData?.questions || [];
+                        return (
+                          <div key={message.id} className="animate-spring-in">
+                            <button
+                              onClick={() => setQaSummaryExpanded(e => !e)}
+                              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                            >
+                              <Check className="w-4 h-4 text-[#D4AF37]/50 flex-shrink-0" />
+                              <span className="text-sm text-white/45 flex items-center gap-1">
+                                {message.content}
+                                <ChevronRight className={`w-3 h-3 chevron-rotate ${qaSummaryExpanded ? "open" : ""}`} />
+                              </span>
+                            </button>
+                            <Collapse open={qaSummaryExpanded}>
+                              <div className="ml-7 mt-2 space-y-1.5 max-w-xl">
+                                {answers.map((a, i) => {
+                                  const q = questions.find(q => q.id === a.questionId);
+                                  return (
+                                    <div key={i} className="rounded-[6px] bg-[#161616] border border-white/[0.06] px-3 py-2">
+                                      <p className="text-[11px] text-white/40 mb-0.5">{q?.question || a.questionId}</p>
+                                      <p className="text-[13px] text-white/80 font-medium">{a.answer}</p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </Collapse>
+                          </div>
+                        )
+                      }
+
+                      // ── Retry prompt (failed code generation) ──
+                      if (message.type === 'retry_prompt' && message.data) {
+                        const target = (message.data as { target: string }).target;
+                        const label = target === 'frontend' ? 'Frontend' : 'Backend';
+                        return (
+                          <div key={message.id} className="w-full max-w-3xl animate-bubble-in px-2 md:px-0">
+                            <div className="rounded-xl border border-orange-500/20 bg-[#161616] p-4 flex items-center gap-4">
+                              <div className="w-9 h-9 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
+                                <span className="text-orange-400 text-[14px]">!</span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-semibold text-white/80">{label} generation failed</p>
+                                <p className="text-[11px] text-white/40 mt-0.5">Output couldn't be parsed. You can retry just this agent.</p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <button
+                                  onClick={() => sendMessage(`retry ${target}`)}
+                                  className="px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20 hover:bg-[#D4AF37]/20 transition-all"
+                                >
+                                  Retry {label}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      }
+
+                      // ── Final plan card ─────────────────
+                      if (message.type === 'final_plan' && message.data) {
+                        const planIdx = messages.indexOf(message)
+                        const hasSubsequent = messages.slice(planIdx + 1).some(m =>
+                          m.type === 'frontend' || m.type === 'backend' || m.type === 'review' || m.type === 'text'
+                        )
+                        // If build already happened, show as collapsible stepper
+                        if (hasSubsequent) {
+                          return (
+                            <div key={message.id} className="animate-spring-in flex gap-3">
+                              <div className="flex flex-col items-center flex-shrink-0">
+                                <Check className="w-4 h-4 text-[#D4AF37]/50" />
+                                <div className="w-px flex-1 bg-white/[0.06]" />
+                              </div>
+                              <div className="flex-1 min-w-0 -mt-0.5">
+                                <button
+                                  onClick={() => setPlanExpanded(e => !e)}
+                                  className="flex items-center gap-1 hover:opacity-80 transition-opacity text-sm text-white/45"
+                                >
+                                  Plan reviewed
+                                  <ChevronRight className={`w-3 h-3 chevron-rotate ${planExpanded ? "open" : ""}`} />
+                                </button>
+                                <Collapse open={planExpanded}>
+                                  <div className="mt-2 mb-1">
+                                    <FeatureReviewCard
+                                      data={message.data}
+                                      onProceed={() => {}}
+                                      onStop={() => {}}
+                                      onClarify={() => {}}
+                                      readOnly
+                                    />
+                                  </div>
+                                </Collapse>
+                              </div>
+                            </div>
+                          )
+                        }
+                        return (
+                          <FeatureReviewCard
+                            key={message.id}
+                            data={message.data}
+                            onProceed={() => sendProceed(true)}
+                            onStop={() => sendProceed(false)}
+                            onClarify={() => {}}
+                          />
+                        )
+                      }
+
+                      // ── Test results card ────────────────
+                      if (message.type === 'test' && message.data) {
+                        return (
+                          <TestResultsCard
+                            key={message.id}
+                            data={message.data}
+                          />
+                        )
+                      }
+
+                      // ── Quality score card ────────────────
+                      if (message.type === 'quality_score' && message.data) {
+                        return (
+                          <QualityScoreCard
+                            key={message.id}
+                            grade={message.data.grade}
+                            metrics={message.data.metrics}
+                            overall={message.data.overall}
+                            needsFeedback={message.data.needsFeedback}
+                          />
+                        )
+                      }
+
+                      // ── Feedback iteration notice ─────────
+                      if (message.type === 'feedback_iteration' && message.data) {
+                        return (
+                          <FeedbackCard key={message.id} iteration={message.data.iteration} issues={message.data.issues || []} />
+                        )
+                      }
+
+                      // ── Env setup card ─────────────────
+                      if (message.type === 'env_setup' && message.data?.envVariables) {
+                        return (
+                          <EnvSetupCard
+                            key={message.id}
+                            envVariables={message.data.envVariables}
+                            onSave={(vals) => setEnvValues(vals)}
+                          />
+                        )
+                      }
+
+                      // ── Skip orchestrator (covered by final_plan) ──
+                      if (message.type === 'orchestrator') return null
+
+                      // ── Regular messages ────────────────
+                      // Compute group position for consecutive same-sender bubbles
+                      const msgIdx = messages.indexOf(message)
+                      const isSimpleAiBubble = message.sender === 'agent' && ((message.type === 'text' && !message.data) || message.type === 'error')
+                      const isUserText = message.sender === 'user'
+                      let groupPos: BubbleGroupPos = "solo"
+                      if (isSimpleAiBubble || isUserText) {
+                        const prev = msgIdx > 0 ? messages[msgIdx - 1] : null
+                        const next = msgIdx < messages.length - 1 ? messages[msgIdx + 1] : null
+                        const prevIsAi = prev && prev.sender === 'agent' && prev.type !== 'orchestrator' && prev.type !== 'qa_question' && prev.type !== 'qa_answer' && prev.type !== 'qa_summary' && prev.type !== 'understanding'
+                        const nextIsAi = next && next.sender === 'agent' && next.type !== 'orchestrator' && next.type !== 'qa_question' && next.type !== 'qa_answer' && next.type !== 'qa_summary' && next.type !== 'understanding'
+                        const prevSame = isUserText ? (prev && prev.sender === 'user') : prevIsAi
+                        const nextSame = isUserText ? (next && next.sender === 'user') : nextIsAi
+                        if (prevSame && nextSame) groupPos = "middle"
+                        else if (prevSame) groupPos = "last"
+                        else if (nextSame) groupPos = "first"
+                      }
+                      return <MessageCard key={message.id} message={message} allMessages={messages} onRetry={message.type === 'error' && retryInfo ? handleRetry : undefined} groupPos={groupPos} />
+                    })
+                  })()}
+
+                  {/* Streaming dropdowns */}
+                  {wsState.streaming.frontendStream && (
+                    <StreamingDropdown
+                      content={wsState.streaming.frontendStream}
+                      agent="Frontend Agent"
+                      isActive={!!wsState.streaming.frontendStream && !wsState.completedAgents.includes('Frontend Agent')}
+                      tokenUsage={wsState.tokenUsage.frontend}
+                      liveEstimate={wsState.tokenUsage.currentEstimate}
+                    />
+                  )}
+
+                  {wsState.streaming.backendStream && (
+                    <StreamingDropdown
+                      content={wsState.streaming.backendStream}
+                      agent="Backend Agent"
+                      isActive={!!wsState.streaming.backendStream && !wsState.completedAgents.includes('Backend Agent')}
+                      tokenUsage={wsState.tokenUsage.backend}
+                      liveEstimate={wsState.tokenUsage.currentEstimate}
+                    />
+                  )}
+
+                  {wsState.streaming.reviewStream && (
+                    <StreamingDropdown
+                      content={wsState.streaming.reviewStream}
+                      agent="Review Agent"
+                      isActive={wsState.streaming.activeAgent === "Review Agent"}
+                      tokenUsage={wsState.tokenUsage.review}
+                      liveEstimate={
+                        wsState.streaming.activeAgent === "Review Agent"
+                          ? wsState.tokenUsage.currentEstimate : undefined
+                      }
+                    />
+                  )}
+
+                  {wsState.streaming.testStream && (
+                    <StreamingDropdown
+                      content={wsState.streaming.testStream}
+                      agent="Test Agent"
+                      isActive={wsState.streaming.activeAgent === "Test Agent"}
+                      tokenUsage={wsState.tokenUsage.test}
+                      liveEstimate={
+                        wsState.streaming.activeAgent === "Test Agent"
+                          ? wsState.tokenUsage.currentEstimate : undefined
+                      }
+                    />
+                  )}
+
+                  {/* Status indicator */}
+                  {wsState.isGenerating && wsState.currentStatus && !wsState.currentAgent
+                    && wsState.flowStage !== 'waiting_understanding' && wsState.flowStage !== 'qa'
+                    && wsState.flowStage !== 'waiting_plan_review' && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#111] border border-[#1c1c1c] max-w-md animate-bubble-in">
+                      <div className="flex gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/25 typing-dot" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/25 typing-dot" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/25 typing-dot" />
+                      </div>
+                      <span className="text-[13px] text-white/35 font-medium">{wsState.currentStatus}</span>
+                    </div>
+                  )}
+
+                  {/* Retry button — only show if last message isn't an error (errors have inline retry) */}
+                  {retryInfo && messages[messages.length - 1]?.type !== 'error' && (
+                    <div className="flex justify-center">
+                      <button
+                        onClick={handleRetry}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#111] hover:bg-[#151515] border border-[#2a2a2a] hover:border-[#333] text-white/30 hover:text-white/50 text-[13px] font-semibold tracking-[-0.02em] transition-all"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        {retryInfo.label}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* ── Pipeline status + Input bar ────────────── */}
+            <div className="flex flex-col items-center gap-2.5 px-3 md:px-8 py-3 md:py-4 flex-shrink-0 border-t border-white/[0.05] bg-[#050505]">
+              {showPipeline && (
+                <PipelineStatusBar
+                  currentAgent={wsState.currentAgent}
+                  completedAgents={wsState.completedAgents}
+                  currentStatus={wsState.currentStatus}
+                  tokenCount={totalTokensDisplay}
+                />
+              )}
+
+              <div className="flex items-center gap-2 w-full max-w-3xl">
+                <MessageBox onSendMessage={sendMessage} isGenerating={wsState.isGenerating} hasMessages={messages.length > 0} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
+export default App

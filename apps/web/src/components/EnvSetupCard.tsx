@@ -1,0 +1,198 @@
+"use client"
+
+import { useState, useMemo } from "react"
+import { Eye, EyeOff, Copy, Check, Download, KeyRound, ChevronRight } from "lucide-react"
+import { Collapse } from "./Collapse"
+
+interface EnvSetupCardProps {
+  envVariables: string[]
+  onSave?: (envValues: Record<string, string>) => void
+}
+
+function parseEnvLine(line: string): { key: string; defaultValue: string; isSecret: boolean } {
+  const trimmed = line.trim()
+  const eqIdx = trimmed.indexOf("=")
+  if (eqIdx === -1) return { key: trimmed, defaultValue: "", isSecret: false }
+
+  const key = trimmed.slice(0, eqIdx).trim()
+  const defaultValue = trimmed.slice(eqIdx + 1).trim()
+
+  // Detect secrets by common naming patterns
+  const secretPatterns = /secret|password|token|key|api_key|auth|private|jwt|database_url|connection|uri/i
+  const isSecret = secretPatterns.test(key)
+
+  return { key, defaultValue, isSecret }
+}
+
+export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
+  const parsed = useMemo(() => envVariables.map(parseEnvLine), [envVariables])
+
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {}
+    for (const { key, defaultValue } of parsed) {
+      initial[key] = defaultValue
+    }
+    return initial
+  })
+
+  const allFilled = parsed.every(({ key }) => values[key]?.trim())
+  const [expanded, setExpanded] = useState(!allFilled)
+  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({})
+  const [saved, setSaved] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [showEnvFile, setShowEnvFile] = useState(false)
+
+  const envFileContent = useMemo(() => {
+    return parsed.map(({ key }) => `${key}=${values[key] || ""}`).join("\n")
+  }, [parsed, values])
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(envFileContent)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* ignore */ }
+  }
+
+  const handleDownload = () => {
+    const blob = new Blob([envFileContent], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = ".env"
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleSave = () => {
+    onSave?.(values)
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const filledCount = parsed.filter(({ key }) => values[key]?.trim()).length
+
+  return (
+    <div className="w-full max-w-2xl animate-bubble-in px-2 md:px-0">
+      <div className="rounded-2xl border border-[#2a2a2a] bg-[#161616] overflow-hidden shadow-elevation-1">
+        {/* Header — clickable to collapse */}
+        <button
+          onClick={() => setExpanded(e => !e)}
+          className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-white/[0.01] transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded-lg bg-amber-500/[0.08] border border-amber-500/15 flex items-center justify-center">
+              <KeyRound className="w-3 h-3 text-amber-400/70" />
+            </div>
+            <div className="text-left">
+              <span className="text-[13px] font-semibold text-white/80 tracking-[-0.02em]">Environment Variables</span>
+              <span className="text-[11px] text-white/20 ml-2">{filledCount}/{parsed.length} configured</span>
+            </div>
+          </div>
+          <ChevronRight className={`w-4 h-4 text-white/15 chevron-rotate ${expanded ? "open" : ""}`} />
+        </button>
+
+        {/* Collapsible body */}
+        <Collapse open={expanded}>
+          <div className="border-t border-[#1c1c1c]">
+            {/* .env toggle + raw view */}
+            <div className="px-4 pt-3 pb-1 flex justify-end">
+              <button
+                onClick={() => setShowEnvFile(e => !e)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                  showEnvFile
+                    ? "text-amber-400/70 bg-amber-500/[0.08] border border-amber-500/15"
+                    : "text-white/25 hover:text-white/40 border border-transparent hover:border-white/[0.06]"
+                }`}
+              >
+                {showEnvFile ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                .env
+              </button>
+            </div>
+
+            <Collapse open={showEnvFile}>
+              <div className="mx-4 mb-3 rounded-lg overflow-hidden border border-[#1c1c1c]">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0a0a0a] border-b border-[#1c1c1c]">
+                  <span className="text-[10px] font-mono text-white/20 flex-1">.env</span>
+                  <button
+                    onClick={handleCopy}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-white/20 hover:text-white/50 hover:bg-white/[0.04] transition-all"
+                  >
+                    {copied ? <><Check className="w-3 h-3 text-emerald-400" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-white/20 hover:text-white/50 hover:bg-white/[0.04] transition-all"
+                  >
+                    <Download className="w-3 h-3" /> Download
+                  </button>
+                </div>
+                <pre className="px-3 py-2.5 text-[12px] font-mono text-amber-400/50 leading-relaxed overflow-x-auto bg-[#0a0a0a]">
+                  {envFileContent || "# No variables configured yet"}
+                </pre>
+              </div>
+            </Collapse>
+
+            {/* Variable inputs */}
+            <div className="px-4 pb-4 space-y-2.5">
+          {parsed.map(({ key, isSecret }) => (
+            <div key={key} className="flex items-center gap-2">
+              <label className="text-[12px] font-mono text-white/30 w-44 truncate flex-shrink-0" title={key}>
+                {key}
+              </label>
+              <div className="relative flex-1">
+                <input
+                  type={isSecret && !showSecrets[key] ? "password" : "text"}
+                  value={values[key] || ""}
+                  onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))}
+                  placeholder={isSecret ? "Enter secret..." : "Enter value..."}
+                  className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-[12px] font-mono text-white/60 placeholder:text-white/10 outline-none focus:border-[#404040] transition-colors"
+                />
+                {isSecret && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSecrets(s => ({ ...s, [key]: !s[key] }))}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/15 hover:text-white/40 transition-colors"
+                  >
+                    {showSecrets[key] ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Save button */}
+          {onSave && (
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12px] font-semibold bg-emerald-500/[0.10] text-emerald-400/80 border border-emerald-500/20 hover:bg-emerald-500/[0.15] transition-all"
+              >
+                {saved ? <><Check className="w-3 h-3" /> Saved</> : "Save"}
+              </button>
+            </div>
+          )}
+            </div>
+          </div>
+        </Collapse>
+      </div>
+    </div>
+  )
+}
+
+// ─── Compact env button for top bar ──────────────────────────────
+
+export function EnvButton({ envVariables, onClick }: { envVariables: string[]; onClick: () => void }) {
+  if (!envVariables || envVariables.length === 0) return null
+
+  return (
+    <button
+      onClick={onClick}
+      title="View environment variables"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all text-amber-400/60 bg-amber-500/[0.06] border-amber-500/15 hover:bg-amber-500/[0.10] hover:border-amber-500/25"
+    >
+      <KeyRound className="w-3.5 h-3.5" />
+      .env
+    </button>
+  )
+}
