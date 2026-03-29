@@ -1,0 +1,45 @@
+src/components/AuthLayout.tsx(4,25): error TS2307: Cannot find module 'react-hot-toast' or its corresponding type declarations.
+src/components/CreationHands.tsx(30,3): error TS6133: 'color' is declared but its value is never read.
+src/components/IDEModal.tsx(6,12): error TS6133: 'RefreshCw' is declared but its value is never read.
+src/components/TestResultsCard.tsx(9,3): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/components/UnderstandingCard.tsx(15,46): error TS6133: 'projectName' is declared but its value is never read.
+src/components/messageCard.tsx(5,3): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/components/messageCard.tsx(22,1): error TS6133: 'IDEModal' is declared but its value is never read.
+src/components/messageCard.tsx(105,20): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/components/messageCard.tsx(105,30): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/components/messageCard.tsx(105,42): error TS2322: Type 'Uint8Array<ArrayBufferLike> | Uint8Array<ArrayBuffer>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+    Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+      Types of property 'buffer' are incompatible.
+        Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+          Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+            Types of property '[Symbol.toStringTag]' are incompatible.
+              Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/components/messageCard.tsx(931,9): error TS6133: 'isFrontendAgent' is declared but its value is never read.
+src/components/messageCard.tsx(1058,10): error TS6133: 'rawOpen' is declared but its value is never read.
+src/components/messageCard.tsx(1058,19): error TS6133: 'setRawOpen' is declared but its value is never read.
+src/hooks/use-google-auth.ts(5,19): error TS2307: Cannot find module 'react-hot-toast' or its corresponding type declarations.
+src/hooks/useWebContainer.ts(2,50): error TS6133: 'teardownWebContainer' is declared but its value is never read.
+src/hooks/useWebSocket.ts(487,13): error TS2322: Type '"frontend" | "retry_prompt"' is not assignable to type '"error" | "status" | "frontend" | "backend" | "text" | "orchestrator" | "review" | "test" | "streaming" | "understanding" | "qa_question" | "qa_answer" | "qa_summary" | "final_plan" | "env_setup" | "quality_score" | "feedback_iteration" | undefined'.
+  Type '"retry_prompt"' is not assignable to type '"error" | "status" | "frontend" | "backend" | "text" | "orchestrator" | "review" | "test" | "streaming" | "understanding" | "qa_question" | "qa_answer" | "qa_summary" | "final_plan" | "env_setup" | "quality_score" | "feedback_iteration" | undefined'.
+src/hooks/useWebSocket.ts(515,13): error TS2322: Type '"backend" | "retry_prompt"' is not assignable to type '"error" | "status" | "frontend" | "backend" | "text" | "orchestrator" | "review" | "test" | "streaming" | "understanding" | "qa_question" | "qa_answer" | "qa_summary" | "final_plan" | "env_setup" | "quality_score" | "feedback_iteration" | undefined'.
+  Type '"retry_prompt"' is not assignable to type '"error" | "status" | "frontend" | "backend" | "text" | "orchestrator" | "review" | "test" | "streaming" | "understanding" | "qa_question" | "qa_answer" | "qa_summary" | "final_plan" | "env_setup" | "quality_score" | "feedback_iteration" | undefined'.
+src/pages/App.tsx(29,3): error TS6133: 'FlaskConical' is declared but its value is never read.
+src/pages/App.tsx(359,10): error TS6133: 'envValues' is declared but its value is never read.
+src/pages/App.tsx(700,27): error TS2367: This comparison appears to be unintentional because the types '"error" | "status" | "frontend" | "backend" | "text" | "orchestrator" | "review" | "test" | "streaming" | "understanding" | "qa_question" | "final_plan" | "env_setup" | "quality_score" | "feedback_iteration" | undefined' and '"retry_prompt"' have no overlap.
+src/pages/Benchmarks.tsx(8,17): error TS6133: 'XCircle' is declared but its value is never read.
+src/pages/Login.tsx(7,19): error TS2307: Cannot find module 'react-hot-toast' or its corresponding type declarations.
+src/pages/Projects.tsx(9,1): error TS6133: 'Separator' is declared but its value is never read.
+src/pages/SignUp.tsx(6,19): error TS2307: Cannot find module 'react-hot-toast' or its corresponding type declarations.
