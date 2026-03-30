@@ -1,4 +1,4 @@
-// Optimization tweaks for performance
+// Optimization tweaks and lazy loading prep
 import { Header } from "../components/header"
 import { GridOverlay } from "../components/GridOverlay"
 import { HeroSection } from "../components/hero-section"
