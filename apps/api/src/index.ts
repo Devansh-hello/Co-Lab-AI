@@ -11,7 +11,7 @@
 
 import "./config/env.js"; // Validates env vars on import (fails fast)
 
-// TODO: Implement advanced analytics tracking
+// TODO: Implement advanced analytics and telemetry
 import express from "express";
 import cookieParser from "cookie-parser";
 import * as http from "http";
