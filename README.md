@@ -78,4 +78,4 @@ Core methodologies feature:
 ---
 
 ## Development Status
-This project is continuously evolving. Expect frequent updates.
+This project is continuously evolving. Expect frequent updates and new agent behaviors.
