@@ -11,16 +11,22 @@
  */
 
 import { Router } from "express";
+import z from "zod";
 
 import { Project, Message, ProjectSnapshot, TursoDatabase } from "../models/index.js";
-import { authCheck, type AuthRequest } from "../middleware/index.js";
+import { authCheck, validate, type AuthRequest } from "../middleware/index.js";
 import { deleteDatabase } from "../turso.js";
 
 export const projectRouter = Router();
 
+const createProjectSchema = z.object({
+    name: z.string().trim().min(1, "Project name is required").max(200),
+    description: z.string().trim().max(5000).optional().default(""),
+});
+
 // ─── Create Project ─────────────────────────────────────────────
 
-projectRouter.post("/api/v1/project", authCheck, async (req: AuthRequest, res) => {
+projectRouter.post("/api/v1/project", authCheck, validate(createProjectSchema), async (req: AuthRequest, res) => {
     const { name, description } = req.body;
 
     try {
@@ -61,7 +67,11 @@ projectRouter.delete("/api/v1/project/:id", authCheck, async (req: AuthRequest, 
         /* Clean up provisioned Turso database if one exists */
         const tursoDb = await TursoDatabase.findOne({ projectId });
         if (tursoDb) {
-            await deleteDatabase(tursoDb.dbName).catch(() => {});
+            try {
+                await deleteDatabase(tursoDb.dbName);
+            } catch (err) {
+                console.warn(`[turso] Failed to delete database ${tursoDb.dbName}:`, err);
+            }
             await TursoDatabase.deleteOne({ _id: tursoDb._id });
         }
 

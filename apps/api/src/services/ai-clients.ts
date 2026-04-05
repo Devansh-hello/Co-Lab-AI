@@ -17,21 +17,27 @@ import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
 
+/** Timeout for non-streaming AI calls (ms) */
+const AI_TIMEOUT = 60_000;
+
 /** OpenRouter - primary routing provider */
 export const openrouter = new OpenAI({
     apiKey: process.env.OPENROUTER_API_KEY || "",
     baseURL: "https://openrouter.ai/api/v1",
+    timeout: AI_TIMEOUT,
 });
 
 /** OpenRouter free tier for :free models */
 export const openrouterFree = new OpenAI({
     apiKey: process.env.OPENROUTER_FREE_API_KEY || "",
     baseURL: "https://openrouter.ai/api/v1",
+    timeout: AI_TIMEOUT,
 });
 
 /** OpenAI direct client */
 export const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY || "",
+    timeout: AI_TIMEOUT,
 });
 
 /** Google Gemini client */

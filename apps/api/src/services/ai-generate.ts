@@ -66,7 +66,7 @@ export async function callAIGenerate(
         const baseURL = provider === 'glm' ? 'https://api.z.ai/api/paas/v4'
             : provider === 'openrouter' ? 'https://openrouter.ai/api/v1'
             : undefined;
-        client = new OpenAI({ apiKey: key, ...(baseURL && { baseURL }) });
+        client = new OpenAI({ apiKey: key, ...(baseURL && { baseURL }), timeout: 60_000 });
     } else {
         client = model.endsWith(':free') ? openrouterFree : openrouter;
         if (provider === 'openai') client = openai;
@@ -152,7 +152,7 @@ export async function* callAIGenerateStream(
         const baseURL = provider === 'glm' ? 'https://api.z.ai/api/paas/v4'
             : provider === 'openrouter' ? 'https://openrouter.ai/api/v1'
             : undefined;
-        client = new OpenAI({ apiKey: key, ...(baseURL && { baseURL }) });
+        client = new OpenAI({ apiKey: key, ...(baseURL && { baseURL }), timeout: 120_000 });
     } else {
         client = model.endsWith(':free') ? openrouterFree : openrouter;
         if (provider === 'openai') client = openai;

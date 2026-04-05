@@ -61,9 +61,78 @@ export function compressSnapshotForAgent(
         return taskText.includes(baseName);
     }).slice(0, 6);
 
-    return relevant.length > 0
+    const codeContext = relevant.length > 0
         ? `\n\nEXISTING CODE (modify, don't rewrite):\n${JSON.stringify(Object.fromEntries(relevant), null, 2)}`
         : '';
+
+    /* Inject project memory if available (with staleness filtering) */
+    const memory = snapshot?.projectMemory;
+    let memoryContext = '';
+    if (memory) {
+        const parts: string[] = [];
+        const preferred = filterStaleItems(memory.preferredPatterns, 90);
+        const rejected = filterStaleItems(memory.rejectedApproaches, 30);
+        const feedback = filterStaleItems(memory.qualityFeedback, 7);
+
+        if (preferred.length > 0) {
+            parts.push('Preferred patterns: ' + preferred.join('; '));
+        }
+        if (rejected.length > 0) {
+            parts.push('Rejected approaches (DO NOT use): ' + rejected.join('; '));
+        }
+        if (feedback.length > 0) {
+            parts.push('Previous review findings (ensure these are fixed): ' + feedback.join('; '));
+        }
+        if (parts.length > 0) {
+            memoryContext = '\n\nPROJECT MEMORY (decisions from previous iterations):\n' + parts.join('\n');
+        }
+    }
+
+    return codeContext + memoryContext;
+}
+
+// ─── Memory Staleness ──────────────────────────────────────────
+// Inspired by Vellum's staleness model: each item type has a base
+// lifetime. Reinforced items (mentioned across multiple iterations)
+// age slower.
+
+/**
+ * Filter memory items by staleness.
+ * Items older than baseDays (extended by reinforcement) are dropped.
+ * Supports both old format (plain strings) and new format (objects with timestamps).
+ */
+function filterStaleItems(
+    items: any[] | undefined,
+    baseDays: number
+): string[] {
+    if (!items || items.length === 0) return [];
+
+    const now = Date.now();
+    const msPerDay = 24 * 60 * 60 * 1000;
+
+    return items
+        .map(item => {
+            // Handle old format (plain strings) — never expire
+            if (typeof item === 'string') return item;
+
+            // Handle new format (objects with timestamps)
+            const value = item.value || item;
+            const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+            const reinforcements = item.reinforcements || 1;
+
+            // Effective lifetime = baseDays * sqrt(reinforcements)
+            // Items reinforced 4 times last 2x as long
+            const effectiveDays = baseDays * Math.sqrt(reinforcements);
+            const ageMs = now - createdAt;
+
+            if (createdAt > 0 && ageMs > effectiveDays * msPerDay) {
+                return null; // Stale — drop
+            }
+
+            return typeof value === 'string' ? value : JSON.stringify(value);
+        })
+        .filter((v): v is string => v !== null)
+        .slice(-10); // Cap at 10 most recent
 }
 
 // ─── Orchestrator Plan Validation ───────────────────────────────

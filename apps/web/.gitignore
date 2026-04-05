@@ -10,7 +10,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.next
 *.local
+
+# Windows NTFS alternate data streams
+*Zone.Identifier
 
 # Editor directories and files
 .vscode/*

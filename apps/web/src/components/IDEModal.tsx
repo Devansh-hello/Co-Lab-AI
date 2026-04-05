@@ -6,7 +6,7 @@ import {
   Monitor, X,
   Code2, Columns2, ChevronRight,
   FolderOpen, Folder, FileCode, FileText, FileJson, Braces,
-  Play, Maximize2, Terminal, Loader2, Server, Send, Zap,
+  Play, Maximize2, Terminal, Loader2, Server, Send, Zap
 } from "lucide-react"
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"
 import { Collapse } from "./Collapse"
@@ -342,7 +342,7 @@ export const IDEModal: React.FC<{
   // ── Sub-panes ─────────────────────────────────────────────────
 
   const editorPane = (
-    <div className="h-full w-full overflow-hidden bg-[#0a0a0a]">
+    <div className="h-full w-full overflow-hidden bg-[var(--surface-base)]">
       <Editor
         path={selectedFile}
         language={monacoLang(selectedFile)}
@@ -373,7 +373,7 @@ export const IDEModal: React.FC<{
 
   const previewPane = (
     <div className="flex flex-col h-full bg-white">
-      <div className="flex items-center gap-2.5 px-4 py-2 bg-[#111] border-b border-[#2a2a2a] flex-shrink-0">
+      <div className="flex items-center gap-2.5 px-4 py-2 bg-[#111] border-b border-white/[0.12] flex-shrink-0">
         <div className="flex items-center gap-1.5">
           {fullStackMode && wc.status !== "idle" ? (
             <>
@@ -394,16 +394,16 @@ export const IDEModal: React.FC<{
             <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-white/[0.04]">
               <button
                 onClick={() => setPreviewTab("app")}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all ${
-                  previewTab === "app" ? "bg-white/[0.08] text-white/70" : "text-white/25 hover:text-white/40"
+                className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-all ${
+                  previewTab === "app" ? "bg-white/[0.08] text-white/70" : "text-white/35 hover:text-white/50"
                 }`}
               >
                 App
               </button>
               <button
                 onClick={() => setPreviewTab("api")}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all ${
-                  previewTab === "api" ? "bg-white/[0.08] text-white/70" : "text-white/25 hover:text-white/40"
+                className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-all ${
+                  previewTab === "api" ? "bg-white/[0.08] text-white/70" : "text-white/35 hover:text-white/50"
                 }`}
               >
                 API
@@ -413,7 +413,7 @@ export const IDEModal: React.FC<{
           {hasBackend && (
             <button
               onClick={() => setFullStackMode(m => !m)}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                 fullStackMode
                   ? "text-blue-400/70 bg-blue-500/[0.08] border border-blue-500/15"
                   : "text-white/25 hover:text-white/40 border border-transparent"
@@ -429,13 +429,13 @@ export const IDEModal: React.FC<{
       {/* Preview content — App iframe or API tester */}
       {previewTab === "api" && fullStackMode && wc.backendUrl ? (
         /* ── API Tester ─────────────────────────────── */
-        <div className="flex-1 flex flex-col bg-[#0a0a0a] overflow-hidden">
+        <div className="flex-1 flex flex-col bg-[var(--surface-base)] overflow-hidden">
           {/* Request bar */}
-          <div className="flex items-center gap-2 px-3 py-2 border-b border-[#1c1c1c] flex-shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.08] flex-shrink-0">
             <select
               value={apiMethod}
               onChange={e => setApiMethod(e.target.value)}
-              className="bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-[12px] font-mono font-bold text-white/70 outline-none"
+              className="bg-[#111] border border-white/[0.12] rounded-lg px-2 py-1.5 text-[12px] font-mono font-bold text-white/70 outline-none"
             >
               {["GET", "POST", "PUT", "PATCH", "DELETE"].map(m => (
                 <option key={m} value={m}>{m}</option>
@@ -446,7 +446,7 @@ export const IDEModal: React.FC<{
               onChange={e => setApiPath(e.target.value)}
               placeholder="/api/..."
               onKeyDown={e => e.key === "Enter" && sendApiRequest()}
-              className="flex-1 bg-[#111] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-[13px] font-mono text-white/70 placeholder:text-white/20 outline-none focus:border-[#404040]"
+              className="flex-1 bg-[#111] border border-white/[0.12] rounded-lg px-3 py-1.5 text-[13px] font-mono text-white/70 placeholder:text-white/20 outline-none focus:border-[#404040]"
             />
             <button
               onClick={sendApiRequest}
@@ -460,8 +460,8 @@ export const IDEModal: React.FC<{
 
           {/* Request body (for POST/PUT/PATCH) */}
           {apiMethod !== "GET" && apiMethod !== "HEAD" && apiMethod !== "DELETE" && (
-            <div className="border-b border-[#1c1c1c] flex-shrink-0">
-              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/20">Body (JSON)</div>
+            <div className="border-b border-white/[0.08] flex-shrink-0">
+              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/35">Body (JSON)</div>
               <textarea
                 value={apiBody}
                 onChange={e => setApiBody(e.target.value)}
@@ -492,8 +492,8 @@ export const IDEModal: React.FC<{
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center p-8">
                 <Zap className="w-6 h-6 text-white/10 mb-2" />
-                <p className="text-[13px] text-white/20 font-medium">Send a request to test your API</p>
-                <p className="text-[11px] text-white/10 mt-1">Enter an endpoint path and hit Send</p>
+                <p className="text-[13px] text-white/40 font-medium">Send a request to test your API</p>
+                <p className="text-[11px] text-white/25 mt-1">Enter an endpoint path and hit Send</p>
               </div>
             )}
           </div>
@@ -517,8 +517,8 @@ export const IDEModal: React.FC<{
   )
 
   const terminalPane = (
-    <div className="flex flex-col h-full bg-[#0a0a0a]">
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#1c1c1c] flex-shrink-0">
+    <div className="flex flex-col h-full bg-[var(--surface-base)]">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.08] flex-shrink-0">
         <Terminal className="w-3.5 h-3.5 text-white/25" />
         <span className="text-[11px] font-semibold text-white/30">Terminal</span>
         {wc.status !== "idle" && wc.status !== "running" && wc.status !== "error" && (
@@ -527,7 +527,7 @@ export const IDEModal: React.FC<{
       </div>
       <div
         ref={terminalRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden p-3 font-mono text-[12px] text-white/50 leading-relaxed chat-scroll"
+        className="flex-1 overflow-y-auto overflow-x-hidden p-3 font-mono text-[12px] text-white/60 leading-relaxed chat-scroll"
       >
         {wc.terminalOutput.map((line, i) => (
           <div key={i} className={line.startsWith("$ ") ? "text-emerald-400/50 mt-1" : ""}>{line || "\u00A0"}</div>
@@ -549,11 +549,11 @@ export const IDEModal: React.FC<{
     >
       <div
         className="w-full h-full md:w-[96vw] md:h-[94vh] md:rounded-2xl overflow-hidden flex flex-col animate-popover-in"
-        style={{ background: "#0a0a0a", border: "1px solid #2a2a2a", boxShadow: "0 40px 120px rgba(0,0,0,0.8), 0 0 1px rgba(255,255,255,0.05)" }}
+        style={{ background: "var(--surface-base)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 40px 120px rgba(0,0,0,0.8), 0 0 1px rgba(255,255,255,0.05)" }}
       >
 
         {/* ── Title bar ─────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 px-3 md:px-5 py-2.5 md:py-3 border-b border-[#1c1c1c] flex-shrink-0 select-none bg-[#0a0a0a]">
+        <div className="flex items-center gap-3 px-3 md:px-5 py-2.5 md:py-3 border-b border-white/[0.08] flex-shrink-0 select-none bg-[var(--surface-base)]">
 
           {/* Left: title + file count */}
           <div className="flex items-center gap-2.5 min-w-0">
@@ -567,7 +567,7 @@ export const IDEModal: React.FC<{
           </div>
 
           {/* Center: view toggle */}
-          <div className="flex items-center gap-0.5 mx-auto p-1 rounded-xl bg-[#111] border border-[#1c1c1c]">
+          <div className="flex items-center gap-0.5 mx-auto p-1 rounded-xl bg-[#111] border border-white/[0.08]">
             {([
               { id: "editor" as const,  icon: <Code2    className="w-3.5 h-3.5" />, label: "Code" },
               { id: "split" as const,   icon: <Columns2 className="w-3.5 h-3.5" />, label: "Split" },
@@ -647,8 +647,8 @@ export const IDEModal: React.FC<{
         <div className="flex flex-1 overflow-hidden">
 
           {/* File tree sidebar */}
-          <div className="hidden md:flex w-52 min-w-[180px] bg-[#050505] border-r border-[#1c1c1c] flex-col overflow-hidden flex-shrink-0">
-            <div className="px-4 py-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white/15 border-b border-[#1c1c1c] flex-shrink-0">
+          <div className="hidden md:flex w-52 min-w-[180px] bg-[#050505] border-r border-white/[0.08] flex-col overflow-hidden flex-shrink-0">
+            <div className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em] text-white/35 border-b border-white/[0.08] flex-shrink-0">
               Explorer
             </div>
             <div className="flex-1 overflow-y-auto overflow-x-hidden py-1 chat-scroll">
@@ -678,7 +678,7 @@ export const IDEModal: React.FC<{
                     <Panel defaultSize={50} minSize={15}>
                       {editorPane}
                     </Panel>
-                    <PanelResizeHandle className="w-[3px] bg-[#1c1c1c] hover:bg-emerald-500/30 active:bg-emerald-500/40 transition-colors duration-150 cursor-col-resize" />
+                    <PanelResizeHandle className="w-[3px] bg-white/[0.08] hover:bg-emerald-500/30 active:bg-emerald-500/40 transition-colors duration-150 cursor-col-resize" />
                     <Panel defaultSize={50} minSize={15}>
                       {previewPane}
                     </Panel>
@@ -687,7 +687,7 @@ export const IDEModal: React.FC<{
               </Panel>
               {showTerminal && (
                 <>
-                  <PanelResizeHandle className="h-[3px] bg-[#1c1c1c] hover:bg-blue-500/30 active:bg-blue-500/40 transition-colors duration-150 cursor-row-resize" />
+                  <PanelResizeHandle className="h-[3px] bg-white/[0.08] hover:bg-blue-500/30 active:bg-blue-500/40 transition-colors duration-150 cursor-row-resize" />
                   <Panel defaultSize={30} minSize={10} maxSize={60}>
                     {terminalPane}
                   </Panel>
@@ -698,13 +698,13 @@ export const IDEModal: React.FC<{
         </div>
 
         {/* ── Status bar ──────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 md:gap-4 px-3 md:px-5 py-1.5 bg-[#050505] border-t border-[#1c1c1c] text-[10px] md:text-[11px] flex-shrink-0 select-none">
+        <div className="flex items-center gap-3 md:gap-4 px-3 md:px-5 py-1.5 bg-[#050505] border-t border-white/[0.08] text-[10px] md:text-[11px] flex-shrink-0 select-none">
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/40" />
             <span className="font-mono font-semibold text-white/30">{lang}</span>
           </div>
           {selectedFile && (
-            <span className="text-white/15 truncate max-w-[50vw] md:max-w-[40vw] font-mono font-medium">{selectedFile}</span>
+            <span className="text-white/30 truncate max-w-[50vw] md:max-w-[40vw] font-mono font-medium">{selectedFile}</span>
           )}
           <div className="ml-auto flex items-center gap-3">
             {modifiedFiles.size > 0 && (
@@ -712,7 +712,7 @@ export const IDEModal: React.FC<{
                 {modifiedFiles.size} unsaved
               </span>
             )}
-            <span className="text-white/10 font-mono hidden sm:inline">
+            <span className="text-white/25 font-mono hidden sm:inline">
               Ctrl+S to run
             </span>
           </div>

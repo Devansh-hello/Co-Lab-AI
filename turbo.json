@@ -3,8 +3,8 @@
   "globalEnv": ["NODE_ENV"],
   "tasks": {
     "build": {
-      "inputs": ["src/**", "package.json", "tsconfig.json", "vite.config.ts"],
-      "outputs": ["dist/**", "build/**", "public/**"],
+      "inputs": ["src/**", "package.json", "tsconfig.json", "vite.config.ts", "next.config.ts", "next-env.d.ts"],
+      "outputs": [".next/**", "dist/**", "build/**", "public/**"],
       "dependsOn": ["^build"]
     },
     "lint": {

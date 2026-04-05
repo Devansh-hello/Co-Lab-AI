@@ -47,6 +47,12 @@ export async function FrontendCodeAgent(
 
     const systemPrompt = `Expert ${framework} frontend engineer. Output ONLY valid JSON: { "filepath": "code" }.
 
+BEFORE GENERATING, think through (do not output):
+- What are the 3 most likely failure points in this frontend?
+- Which API endpoints have the most complex request/response shapes?
+- Are there any circular dependencies in the planned file structure?
+- What happens on first load with empty data? What happens when the user is not authenticated?
+
 STANDARDS:
 - Functional components + hooks, strict TypeScript (no \`any\`), custom hooks for shared logic
 - Loading/error states on all async ops, form validation, responsive ${styling}
@@ -63,6 +69,12 @@ API RULES:
 - Auth token interceptor, typed requests, 401 → redirect to login
 - Use API contract endpoints EXACTLY as specified
 
+SECURITY — BLOCKING:
+- Never use dangerouslySetInnerHTML — use a sanitizer if HTML rendering is needed
+- Never embed API keys or secrets in frontend code
+- Always sanitize URL parameters before using in API calls
+- Never store auth tokens in localStorage if httpOnly cookies are available
+
 CRITICAL — VITE CONFIG:
 - Always include: server: { proxy: { "/api": { target: "http://localhost:3000", changeOrigin: true } } }
 
@@ -72,6 +84,30 @@ CRITICAL — EVERY FILE MUST BE COMPLETE:
 - package.json MUST list all dependencies used in the code (react, react-dom, react-router-dom, etc.)
 - vite.config.ts MUST import and use @vitejs/plugin-react
 
+ANTI-PATTERNS — NEVER DO THESE:
+- Don't add error handling for scenarios that can't happen. Trust framework guarantees.
+- Don't create helpers or abstractions for one-time operations.
+- Don't add features beyond what was asked. A simple feature doesn't need extra configurability.
+- Don't add comments to obvious code. Only comment non-obvious logic.
+- Three similar lines of code is better than a premature abstraction.
+- Don't add loading spinners on operations that complete in <100ms.
+- Don't wrap every API call in try-catch if the error boundary handles it.
+- Don't create a types.ts with a single interface — put types next to where they're used.
+
+OUTPUT BUDGET:
+- Complexity 1-2: 3-8 files max. Don't scaffold a full project for a simple widget.
+- Complexity 3: 8-15 files. Standard project structure.
+- Complexity 4-5: 15-25 files. Full project with proper separation.
+
+GENERATION ORDER (generate files in this sequence to ensure imports resolve):
+1. package.json (establishes all dependencies)
+2. Configuration (vite.config.ts, tsconfig.json, tailwind.config if used)
+3. index.html, src/main.tsx
+4. Core utilities (src/lib/api.ts, auth context)
+5. Shared components (layout, nav, common UI)
+6. Feature pages (in API contract order)
+7. src/App.tsx (LAST — all routes and imports already defined)
+
 FILES: index.html, package.json, vite.config.ts, src/App.tsx, src/main.tsx, src/index.css, src/lib/api.ts, src/context/, src/components/, src/pages/, src/hooks/
 
 SELF-VERIFICATION (do this before outputting):
@@ -80,18 +116,27 @@ SELF-VERIFICATION (do this before outputting):
 3. Compare each against the API CONTRACT — path, method, and field names must match exactly
 4. Fix any mismatches NOW before outputting
 5. Verify vite.config.ts has the proxy config and @vitejs/plugin-react
-6. Verify package.json lists ALL dependencies used in code`;
+6. Verify package.json lists ALL dependencies used in code
+7. Verify the app handles empty state (no data yet) and unauthenticated state gracefully`;
+
+    const intent = taskFile.intent || 'build';
+    const intentInstruction = intent === 'build'
+        ? 'Generate complete, production-ready frontend code as JSON. Every file must be complete and runnable.'
+        : intent === 'debug'
+        ? 'Fix the specified bug. Output ONLY the files that need changes — do NOT regenerate unchanged files. Each file you output must be COMPLETE (not a diff). Unchanged files will be preserved automatically.'
+        : 'Extend the existing code to add the requested features. Output ONLY new or modified files — do NOT regenerate unchanged files. Each file you output must be COMPLETE (not a diff). Unchanged files will be preserved automatically.';
 
     const userPrompt = `Project: ${taskFile.projectMeta?.name || 'Project'}
 Description: ${taskFile.projectMeta?.description || ''}
 Framework: ${framework} | Styling: ${styling} | Libraries: ${(techStack.libraries || []).join(', ')}
 Architecture: ${taskFile.architecture || ''}
+Intent: ${intent.toUpperCase()}
 
 TASKS:
 ${taskFile.frontendTasks.map((t: any, i: number) => `${i + 1}. ${t.task}\n   Details: ${t.details}`).join('\n')}
 ${apiContract}${previousContext}${pluginContext}
 
-Generate complete, production-ready frontend code as JSON. Every file must be complete and runnable.`;
+${intentInstruction}`;
 
     let fullContent = '';
     const onUsage = (usage: TokenUsage) => {

@@ -27,6 +27,41 @@ export interface UserSettings {
     };
 }
 
+/** Model intent types — request models by purpose, not hardcoded IDs */
+export type ModelIntent = 'latency' | 'quality' | 'budget';
+
+/**
+ * Intent-to-model resolution table.
+ * Updated centrally when better models become available —
+ * users with intent-based settings auto-upgrade without config changes.
+ */
+export const INTENT_MODELS: Record<ModelIntent, { provider: string; model: string }> = {
+    latency: { provider: 'openrouter', model: 'google/gemini-2.5-flash' },
+    quality: { provider: 'openrouter', model: 'anthropic/claude-sonnet-4.6' },
+    budget: { provider: 'openrouter', model: 'openai/gpt-oss-120b:free' },
+};
+
+/** Default agent roles mapped to intents */
+const DEFAULT_AGENT_INTENTS: Record<string, ModelIntent> = {
+    orchestrator: 'latency',
+    frontend: 'quality',
+    backend: 'quality',
+    review: 'latency',
+    test: 'latency',
+};
+
+/**
+ * Resolve a model from an intent string.
+ * If the value is a known intent, returns the current best model for it.
+ * Otherwise treats it as a literal model name (backward compatible).
+ */
+export function resolveModelFromIntent(model: string): { provider: string; model: string } | null {
+    if (model in INTENT_MODELS) {
+        return INTENT_MODELS[model as ModelIntent];
+    }
+    return null;
+}
+
 /** Default model configuration for each agent role */
 export const DEFAULT_AGENT_MODELS: UserSettings['agentModels'] = {
     orchestrator: { provider: 'openrouter', model: 'google/gemini-2.5-flash' },
@@ -35,6 +70,38 @@ export const DEFAULT_AGENT_MODELS: UserSettings['agentModels'] = {
     review: { provider: 'openrouter', model: 'google/gemini-2.5-flash' },
     test: { provider: 'openrouter', model: 'google/gemini-2.5-flash' },
 };
+
+/**
+ * Resolve agent models from user settings.
+ * Supports both explicit provider+model and intent-based resolution.
+ * If user sets model to "latency", "quality", or "budget", it auto-resolves
+ * to the current best model for that intent.
+ */
+function resolveAgentModels(userModels: any): UserSettings['agentModels'] {
+    const roles = ['orchestrator', 'frontend', 'backend', 'review', 'test'] as const;
+    const result: any = {};
+
+    for (const role of roles) {
+        const userConfig = userModels?.[role];
+        const defaultConfig = DEFAULT_AGENT_MODELS[role];
+
+        const rawModel = userConfig?.model || '';
+        const rawProvider = userConfig?.provider || '';
+
+        // Check if the model field is an intent keyword
+        const intentResolved = resolveModelFromIntent(rawModel);
+        if (intentResolved) {
+            result[role] = intentResolved;
+        } else {
+            result[role] = {
+                provider: rawProvider || defaultConfig.provider,
+                model: rawModel || defaultConfig.model,
+            };
+        }
+    }
+
+    return result;
+}
 
 /**
  * Load user settings from the database, filling in defaults for any
@@ -52,28 +119,7 @@ export async function getUserSettings(userId: string): Promise<UserSettings> {
                 openrouter: decrypt(user?.settings?.apiKeys?.openrouter || ''),
                 glm: decrypt(user?.settings?.apiKeys?.glm || ''),
             },
-            agentModels: {
-                orchestrator: {
-                    provider: user?.settings?.agentModels?.orchestrator?.provider || DEFAULT_AGENT_MODELS.orchestrator.provider,
-                    model: user?.settings?.agentModels?.orchestrator?.model || DEFAULT_AGENT_MODELS.orchestrator.model,
-                },
-                frontend: {
-                    provider: user?.settings?.agentModels?.frontend?.provider || DEFAULT_AGENT_MODELS.frontend.provider,
-                    model: user?.settings?.agentModels?.frontend?.model || DEFAULT_AGENT_MODELS.frontend.model,
-                },
-                backend: {
-                    provider: user?.settings?.agentModels?.backend?.provider || DEFAULT_AGENT_MODELS.backend.provider,
-                    model: user?.settings?.agentModels?.backend?.model || DEFAULT_AGENT_MODELS.backend.model,
-                },
-                review: {
-                    provider: user?.settings?.agentModels?.review?.provider || DEFAULT_AGENT_MODELS.review.provider,
-                    model: user?.settings?.agentModels?.review?.model || DEFAULT_AGENT_MODELS.review.model,
-                },
-                test: {
-                    provider: user?.settings?.agentModels?.test?.provider || DEFAULT_AGENT_MODELS.test.provider,
-                    model: user?.settings?.agentModels?.test?.model || DEFAULT_AGENT_MODELS.test.model,
-                },
-            },
+            agentModels: resolveAgentModels(user?.settings?.agentModels),
         };
     } catch {
         return {

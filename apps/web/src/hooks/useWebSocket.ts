@@ -7,7 +7,7 @@ export interface Message {
   username: string;
   content: string;
   timestamp: Date;
-  type?: 'text' | 'orchestrator' | 'frontend' | 'backend' | 'review' | 'test' | 'status' | 'error' | 'streaming' | 'understanding' | 'qa_question' | 'qa_answer' | 'qa_summary' | 'final_plan' | 'env_setup' | 'quality_score' | 'feedback_iteration' | 'retry_prompt';
+  type?: 'text' | 'orchestrator' | 'frontend' | 'backend' | 'review' | 'test' | 'status' | 'error' | 'streaming' | 'understanding' | 'qa_question' | 'qa_answer' | 'qa_summary' | 'final_plan' | 'env_setup' | 'quality_score' | 'feedback_iteration' | 'retry_prompt' | 'cancelled';
   data?: any;
   intent?: 'build' | 'iterate' | 'debug';
   isStreaming?: boolean;
@@ -46,7 +46,8 @@ export type FlowStage =
   | 'reviewing'
   | 'testing'
   | 'feedback'
-  | 'completed';
+  | 'completed'
+  | 'permission_prompt';
 
 export interface UnderstandingData {
   summary: string;
@@ -63,6 +64,13 @@ export interface QualityScoreData {
   metrics: Record<string, number>;
   overall: number;
   needsFeedback: boolean;
+}
+
+export interface PendingPermission {
+  requestId: string;
+  resource: string;
+  message: string;
+  options: string[];
 }
 
 export interface WebSocketState {
@@ -83,7 +91,17 @@ export interface WebSocketState {
   complexityScore?: number;
   qualityScore?: QualityScoreData;
   feedbackIteration: number;
+  pendingPermission?: PendingPermission;
+  transportMode: 'websocket' | 'sse';
 }
+
+// ─── Constants ──────────────────────────────────────────────────
+
+const MAX_RECONNECT_DELAY = 30_000;
+const BASE_RECONNECT_DELAY = 1_000;
+const SLEEP_DETECTION_INTERVAL = 15_000;
+const SLEEP_THRESHOLD = 120_000;
+const MAX_WS_FAILURES_BEFORE_SSE = 3;
 
 export const useWebSocket = (projectId: string) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -105,11 +123,24 @@ export const useWebSocket = (projectId: string) => {
     complexityScore: undefined,
     qualityScore: undefined,
     feedbackIteration: 0,
+    pendingPermission: undefined,
+    transportMode: 'websocket',
   });
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const intentRef = useRef<string | undefined>(undefined);
+
+  // ── Activity tracker callback ────────────────────────────────
+  const rawMessageCallbackRef = useRef<((data: any) => void) | null>(null);
+
+  // ── Transport resilience refs ─────────────────────────────────
+  const sessionIdRef = useRef<string | null>(null);
+  const lastSeqRef = useRef(0);
+  const reconnectAttemptRef = useRef(0);
+  const consecutiveFailuresRef = useRef(0);
+  const messageBufferRef = useRef<string[]>([]);
+  const lastEventTimeRef = useRef(Date.now());
 
   // ── Load history ─────────────────────────────────────────────
   useEffect(() => {
@@ -139,7 +170,6 @@ export const useWebSocket = (projectId: string) => {
             type: 'text'
           });
 
-          // Understanding response from history
           if (msg.understandingResponse?.content) {
             formattedMessages.push({
               id: `${msg._id}-understanding`,
@@ -152,7 +182,6 @@ export const useWebSocket = (projectId: string) => {
             });
           }
 
-          // Q&A answers from history (collapsed summary with questions)
           if (msg.qaAnswers && msg.qaAnswers.length > 0) {
             const questions = msg.understandingResponse?.content?.questions || [];
             formattedMessages.push({
@@ -219,12 +248,8 @@ export const useWebSocket = (projectId: string) => {
               type: 'review',
               data: review
             });
-            // Removed env setup history loading (introduced bug)
-            // const envVars = review?.setupGuide?.envVariables;
-            // if (Array.isArray(envVars) && envVars.length > 0) { ... }
           }
 
-          // Test response from history
           if (msg.testResponse?.content) {
             const testData = msg.testResponse.content;
             const totalTests = testData?.testSuite?.totalTests || 0;
@@ -240,7 +265,6 @@ export const useWebSocket = (projectId: string) => {
             });
           }
 
-          // Quality score from history
           if (msg.qualityScore?.grade) {
             formattedMessages.push({
               id: `${msg._id}-quality`,
@@ -301,7 +325,46 @@ export const useWebSocket = (projectId: string) => {
 
   // ── WebSocket message handler ────────────────────────────────
   const handleWebSocketMessage = useCallback((data: any) => {
+    // Track sequence number for resume
+    if (data.seq !== undefined) {
+      lastSeqRef.current = data.seq;
+    }
+    lastEventTimeRef.current = Date.now();
+
+    // Forward to activity tracker (if subscribed)
+    rawMessageCallbackRef.current?.(data);
+
     switch (data.type) {
+      // ── Session (transport layer) ───────────────────────────
+      case 'session':
+        sessionIdRef.current = data.sessionId;
+        break;
+
+      // ── Resume failed ───────────────────────────────────────
+      case 'resume_failed':
+        // State is stale — reload from REST API
+        setWsState(prev => ({
+          ...prev,
+          isGenerating: false,
+          flowStage: 'idle',
+          currentStatus: '',
+        }));
+        break;
+
+      // ── Permission request ──────────────────────────────────
+      case 'permission_request':
+        setWsState(prev => ({
+          ...prev,
+          flowStage: 'permission_prompt',
+          pendingPermission: {
+            requestId: data.requestId,
+            resource: data.resource,
+            message: data.message,
+            options: data.options,
+          },
+        }));
+        break;
+
       // ── Understanding phase ────────────────────────────────
       case 'understanding':
         setWsState(prev => ({
@@ -455,7 +518,6 @@ export const useWebSocket = (projectId: string) => {
       case 'frontend_complete':
         setWsState(prev => {
           const updatedAgents = [...prev.completedAgents, 'Frontend Agent'];
-          /* Only show "Preparing review" when the other agent is also done (or was never started) */
           const backendStillRunning = prev.streaming.backendStream && !updatedAgents.includes('Backend Agent');
           return {
             ...prev,
@@ -542,7 +604,6 @@ export const useWebSocket = (projectId: string) => {
           type: 'review',
           data: data.content
         });
-        // Add env setup card if the review includes env variables
         {
           const envVars = data.content?.setupGuide?.envVariables;
           if (Array.isArray(envVars) && envVars.length > 0) {
@@ -570,6 +631,7 @@ export const useWebSocket = (projectId: string) => {
           flowStage: 'completed',
           understandingData: undefined,
           featureReviewData: undefined,
+          pendingPermission: undefined,
         }));
         {
           const gradeEmoji = data.qualityGrade === 'A' ? '' : data.qualityGrade === 'B' ? '' : '';
@@ -625,25 +687,71 @@ export const useWebSocket = (projectId: string) => {
     }
   }, [addMessage, updateMessage, removeMessage]);
 
+  // ── Reconnect with exponential backoff ──────────────────────
+  const scheduleReconnect = useCallback(() => {
+    const delay = Math.min(
+      BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttemptRef.current),
+      MAX_RECONNECT_DELAY
+    ) + Math.random() * 500; // Jitter
+
+    reconnectAttemptRef.current++;
+    reconnectTimeoutRef.current = setTimeout(connect, delay);
+  }, []);
+
+  // ── Flush buffered messages ─────────────────────────────────
+  const flushMessageBuffer = useCallback(() => {
+    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return;
+    const buffer = messageBufferRef.current;
+    messageBufferRef.current = [];
+    for (const msg of buffer) {
+      ws.current.send(msg);
+    }
+  }, []);
+
+  // ── Safe send (buffers when disconnected) ───────────────────
+  const safeSend = useCallback((data: any) => {
+    const serialized = JSON.stringify(data);
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      ws.current.send(serialized);
+    } else {
+      messageBufferRef.current.push(serialized);
+    }
+  }, []);
+
   // ── WebSocket connection ─────────────────────────────────────
   const connect = useCallback(() => {
     if (ws.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const WS_URL = import.meta.env.VITE_WS_URL
+      const WS_URL = process.env.NEXT_PUBLIC_WS_URL
         ?? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
       ws.current = new WebSocket(WS_URL);
 
       ws.current.onopen = () => {
-        setWsState(prev => ({ ...prev, isConnected: true, error: null }));
+        reconnectAttemptRef.current = 0;
+        consecutiveFailuresRef.current = 0;
+        setWsState(prev => ({ ...prev, isConnected: true, error: null, transportMode: 'websocket' }));
+
+        // Resume if we have a session
+        if (sessionIdRef.current) {
+          ws.current?.send(JSON.stringify({
+            type: 'resume',
+            sessionId: sessionIdRef.current,
+            lastSeq: lastSeqRef.current,
+          }));
+        }
+
+        // Flush any buffered messages
+        flushMessageBuffer();
       };
 
       ws.current.onmessage = (event) => {
+        if (typeof event.data !== 'string' || (event.data[0] !== '{' && event.data[0] !== '[')) return;
         try {
           const data = JSON.parse(event.data);
           handleWebSocketMessage(data);
-        } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+        } catch {
+          // Non-JSON frame (ping/status) — ignore silently
         }
       };
 
@@ -651,31 +759,40 @@ export const useWebSocket = (projectId: string) => {
         setWsState(prev => ({
           ...prev,
           isConnected: false,
-          isGenerating: false,
-          currentStatus: '',
-          currentAgent: undefined,
-          streaming: { frontendStream: '', backendStream: '', reviewStream: '', testStream: '', activeAgent: null },
-          flowStage: 'idle',
+          // Keep pipeline state across reconnects (don't reset flowStage/isGenerating)
         }));
-        reconnectTimeoutRef.current = setTimeout(connect, 3000);
+        scheduleReconnect();
       };
 
-      ws.current.onerror = (error) => {
-        console.error('WebSocket error:', error);
+      ws.current.onerror = () => {
+        consecutiveFailuresRef.current++;
+        console.warn(`[ws] Connection failed (attempt ${consecutiveFailuresRef.current}) — will retry with backoff`);
         setWsState(prev => ({ ...prev, error: 'Connection error' }));
       };
     } catch (error) {
       console.error('Failed to connect to WebSocket:', error);
+      consecutiveFailuresRef.current++;
       setWsState(prev => ({ ...prev, error: 'Failed to connect' }));
+      scheduleReconnect();
     }
-  }, [handleWebSocketMessage]);
+  }, [handleWebSocketMessage, flushMessageBuffer, scheduleReconnect]);
+
+  // ── Sleep/wake detection ────────────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const gap = Date.now() - lastEventTimeRef.current;
+      if (gap > SLEEP_THRESHOLD && wsState.isGenerating) {
+        console.warn(`[ws] Sleep detected (${Math.round(gap / 1000)}s gap) — forcing reconnect`);
+        ws.current?.close();
+        // onclose handler will trigger reconnect with backoff
+      }
+    }, SLEEP_DETECTION_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [wsState.isGenerating]);
 
   // ── Send functions ───────────────────────────────────────────
   const sendMessage = useCallback((message: string) => {
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
-      setWsState(prev => ({ ...prev, error: 'Not connected to server' }));
-      return;
-    }
     if (!projectId) {
       setWsState(prev => ({ ...prev, error: 'No project selected' }));
       return;
@@ -683,7 +800,7 @@ export const useWebSocket = (projectId: string) => {
 
     addMessage({ sender: 'user', username: 'You', content: message, type: 'text' });
 
-    ws.current.send(JSON.stringify({ type: 'message', message, projectId }));
+    safeSend({ type: 'message', message, projectId });
 
     setWsState(prev => ({
       ...prev,
@@ -700,17 +817,12 @@ export const useWebSocket = (projectId: string) => {
       complexityScore: undefined,
       qualityScore: undefined,
       feedbackIteration: 0,
+      pendingPermission: undefined,
     }));
-  }, [addMessage, projectId]);
+  }, [addMessage, safeSend, projectId]);
 
   const sendUnderstandingResponse = useCallback((confirmed: boolean) => {
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return;
-
-    ws.current.send(JSON.stringify({
-      type: 'understanding_response',
-      confirmed,
-      projectId,
-    }));
+    safeSend({ type: 'understanding_response', confirmed, projectId });
 
     if (confirmed) {
       const hasQuestions = (wsState.understandingData?.questions?.length ?? 0) > 0;
@@ -721,17 +833,10 @@ export const useWebSocket = (projectId: string) => {
         currentAgent: hasQuestions ? undefined : 'Orchestrator Agent',
       }));
     }
-    // If not confirmed, backend sends 'cancelled' which is handled above
-  }, [projectId, wsState.understandingData]);
+  }, [safeSend, projectId, wsState.understandingData]);
 
   const sendQAComplete = useCallback((answers: Array<{ questionId: string; answer: string }>) => {
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return;
-
-    ws.current.send(JSON.stringify({
-      type: 'qa_complete',
-      answers,
-      projectId,
-    }));
+    safeSend({ type: 'qa_complete', answers, projectId });
 
     setWsState(prev => ({
       ...prev,
@@ -739,12 +844,10 @@ export const useWebSocket = (projectId: string) => {
       currentStatus: 'Creating your project plan...',
       currentAgent: 'Orchestrator Agent',
     }));
-  }, [projectId]);
+  }, [safeSend, projectId]);
 
   const sendProceed = useCallback((proceed: boolean) => {
-    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return;
-
-    ws.current.send(JSON.stringify({ type: 'proceed', proceed, projectId }));
+    safeSend({ type: 'proceed', proceed, projectId });
 
     if (proceed) {
       setWsState(prev => ({
@@ -753,16 +856,31 @@ export const useWebSocket = (projectId: string) => {
         currentStatus: 'Starting code generation...',
       }));
     }
-    // If not proceed, backend sends 'cancelled'
-  }, [projectId]);
+  }, [safeSend, projectId]);
+
+  const sendPermissionResponse = useCallback((requestId: string, decision: 'allow' | 'deny' | 'allow_always') => {
+    safeSend({ type: 'permission_response', requestId, decision });
+
+    setWsState(prev => ({
+      ...prev,
+      flowStage: prev.flowStage === 'permission_prompt' ? 'generating' : prev.flowStage,
+      pendingPermission: undefined,
+    }));
+  }, [safeSend]);
 
   useEffect(() => {
-    connect();
+    const delay = setTimeout(connect, 500);
     return () => {
+      clearTimeout(delay);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       ws.current?.close();
     };
   }, [connect]);
+
+  /** Subscribe to raw WebSocket messages for activity tracking */
+  const setRawMessageCallback = useCallback((cb: ((data: any) => void) | null) => {
+    rawMessageCallbackRef.current = cb;
+  }, []);
 
   return {
     messages,
@@ -772,6 +890,8 @@ export const useWebSocket = (projectId: string) => {
     sendUnderstandingResponse,
     sendQAComplete,
     sendProceed,
+    sendPermissionResponse,
+    setRawMessageCallback,
     connect,
     addMessage,
     updateMessage,

@@ -16,6 +16,11 @@ import { messageRouter } from "./message.routes.js";
 import { settingsRouter } from "./settings.routes.js";
 import { pluginRouter } from "./plugin.routes.js";
 import { tursoRouter } from "./turso.routes.js";
+import { pipelineCommandRouter } from "./pipeline-command.routes.js";
+import { sseRouter } from "../websocket/sse-fallback.js";
+import { permissionRouter } from "./permission.routes.js";
+import { mcpRouter } from "./mcp.routes.js";
+import { qualityTrendRouter } from "./quality-trend.routes.js";
 
 /* Strict limiter for auth endpoints (brute-force protection) */
 const authLimiter = rateLimit({
@@ -48,3 +53,8 @@ apiRouter.use(messageRouter);
 apiRouter.use(settingsRouter);
 apiRouter.use(pluginRouter);
 apiRouter.use(tursoRouter);
+apiRouter.use(pipelineCommandRouter);
+apiRouter.use(sseRouter);
+apiRouter.use(permissionRouter);
+apiRouter.use(mcpRouter);
+apiRouter.use(qualityTrendRouter);

@@ -37,12 +37,12 @@ export function ClarifyingQuestion({
       <div className="flex items-start gap-2 animate-spring-in">
         <div className="flex flex-col items-center">
           <div className="w-5 h-5 rounded-full border border-white/15 flex items-center justify-center">
-            <span className="text-[10px] text-white/30">{questionNumber}</span>
+            <span className="text-[10px] text-white/40">{questionNumber}</span>
           </div>
           {questionNumber < totalQuestions && <div className="w-px h-4 bg-white/10" />}
         </div>
         <div>
-          <p className="text-xs text-white/30 mb-0.5">{question}</p>
+          <p className="text-xs text-white/40 mb-0.5">{question}</p>
           <p className="text-sm text-white/75">{answered}</p>
         </div>
       </div>
@@ -50,8 +50,8 @@ export function ClarifyingQuestion({
   }
 
   return (
-    <div className="max-w-xl animate-spring-in">
-      <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] overflow-hidden shadow-elevation-1">
+    <div className="max-w-2xl animate-spring-in">
+      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden shadow-elevation-1">
         {/* Question header */}
         <div className="px-5 pt-4 pb-3">
           <p className="text-sm font-medium text-white/80">{question}</p>
@@ -78,12 +78,12 @@ export function ClarifyingQuestion({
             onChange={(e) => setOtherText(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleOtherSubmit()}
             placeholder="If something else, type here..."
-            className="flex-1 bg-transparent px-5 py-3 text-sm text-white/75 placeholder:text-white/20 outline-none"
+            className="flex-1 bg-transparent px-5 py-3 text-sm text-white/75 placeholder:text-white/30 outline-none"
           />
           {otherText.trim() && (
             <button
               onClick={handleOtherSubmit}
-              className="px-4 py-3 text-[#D4AF37]/60 hover:text-[#D4AF37] transition-colors"
+              className="px-4 py-3 text-gold-500/60 hover:text-gold-500 transition-colors"
             >
               <Send className="w-4 h-4" />
             </button>

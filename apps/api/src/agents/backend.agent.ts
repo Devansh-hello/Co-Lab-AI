@@ -50,13 +50,25 @@ export async function BackendCodeAgent(
 
     const systemPrompt = `Expert ${runtime} backend engineer. Output ONLY valid JSON: { "filepath": "code" }.
 
+BEFORE GENERATING, think through (do not output):
+- What are the 3 most likely failure points in this backend?
+- Which endpoints have the most complex validation rules?
+- What happens if the database is empty? What happens on first run?
+- Which endpoints need auth and which are public?
+
 STANDARDS:
 - MVC architecture, input validation on every endpoint (Zod/Joi), proper HTTP status codes
 - Centralized error middleware, async/await + try-catch, env vars for secrets (.env.example)
 - cors({ origin: "*", credentials: true }), port from env || 3000, log listening port
 
-SECURITY:
-- bcrypt (10+ rounds), JWT with expiry, auth middleware, no stack traces in responses, input sanitization
+SECURITY — BLOCKING (fail the generation if any are violated):
+- Never interpolate user input into queries — always use parameterized queries or Mongoose methods
+- Never return full error stacks to clients — map all errors to safe messages
+- Never store JWT secrets in code — always reference process.env
+- bcrypt (10+ rounds), JWT with expiry, auth middleware on all protected routes
+- Auth middleware must verify token expiry, not just signature
+- Never log sensitive data (passwords, tokens, API keys)
+- Input sanitization on all user-supplied strings
 
 DATABASE:
 - Schema validation, indexes on queried fields, lean() reads, connection retry logic
@@ -64,24 +76,57 @@ DATABASE:
 API CONTRACT:
 - Implement EVERY endpoint with EXACT field names and response shapes from the contract
 
+ANTI-PATTERNS — NEVER DO THESE:
+- Don't add validation for impossible inputs (e.g., checking if a required field exists when the schema enforces it)
+- Don't create a utils/ folder with one function in it
+- Don't add pagination to endpoints that will never return more than 50 items
+- Don't add rate limiting middleware unless the user asked for it
+- Don't create abstract base classes for a single implementation
+- Don't add logging to every function — only log at boundaries (request in, response out, errors)
+- Don't add a /health endpoint unless the user asked for monitoring
+- Don't create separate controller files if each controller has only one function
+
+OUTPUT BUDGET:
+- Complexity 1-2: 4-8 files. server.js + routes + models + middleware is enough.
+- Complexity 3: 8-12 files. Standard MVC structure.
+- Complexity 4-5: 12-20 files. Full project with proper separation.
+
+GENERATION ORDER (generate files in this sequence):
+1. package.json (establishes all dependencies)
+2. .env.example (all required vars with placeholder values showing expected format)
+3. Database connection + models (schemas with validation)
+4. Middleware (auth, error handler, validation)
+5. Routes (in API contract order)
+6. server.js/index.js (LAST — all imports already defined)
+
 FILES: server.js/index.js, routes/, models/, middleware/, .env.example
 
 SELF-VERIFICATION (do this before outputting):
 1. List every route you implement (method + path)
 2. Compare each against the API CONTRACT — path, method, body fields, response shape must match exactly
 3. Check: does every contract endpoint have a corresponding route? Fix any missing ones NOW
-4. Verify: auth middleware on protected routes, .env.example includes all required vars`;
+4. Verify: auth middleware on protected routes, .env.example includes all required vars
+5. Verify: every model field referenced in routes exists in the schema
+6. Verify: error middleware catches all async errors (no unhandled promise rejections)`;
+
+    const intent = taskFile.intent || 'build';
+    const intentInstruction = intent === 'build'
+        ? 'Generate complete, production-ready backend code as JSON. Every file must be complete and runnable.'
+        : intent === 'debug'
+        ? 'Fix the specified bug. Output ONLY the files that need changes — do NOT regenerate unchanged files. Each file you output must be COMPLETE (not a diff). Unchanged files will be preserved automatically.'
+        : 'Extend the existing code to add the requested features. Output ONLY new or modified files — do NOT regenerate unchanged files. Each file you output must be COMPLETE (not a diff). Unchanged files will be preserved automatically.';
 
     const userPrompt = `Project: ${taskFile.projectMeta?.name || 'Project'}
 Description: ${taskFile.projectMeta?.description || ''}
 Runtime: ${runtime} | Framework: ${framework} | Database: ${database} | Libraries: ${(techStack.libraries || []).join(', ')}
 Architecture: ${taskFile.architecture || ''}
+Intent: ${intent.toUpperCase()}
 
 TASKS:
 ${taskFile.backendTasks.map((t: any, i: number) => `${i + 1}. ${t.task}\n   Details: ${t.details}`).join('\n')}
 ${apiContract}${previousContext}${pluginContext}
 
-Generate complete, production-ready backend code as JSON. Every file must be complete and runnable.`;
+${intentInstruction}`;
 
     let fullContent = '';
     const onUsage = (usage: TokenUsage) => {

@@ -1,347 +1,389 @@
 "use client"
 
-import { useRef, useEffect, useCallback } from "react"
-import { animate } from "animejs"
+import { useRef, useEffect } from "react"
+import * as THREE from "three"
+import gsap from "gsap"
 
-const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*+=-:.,"
-const DENSITY = " .,:;+*?%#@"
-const TARGET_FPS = 30
-const FRAME_INTERVAL = 1000 / TARGET_FPS
+const DENSITY = " .,;:{}[]()<>/\\|=+-*&^%$#@!?~`_01"
 
-interface Cell {
-  x: number; y: number; char: string
-  brightness: number; opacity: number
-  colorStr: string
-  dist: number // pre-computed distance from center for reveal
+const prefersReducedMotion =
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+// ── Character atlas ──────────────────────────────────────────────────────────
+function buildAtlas(chars: string, cellW: number, cellH: number): HTMLCanvasElement {
+  const canvas = document.createElement("canvas")
+  canvas.width  = chars.length * cellW
+  canvas.height = cellH
+  const ctx = canvas.getContext("2d")!
+  ctx.fillStyle = "#000"
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillStyle = "#fff"
+  ctx.font = `${Math.floor(cellH * 0.85)}px "Source Code Pro","Courier New",monospace`
+  ctx.textAlign    = "center"
+  ctx.textBaseline = "middle"
+  for (let i = 0; i < chars.length; i++) {
+    ctx.fillText(chars[i], i * cellW + cellW * 0.5, cellH * 0.5)
+  }
+  return canvas
 }
 
+// ── Vertex shader ────────────────────────────────────────────────────────────
+const VERT = /* glsl */`
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
+}
+`
+
+// ── Fragment shader ──────────────────────────────────────────────────────────
+const FRAG = /* glsl */`
+precision highp float;
+
+uniform sampler2D uImage;
+uniform sampler2D uAtlas;
+uniform vec2  uResolution;
+uniform float uCellSize;
+uniform float uReveal;
+uniform float uTime;
+uniform float uNumChars;
+uniform float uImageAspect;
+uniform float uRotation;
+uniform float uMaxBrightness;
+uniform float uTintStrength;   // 0=real image, 1=full gold
+uniform float uGlitch;
+uniform vec2  uGlitchOffset;
+uniform float uGlitchColStart;
+uniform float uGlitchColEnd;
+uniform vec2  uParallax;
+
+varying vec2 vUv;
+
+float hash21(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+void main() {
+  vec2 px = vec2(vUv.x, 1.0 - vUv.y) * uResolution;
+
+  vec2 cellCoord  = floor(px / uCellSize);
+  vec2 cellCenter = (cellCoord + 0.5) * uCellSize;
+
+  // Radial reveal
+  vec2  gridSize   = uResolution / uCellSize;
+  vec2  gridCenter = gridSize * 0.5;
+  float dist       = length(cellCoord - gridCenter);
+  float maxDist    = length(gridCenter);
+  float revealRadius = uReveal * maxDist * 1.2;
+  float reveal = clamp((revealRadius - dist) / (maxDist * 0.15), 0.0, 1.0);
+  if (reveal < 0.01) discard;
+
+  // Glitch
+  float inGlitch = step(uGlitchColStart, cellCoord.x)
+                 * step(cellCoord.x, uGlitchColEnd)
+                 * uGlitch;
+  vec2 glitchOff = inGlitch * uGlitchOffset;
+
+  // Drift + parallax
+  float t   = uTime;
+  vec2 drift = vec2(sin(t * 0.4) * 2.5, cos(t * 0.27) * 1.5);
+  vec2 samplePx = cellCenter + drift + glitchOff + uParallax;
+
+  vec2 uv = vec2(samplePx.x / uResolution.x,
+                 1.0 - samplePx.y / uResolution.y);
+
+  // Rotation
+  if (abs(uRotation) > 0.001) {
+    vec2 c  = uv - 0.5;
+    float cr = cos(-uRotation);
+    float sr = sin(-uRotation);
+    c = vec2(cr * c.x - sr * c.y, sr * c.x + cr * c.y) / 1.15;
+    uv = c + 0.5;
+  }
+
+  // Cover-fit
+  float canvasAspect = uResolution.x / uResolution.y;
+  if (canvasAspect > uImageAspect) {
+    float s = canvasAspect / uImageAspect;
+    uv.y    = (uv.y - 0.5) / s + 0.5;
+  } else {
+    float s = uImageAspect / canvasAspect;
+    uv.x    = (uv.x - 0.5) / s + 0.5;
+  }
+
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) discard;
+
+  // ── Sample image — only discard bright background ──────────────────────
+  vec4  color      = texture2D(uImage, uv);
+  if (color.a < 0.1) discard;
+  float brightness = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+  if (brightness > uMaxBrightness) discard;
+
+  // ── Gamma lift for character selection ─────────────────────────────────
+  float lifted = pow(brightness, 0.55);
+
+  // ── Character selection (shuffles over time) ──────────────────────────
+  float slot    = floor(uTime / 0.9);
+  float rng     = hash21(cellCoord + vec2(slot));
+  float charIdx = clamp(
+    floor((1.0 - lifted) * (uNumChars - 1.0) + (rng - 0.5) * 1.5),
+    0.0, uNumChars - 1.0
+  );
+
+  // ── Atlas lookup ──────────────────────────────────────────────────────
+  vec2  cellUV  = (px - cellCoord * uCellSize) / uCellSize;
+  float atlasU  = (charIdx + cellUV.x) / uNumChars;
+  float atlasV  = 1.0 - cellUV.y;
+  float glyph   = texture2D(uAtlas, vec2(atlasU, atlasV)).r;
+  if (glyph < 0.12) discard;
+
+  // ── Colour: real image built by characters + gold overlay ──────────────
+  // Lift original image colours so dark areas are readable
+  float targetBri = max(0.50, brightness);
+  float lift      = targetBri / max(brightness, 0.001);
+  lift            = min(lift, 4.0);
+  vec3 imageColor = clamp(color.rgb * lift, 0.0, 1.0);
+
+  // Gold overlay: subtle warm wash over real image colours
+  // tintStrength: 0 = 10% tint (auth), 1 = 20% tint (hand)
+  float goldAmount = mix(0.10, 0.20, uTintStrength);
+  vec3 finalColor  = mix(imageColor, vec3(0.831, 0.686, 0.216), goldAmount);
+
+  // Glitch colour — gold family
+  float grng      = hash21(cellCoord + vec2(t * 17.3));
+  vec3  glitchClr = grng > 0.5 ? vec3(1.0, 0.85, 0.3) : vec3(0.95, 0.55, 0.08);
+  finalColor = mix(finalColor, glitchClr, inGlitch * 0.9);
+
+  // Alpha — generous minimum so dark images aren't invisible
+  float alpha = clamp(reveal * glyph * (0.65 + lifted * 0.55) * 2.0, 0.0, 1.0);
+
+  gl_FragColor = vec4(finalColor, alpha);
+}
+`
+
+// ── React component ──────────────────────────────────────────────────────────
+
 interface Props {
-  imageSrc: string
-  cellSize?: number
-  className?: string
-  parallaxMax?: number
-  rotation?: number
-  revealSpeed?: number
+  imageSrc:       string
+  cellSize?:      number
+  className?:     string
+  rotation?:      number
+  revealSpeed?:   number
+  /** Pixels brighter than this are discarded — removes white/bright background. Default 0.82. */
+  maxBrightness?: number
+  /** 0 = real image colours + light gold tint. 1 = full vivid gold. Default 1. */
+  tintStrength?:  number
+  /** Parallax intensity in CSS px. 0 = off. Default 20. */
+  parallax?:      number
 }
 
 export function CreationHands({
   imageSrc,
-  cellSize: baseCellSize = 6,
-  className = "",
-  parallaxMax = 5,
-  rotation = 0,
-  revealSpeed = 1,
+  cellSize      = 8,
+  className     = "",
+  rotation      = 0,
+  revealSpeed   = 1,
+  maxBrightness = 0.82,
+  tintStrength  = 1,
+  parallax      = 20,
 }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const cellsRef = useRef<Cell[]>([])
-  const mouseRef = useRef({ x: 0.5, y: 0.5 })
-  const rafRef = useRef<number>(0)
-  const readyRef = useRef(false)
-  const timerRef = useRef<number>(0)
-  const glitchTimerRef = useRef<number>(0)
-  const glitchOffsetRef = useRef({ x: 0, y: 0, active: false })
-  const visibleRef = useRef(true)
-  const lastFrameRef = useRef(0)
-  const effectiveCellSizeRef = useRef(baseCellSize)
-  // Cached per-resize values to avoid per-frame layout reads
-  const cachedCtxRef = useRef<CanvasRenderingContext2D | null>(null)
-  const cachedSizeRef = useRef({ w: 0, h: 0 })
-  // Single reveal progress value (0..1) drives all cells
-  const revealProgressRef = useRef(0)
-  const maxDistRef = useRef(1)
-
-  const processImage = useCallback((img: HTMLImageElement) => {
-    const container = containerRef.current
-    if (!container) return
-
-    const rect = container.getBoundingClientRect()
-    const w = Math.floor(rect.width)
-    const h = Math.floor(rect.height)
-    if (w === 0 || h === 0) return
-
-    const cellSize = w > 1920 ? baseCellSize + 2 : w > 1440 ? baseCellSize + 1 : baseCellSize
-    effectiveCellSizeRef.current = cellSize
-
-    const off = document.createElement("canvas")
-    off.width = w
-    off.height = h
-    const ctx = off.getContext("2d", { willReadFrequently: true })
-    if (!ctx) return
-
-    const iA = img.naturalWidth / img.naturalHeight
-    const cA = w / h
-    let dw: number, dh: number, dx: number, dy: number
-    if (cA > iA) {
-      dw = w; dh = w / iA; dx = 0; dy = (h - dh) / 2
-    } else {
-      dh = h; dw = h * iA; dx = (w - dw) / 2; dy = 0
-    }
-
-    if (rotation !== 0) {
-      const rad = (rotation * Math.PI) / 180
-      ctx.save()
-      ctx.translate(w / 2, h / 2)
-      ctx.rotate(rad)
-      const scale = 1.15
-      ctx.drawImage(img, (-dw * scale) / 2, (-dh * scale) / 2, dw * scale, dh * scale)
-      ctx.restore()
-    } else {
-      ctx.drawImage(img, dx, dy, dw, dh)
-    }
-
-    const data = ctx.getImageData(0, 0, w, h).data
-    const cols = Math.floor(w / cellSize)
-    const rows = Math.floor(h / cellSize)
-    const cells: Cell[] = []
-
-    // Find center in grid coords
-    const midCol = cols / 2
-    const midRow = rows / 2
-
-    let maxDist = 0
-
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const px = Math.floor(col * cellSize + cellSize / 2)
-        const py = Math.floor(row * cellSize + cellSize / 2)
-        const i = (py * w + px) * 4
-
-        const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3]
-        const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-
-        if (brightness > 0.92 || (a / 255) < 0.2) continue
-
-        const darkness = 1 - brightness
-        const ci = Math.min(Math.floor(darkness * (DENSITY.length - 1)), DENSITY.length - 1)
-        if (DENSITY[ci] === " ") continue
-
-        const avg = (r + g + b) / 3
-        const rr = Math.min(255, Math.round((avg + (r - avg) * 2.0) * 1.4))
-        const gg = Math.min(255, Math.round((avg + (g - avg) * 2.0) * 1.4))
-        const bb = Math.min(255, Math.round((avg + (b - avg) * 2.0) * 1.4))
-
-        const dist = Math.hypot(col - midCol, row - midRow)
-        if (dist > maxDist) maxDist = dist
-
-        cells.push({
-          x: col, y: row,
-          char: CHARS[Math.floor(Math.random() * CHARS.length)],
-          brightness, opacity: 0,
-          colorStr: `rgb(${rr},${gg},${bb})`,
-          dist,
-        })
-      }
-    }
-
-    maxDistRef.current = maxDist || 1
-    cellsRef.current = cells
-    readyRef.current = true
-  }, [baseCellSize, rotation])
-
-  const shuffleChars = useCallback(() => {
-    const cells = cellsRef.current
-    const n = Math.floor(cells.length * 0.08)
-    for (let i = 0; i < n; i++) {
-      const idx = Math.floor(Math.random() * cells.length)
-      cells[idx].char = CHARS[Math.floor(Math.random() * CHARS.length)]
-    }
-  }, [])
-
-  const setupCanvas = useCallback(() => {
-    const canvas = canvasRef.current
-    const container = containerRef.current
-    if (!canvas || !container) return
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
-    const rect = container.getBoundingClientRect()
-    const w = Math.floor(rect.width)
-    const h = Math.floor(rect.height)
-    const cw = Math.floor(w * dpr)
-    const ch = Math.floor(h * dpr)
-
-    if (canvas.width !== cw || canvas.height !== ch) {
-      canvas.width = cw
-      canvas.height = ch
-    }
-
-    cachedSizeRef.current = { w, h }
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-
-    const cellSize = effectiveCellSizeRef.current
-    ctx.font = `${cellSize * 0.82}px "Source Code Pro","Courier New",monospace`
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-
-    cachedCtxRef.current = ctx
-  }, [])
-
-  const render = useCallback(() => {
-    const ctx = cachedCtxRef.current
-    const { w, h } = cachedSizeRef.current
-    if (!ctx || !readyRef.current || w === 0) return
-
-    ctx.clearRect(0, 0, w, h)
-
-    const cellSize = effectiveCellSizeRef.current
-    const mx = (mouseRef.current.x - 0.5) * parallaxMax * 2
-    const my = (mouseRef.current.y - 0.5) * parallaxMax * 2
-    const gl = glitchOffsetRef.current
-    const progress = revealProgressRef.current
-    const maxDist = maxDistRef.current
-
-    const cols = Math.floor(w / cellSize)
-    const glitchColStart = gl.active ? Math.floor(Math.random() * cols) : -1
-    const glitchColEnd = glitchColStart + 4 + Math.floor(Math.random() * 8)
-
-    // Reveal threshold: cells within this distance are visible
-    const revealRadius = progress * maxDist * 1.2
-
-    for (const c of cellsRef.current) {
-      // Compute opacity from reveal progress instead of per-cell anime instance
-      let targetOpacity: number
-      if (c.dist < revealRadius) {
-        // How far past the threshold (0 = just appeared, 1 = fully settled)
-        const t = Math.min(1, (revealRadius - c.dist) / (maxDist * 0.15))
-        targetOpacity = (0.6 + Math.random() * 0.05) * t // tiny jitter for life
-      } else {
-        targetOpacity = 0
-      }
-      // Lerp toward target for smooth fade
-      c.opacity += (targetOpacity - c.opacity) * 0.3
-
-      if (c.opacity < 0.01) continue
-
-      const da = 0.55 + (1 - c.brightness) * 0.45
-      ctx.globalAlpha = Math.min(1, c.opacity * da * 1.5)
-
-      const inGlitch = gl.active && c.x >= glitchColStart && c.x < glitchColEnd
-      const gx = inGlitch ? gl.x : 0
-      const gy = inGlitch ? gl.y : 0
-
-      if (inGlitch) {
-        ctx.fillStyle = Math.random() > 0.5 ? "#00ffff" : "#ff003c"
-        ctx.globalAlpha = Math.min(1, c.opacity * 0.9)
-      } else {
-        ctx.fillStyle = c.colorStr
-      }
-
-      ctx.fillText(
-        c.char,
-        c.x * cellSize + cellSize / 2 + mx + gx,
-        c.y * cellSize + cellSize / 2 + my + gy
-      )
-    }
-    ctx.globalAlpha = 1
-  }, [parallaxMax])
-
-  const loop = useCallback((now: number) => {
-    rafRef.current = requestAnimationFrame(loop)
-    if (!visibleRef.current) return
-    if (now - lastFrameRef.current < FRAME_INTERVAL) return
-    lastFrameRef.current = now
-    render()
-  }, [render])
+  const mountRef       = useRef<HTMLDivElement>(null)
+  const rendererRef    = useRef<THREE.WebGLRenderer | null>(null)
+  const uniformsRef    = useRef<Record<string, THREE.IUniform> | null>(null)
+  const rafRef         = useRef<number>(0)
+  const tweenRef       = useRef<gsap.core.Tween | null>(null)
+  const glitchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const visibleRef     = useRef(true)
 
   useEffect(() => {
-    const img = new Image()
-    img.crossOrigin = "anonymous"
+    const mount = mountRef.current
+    if (!mount || typeof window === "undefined") return
 
-    img.onload = () => {
-      processImage(img)
-      setupCanvas()
-      rafRef.current = requestAnimationFrame((t) => { lastFrameRef.current = t; loop(t) })
+    const w = mount.clientWidth
+    const h = mount.clientHeight
+    if (w === 0 || h === 0) return
 
-      // Single animation drives entire reveal -- replaces 20k+ individual animate() calls
-      const obj = { v: 0 }
-      revealProgressRef.current = 0
-      animate(obj, {
-        v: [0, 1],
-        duration: 800 * revealSpeed,
-        delay: 50 * revealSpeed,
-        ease: "outQuart",
-        onUpdate: () => { revealProgressRef.current = obj.v },
+    // ── Atlas ─────────────────────────────────────────────────
+    const charCellW    = Math.ceil(cellSize * 0.9)
+    const charCellH    = Math.ceil(cellSize)
+    const atlasCanvas  = buildAtlas(DENSITY, charCellW, charCellH)
+    const atlasTexture = new THREE.CanvasTexture(atlasCanvas)
+    atlasTexture.minFilter = THREE.NearestFilter
+    atlasTexture.magFilter = THREE.NearestFilter
+
+    // ── Renderer ──────────────────────────────────────────────
+    let renderer: THREE.WebGLRenderer
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias:       false,
+        alpha:           true,
+        powerPreference: "high-performance",
       })
+    } catch {
+      atlasTexture.dispose()
+      return
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.setSize(w, h)
+    renderer.setClearColor(0x000000, 0)
+    mount.appendChild(renderer.domElement)
+    rendererRef.current = renderer
 
-      timerRef.current = window.setInterval(shuffleChars, 600)
+    const scene  = new THREE.Scene()
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
 
-      const scheduleGlitch = () => {
-        const wait = 3000 + Math.random() * 8000
-        glitchTimerRef.current = window.setTimeout(() => {
-          glitchOffsetRef.current = {
-            x: (Math.random() - 0.5) * 4,
-            y: (Math.random() - 0.5) * 14,
-            active: true,
-          }
-          setTimeout(() => {
-            glitchOffsetRef.current = { x: 0, y: 0, active: false }
-            if (Math.random() > 0.6) {
-              setTimeout(() => {
-                glitchOffsetRef.current = {
-                  x: (Math.random() - 0.5) * 3,
-                  y: (Math.random() - 0.5) * 10,
-                  active: true,
-                }
+    // ── Uniforms ─────────────────────────────────────────────
+    const uniforms: Record<string, THREE.IUniform> = {
+      uImage:          { value: null },
+      uAtlas:          { value: atlasTexture },
+      uResolution:     { value: new THREE.Vector2(w, h) },
+      uCellSize:       { value: cellSize },
+      uReveal:         { value: prefersReducedMotion ? 1.0 : 0.0 },
+      uTime:           { value: 0.0 },
+      uNumChars:       { value: DENSITY.length },
+      uImageAspect:    { value: 1.0 },
+      uRotation:       { value: (rotation * Math.PI) / 180 },
+      uMaxBrightness:  { value: maxBrightness },
+      uTintStrength:   { value: tintStrength },
+      uGlitch:         { value: 0.0 },
+      uGlitchOffset:   { value: new THREE.Vector2(0, 0) },
+      uGlitchColStart: { value: -1.0 },
+      uGlitchColEnd:   { value: -1.0 },
+      uParallax:       { value: new THREE.Vector2(0, 0) },
+    }
+    uniformsRef.current = uniforms
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader:   VERT,
+      fragmentShader: FRAG,
+      uniforms,
+      transparent:    true,
+      depthWrite:     false,
+    })
+
+    const geometry = new THREE.PlaneGeometry(2, 2)
+    scene.add(new THREE.Mesh(geometry, material))
+
+    // ── Load image ───────────────────────────────────────────
+    const loader = new THREE.TextureLoader()
+    loader.load(imageSrc, (texture) => {
+      texture.colorSpace = THREE.SRGBColorSpace
+      texture.minFilter  = THREE.LinearFilter
+      texture.magFilter  = THREE.LinearFilter
+      uniforms.uImage.value = texture
+
+      const imgEl = texture.image as HTMLImageElement
+      uniforms.uImageAspect.value = imgEl.naturalWidth / imgEl.naturalHeight
+
+      // Reveal
+      if (!prefersReducedMotion) {
+        const obj = { v: 0 }
+        tweenRef.current = gsap.to(obj, {
+          v:        1,
+          duration: 0.8 * revealSpeed,
+          delay:    0.05 * revealSpeed,
+          ease:     "power2.out",
+          onUpdate: () => { uniforms.uReveal.value = obj.v },
+        })
+      }
+
+      // Glitch scheduling
+      if (!prefersReducedMotion) {
+        const scheduleGlitch = () => {
+          const wait = 3000 + Math.random() * 8000
+          glitchTimerRef.current = setTimeout(() => {
+            const numCols = Math.floor(w / cellSize)
+            const start   = Math.floor(Math.random() * numCols)
+            uniforms.uGlitch.value         = 1
+            uniforms.uGlitchOffset.value.set((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 14)
+            uniforms.uGlitchColStart.value = start
+            uniforms.uGlitchColEnd.value   = start + 4 + Math.floor(Math.random() * 8)
+
+            setTimeout(() => {
+              uniforms.uGlitch.value = 0
+              if (Math.random() > 0.6) {
                 setTimeout(() => {
-                  glitchOffsetRef.current = { x: 0, y: 0, active: false }
-                }, 40 + Math.random() * 60)
-              }, 80 + Math.random() * 120)
-            }
-          }, 50 + Math.random() * 100)
-          scheduleGlitch()
-        }, wait)
+                  uniforms.uGlitch.value = 1
+                  uniforms.uGlitchOffset.value.set((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 10)
+                  setTimeout(() => { uniforms.uGlitch.value = 0 }, 40 + Math.random() * 60)
+                }, 80 + Math.random() * 120)
+              }
+              scheduleGlitch()
+            }, 50 + Math.random() * 100)
+          }, wait)
+        }
+        scheduleGlitch()
       }
-      scheduleGlitch()
+    })
+
+    // ── Render loop ──────────────────────────────────────────
+    const startTime = performance.now()
+    const parallaxTarget = { x: 0, y: 0 }
+
+    const onMouseMove = parallax > 0 && !prefersReducedMotion
+      ? (e: MouseEvent) => {
+          const nx = (e.clientX / window.innerWidth  - 0.5) * 2
+          const ny = (e.clientY / window.innerHeight - 0.5) * 2
+          parallaxTarget.x = nx * parallax
+          parallaxTarget.y = ny * parallax
+        }
+      : null
+
+    if (onMouseMove) {
+      window.addEventListener("mousemove", onMouseMove, { passive: true })
     }
 
-    img.onerror = () => {
-      console.error("CreationHands: Failed to load image:", imageSrc)
-    }
-
-    img.src = imageSrc
-
-    let handleMouse: ((e: MouseEvent) => void) | null = null
-    if (parallaxMax > 0) {
-      handleMouse = (e: MouseEvent) => {
-        if (!containerRef.current) return
-        const r = containerRef.current.getBoundingClientRect()
-        mouseRef.current.x = (e.clientX - r.left) / r.width
-        mouseRef.current.y = (e.clientY - r.top) / r.height
+    const animate = () => {
+      rafRef.current = requestAnimationFrame(animate)
+      if (!visibleRef.current || !uniforms.uImage.value) return
+      // Smooth parallax lerp
+      if (onMouseMove) {
+        const cur = uniforms.uParallax.value as THREE.Vector2
+        cur.x += (parallaxTarget.x - cur.x) * 0.08
+        cur.y += (parallaxTarget.y - cur.y) * 0.08
       }
-      window.addEventListener("mousemove", handleMouse, { passive: true })
+      uniforms.uTime.value = (performance.now() - startTime) * 0.001
+      renderer.render(scene, camera)
     }
+    animate()
 
-    // Re-setup canvas on resize
-    const handleResize = () => { setupCanvas() }
-    window.addEventListener("resize", handleResize, { passive: true })
-
-    let visObserver: IntersectionObserver | undefined
-    if (containerRef.current) {
-      visObserver = new IntersectionObserver(
-        ([entry]) => { visibleRef.current = entry.isIntersecting },
-        { threshold: 0 }
-      )
-      visObserver.observe(containerRef.current)
+    // ── Resize ───────────────────────────────────────────────
+    const onResize = () => {
+      const nw = mount.clientWidth
+      const nh = mount.clientHeight
+      if (nw === 0 || nh === 0) return
+      renderer.setSize(nw, nh)
+      uniforms.uResolution.value.set(nw, nh)
     }
+    window.addEventListener("resize", onResize, { passive: true })
+
+    // ── Visibility ───────────────────────────────────────────
+    const visObs = new IntersectionObserver(
+      ([e]) => { visibleRef.current = e.isIntersecting },
+      { threshold: 0 },
+    )
+    visObs.observe(mount)
 
     return () => {
       cancelAnimationFrame(rafRef.current)
-      clearInterval(timerRef.current)
-      clearTimeout(glitchTimerRef.current)
-      if (handleMouse) window.removeEventListener("mousemove", handleMouse)
-      window.removeEventListener("resize", handleResize)
-      visObserver?.disconnect()
+      tweenRef.current?.kill()
+      if (glitchTimerRef.current) clearTimeout(glitchTimerRef.current)
+      window.removeEventListener("resize", onResize)
+      if (onMouseMove) window.removeEventListener("mousemove", onMouseMove)
+      visObs.disconnect()
+      renderer.dispose()
+      material.dispose()
+      geometry.dispose()
+      atlasTexture.dispose()
+      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
     }
-  }, [imageSrc, processImage, setupCanvas, loop, shuffleChars, revealSpeed])
+  }, [imageSrc, cellSize, rotation, revealSpeed, maxBrightness, tintStrength, parallax])
 
   return (
     <div
-      ref={containerRef}
+      ref={mountRef}
       className={`relative select-none ${className}`}
-    >
-      <canvas ref={canvasRef} className="w-full h-full" />
-    </div>
+    />
   )
 }

@@ -25,6 +25,8 @@ import { mongo } from "./models/index.js";
 // ─── Express App ────────────────────────────────────────────────
 
 const app = express();
+// Required when requests are forwarded (Next dev proxy, nginx, cloud LB).
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use(cookieParser());
 app.use(corsMiddleware);

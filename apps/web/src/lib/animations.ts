@@ -1,185 +1,205 @@
 /**
  * Co-Lab AI Animation Utilities
- * Powered by anime.js v4 — mission-control aesthetic
+ * Powered by GSAP — fast, minimal, intentional motion.
  *
- * Design philosophy: cinematic reveals for pipeline stages,
- * physics-based micro-interactions, staggered orchestration.
+ * Duration guide:
+ *   instant  100ms  — micro-feedback (button press)
+ *   fast     150ms  — UI transitions (hover, toggle)
+ *   normal   200ms  — standard reveals
+ *   slow     300ms  — entrance/exit of significant content
  */
 
-import { animate, stagger, createTimeline } from 'animejs';
+import gsap from "gsap"
+
+/** Check user's reduced-motion preference once at module load */
+export const prefersReducedMotion =
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
 // ─── Staggered Entry ─────────────────────────────────────────
-// Used for lists of items (test results, tasks, messages)
 
-export function staggerIn(selector: string | Element[], delay = 50) {
-  return animate(selector, {
-    opacity: [0, 1],
-    translateY: [12, 0],
-    duration: 400,
-    delay: stagger(delay, { start: 100 }),
-    ease: 'outExpo',
-  });
+export function staggerIn(selector: string | Element[], delay = 0.04) {
+  if (prefersReducedMotion) {
+    gsap.set(selector, { opacity: 1, y: 0 })
+    return
+  }
+  return gsap.fromTo(
+    selector,
+    { opacity: 0, y: 10 },
+    { opacity: 1, y: 0, duration: 0.25, stagger: delay, ease: "power2.out" }
+  )
 }
 
 export function staggerScale(selector: string | Element[]) {
-  return animate(selector, {
-    opacity: [0, 1],
-    scale: [0.85, 1],
-    duration: 500,
-    delay: stagger(60, { start: 50 }),
-    ease: 'outBack(1.4)',
-  });
+  if (prefersReducedMotion) {
+    gsap.set(selector, { opacity: 1, scale: 1 })
+    return
+  }
+  return gsap.fromTo(
+    selector,
+    { opacity: 0, scale: 0.92 },
+    { opacity: 1, scale: 1, duration: 0.25, stagger: 0.05, ease: "power2.out" }
+  )
 }
 
 // ─── Counter Animation ───────────────────────────────────────
-// Ticks a number from 0 to target (for quality scores, coverage %)
 
 export function animateCounter(
   element: HTMLElement,
   target: number,
-  duration = 1200,
-  suffix = ''
+  duration = 0.8,
+  suffix = ""
 ) {
-  const obj = { val: 0 };
-  return animate(obj, {
+  if (prefersReducedMotion) {
+    element.textContent = Math.round(target) + suffix
+    return
+  }
+  const obj = { val: 0 }
+  return gsap.to(obj, {
     val: target,
     duration,
-    ease: 'outExpo',
+    ease: "power3.out",
     onUpdate: () => {
-      element.textContent = Math.round(obj.val) + suffix;
+      element.textContent = Math.round(obj.val) + suffix
     },
-  });
+  })
 }
 
 // ─── Ring Gauge ──────────────────────────────────────────────
-// Animated SVG circle stroke for quality scores
 
 export function animateRing(
   element: SVGCircleElement,
   percentage: number,
   circumference: number,
-  duration = 1400
+  duration = 0.8
 ) {
-  const offset = circumference - (percentage / 100) * circumference;
-  return animate(element, {
-    strokeDashoffset: [circumference, offset],
-    duration,
-    ease: 'outExpo',
-  });
+  const offset = circumference - (percentage / 100) * circumference
+  if (prefersReducedMotion) {
+    gsap.set(element, { attr: { "stroke-dashoffset": offset } })
+    return
+  }
+  return gsap.fromTo(
+    element,
+    { attr: { "stroke-dashoffset": circumference } },
+    { attr: { "stroke-dashoffset": offset }, duration, ease: "power3.out" }
+  )
 }
 
 // ─── Coverage Bar Fill ───────────────────────────────────────
-// Animated width for progress/coverage bars
 
-export function animateBar(element: HTMLElement, percentage: number, duration = 900) {
-  return animate(element, {
-    width: [`0%`, `${Math.min(percentage, 100)}%`],
-    duration,
-    ease: 'outQuart',
-  });
+export function animateBar(element: HTMLElement, percentage: number, duration = 0.5) {
+  if (prefersReducedMotion) {
+    gsap.set(element, { width: `${Math.min(percentage, 100)}%` })
+    return
+  }
+  return gsap.fromTo(
+    element,
+    { width: "0%" },
+    { width: `${Math.min(percentage, 100)}%`, duration, ease: "power2.out" }
+  )
 }
 
 // ─── Card Entrance ───────────────────────────────────────────
-// Dramatic card reveal with slight rotation and scale
 
 export function cardEntrance(element: HTMLElement, delay = 0) {
-  return animate(element, {
-    opacity: [0, 1],
-    translateY: [20, 0],
-    scale: [0.97, 1],
-    duration: 600,
-    delay,
-    ease: 'outExpo',
-  });
+  if (prefersReducedMotion) {
+    gsap.set(element, { opacity: 1, y: 0 })
+    return
+  }
+  return gsap.fromTo(
+    element,
+    { opacity: 0, y: 12 },
+    { opacity: 1, y: 0, duration: 0.3, delay, ease: "power2.out" }
+  )
 }
 
 // ─── Grade Reveal ────────────────────────────────────────────
-// Dramatic letter grade animation (scale pop + glow)
 
 export function gradeReveal(element: HTMLElement) {
-  return createTimeline()
-    .add(element, {
-      scale: [0, 1.15],
-      opacity: [0, 1],
-      duration: 500,
-      ease: 'outBack(2)',
-    })
-    .add(element, {
-      scale: [1.15, 1],
-      duration: 300,
-      ease: 'inOutQuad',
-    });
+  if (prefersReducedMotion) {
+    gsap.set(element, { opacity: 1, scale: 1 })
+    return
+  }
+  const tl = gsap.timeline()
+  tl.fromTo(element, { scale: 0, opacity: 0 }, { scale: 1.1, opacity: 1, duration: 0.25, ease: "power2.out" })
+    .to(element, { scale: 1, duration: 0.15, ease: "power1.inOut" })
+  return tl
 }
 
 // ─── Pipeline Flow ───────────────────────────────────────────
-// Animates the connecting lines between pipeline stages
 
 export function pipelineFlow(lineElements: HTMLElement[]) {
-  return animate(lineElements, {
-    scaleX: [0, 1],
-    opacity: [0, 0.3],
-    duration: 500,
-    delay: stagger(150),
-    ease: 'outQuart',
-  });
+  if (prefersReducedMotion) {
+    gsap.set(lineElements, { scaleX: 1, opacity: 0.3 })
+    return
+  }
+  return gsap.fromTo(
+    lineElements,
+    { scaleX: 0, opacity: 0 },
+    { scaleX: 1, opacity: 0.3, duration: 0.3, stagger: 0.1, ease: "power2.out" }
+  )
 }
 
 // ─── Pulse Glow ──────────────────────────────────────────────
-// Breathing glow effect for active elements
 
 export function pulseGlow(element: HTMLElement, color: string) {
-  return animate(element, {
-    boxShadow: [
-      `0 0 0px ${color}00`,
-      `0 0 20px ${color}40`,
-      `0 0 0px ${color}00`,
-    ],
-    duration: 2000,
-    loop: true,
-    ease: 'inOutSine',
-  });
+  if (prefersReducedMotion) return
+  return gsap.fromTo(
+    element,
+    { boxShadow: `0 0 0px ${color}00` },
+    {
+      boxShadow: `0 0 20px ${color}40`,
+      duration: 1.5,
+      repeat: -1,
+      yoyo: true,
+      ease: "sine.inOut",
+    }
+  )
 }
 
 // ─── Feedback Spin ───────────────────────────────────────────
-// Orbital rotation for feedback loop indicator
 
 export function feedbackSpin(element: HTMLElement) {
-  return animate(element, {
-    rotate: [0, 360],
-    duration: 3000,
-    loop: true,
-    ease: 'linear',
-  });
+  if (prefersReducedMotion) return
+  return gsap.to(element, {
+    rotation: 360,
+    duration: 3,
+    repeat: -1,
+    ease: "none",
+  })
 }
 
 // ─── Shimmer Sweep ───────────────────────────────────────────
-// Highlight sweep across an element
 
 export function shimmerSweep(element: HTMLElement) {
-  return animate(element, {
-    backgroundPosition: ['-200% 0', '200% 0'],
-    duration: 2000,
-    ease: 'inOutSine',
-  });
+  if (prefersReducedMotion) return
+  return gsap.fromTo(
+    element,
+    { backgroundPosition: "-200% 0" },
+    { backgroundPosition: "200% 0", duration: 2, ease: "sine.inOut" }
+  )
 }
 
 // ─── Number Morph ────────────────────────────────────────────
-// Morphs a number display from old value to new value
 
 export function morphNumber(
   element: HTMLElement,
   from: number,
   to: number,
-  duration = 800,
-  suffix = '%'
+  duration = 0.5,
+  suffix = "%"
 ) {
-  const obj = { val: from };
-  return animate(obj, {
+  if (prefersReducedMotion) {
+    element.textContent = Math.round(to) + suffix
+    return
+  }
+  const obj = { val: from }
+  return gsap.to(obj, {
     val: to,
     duration,
-    ease: 'outQuart',
+    ease: "power2.out",
     onUpdate: () => {
-      element.textContent = Math.round(obj.val) + suffix;
+      element.textContent = Math.round(obj.val) + suffix
     },
-  });
+  })
 }

@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from "react"
-import { motion } from "framer-motion"
+"use client"
+
+import React, { useState, useCallback, useRef } from "react"
 import {
   ClipboardList,
   Palette,
@@ -22,7 +23,7 @@ interface NodeConfig {
 }
 
 const NODE_DEFS: NodeConfig[] = [
-  { id: "orchestrator", label: "Orchestrator", icon: ClipboardList, color: "#D4AF37", row: 0, col: 1 },
+  { id: "orchestrator", label: "Orchestrator", icon: ClipboardList, color: "var(--color-gold-500)", row: 0, col: 1 },
   { id: "frontend", label: "Frontend", icon: Palette, color: "#10b981", row: 1, col: 0 },
   { id: "backend", label: "Backend", icon: Server, color: "#3b82f6", row: 1, col: 2 },
   { id: "review", label: "Review", icon: ShieldCheck, color: "#a855f7", row: 2, col: 1 },
@@ -49,8 +50,8 @@ interface ExecutionFlowProps {
 }
 
 export function ExecutionFlow({ currentAgent, completedAgents, isGenerating }: ExecutionFlowProps) {
-  // Track drag offsets so SVG lines follow
   const [offsets, setOffsets] = useState<Record<string, { x: number; y: number }>>({})
+  const dragState = useRef<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null)
 
   const getStatus = useCallback(
     (nodeId: string): NodeStatus => {
@@ -61,7 +62,6 @@ export function ExecutionFlow({ currentAgent, completedAgents, isGenerating }: E
     [currentAgent, completedAgents]
   )
 
-  // Grid positions: each cell is 120x90
   const cellW = 120
   const cellH = 90
   const padX = 20
@@ -80,6 +80,32 @@ export function ExecutionFlow({ currentAgent, completedAgents, isGenerating }: E
   }
 
   const nodeMap = Object.fromEntries(NODE_DEFS.map((n) => [n.id, n]))
+
+  // Pointer-based drag handlers
+  const handlePointerDown = (e: React.PointerEvent, id: string) => {
+    const el = e.currentTarget as HTMLElement
+    el.setPointerCapture(e.pointerId)
+    dragState.current = {
+      id,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: offsets[id]?.x ?? 0,
+      origY: offsets[id]?.y ?? 0,
+    }
+  }
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragState.current) return
+    const { id, startX, startY, origX, origY } = dragState.current
+    setOffsets(prev => ({
+      ...prev,
+      [id]: { x: origX + e.clientX - startX, y: origY + e.clientY - startY },
+    }))
+  }
+
+  const handlePointerUp = () => {
+    dragState.current = null
+  }
 
   return (
     <div className="relative w-full select-none" style={{ height: 3 * cellH + padY * 2 }}>
@@ -100,15 +126,12 @@ export function ExecutionFlow({ currentAgent, completedAgents, isGenerating }: E
           return (
             <line
               key={`${fromId}-${toId}`}
-              x1={c1.cx}
-              y1={c1.cy}
-              x2={c2.cx}
-              y2={c2.cy}
+              x1={c1.cx} y1={c1.cy} x2={c2.cx} y2={c2.cy}
               stroke={active ? from.color : partial ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)"}
               strokeWidth={active ? 2 : 1}
               strokeDasharray={active ? undefined : "6 4"}
               opacity={active ? 0.5 : 0.4}
-              style={{ transition: "all 0.5s ease" }}
+              className="transition-[stroke,stroke-width,opacity] duration-300"
             />
           )
         })}
@@ -123,23 +146,12 @@ export function ExecutionFlow({ currentAgent, completedAgents, isGenerating }: E
         }
 
         return (
-          <motion.div
+          <div
             key={cfg.id}
-            drag
-            dragMomentum={false}
-            onDrag={(_e, info) => {
-              setOffsets((prev) => ({
-                ...prev,
-                [cfg.id]: { x: info.offset.x, y: info.offset.y },
-              }))
-            }}
-            onDragEnd={(_e, info) => {
-              setOffsets((prev) => ({
-                ...prev,
-                [cfg.id]: { x: info.offset.x, y: info.offset.y },
-              }))
-            }}
-            className={`absolute flex flex-col items-center justify-center gap-1 rounded-xl border cursor-grab active:cursor-grabbing transition-colors duration-500
+            onPointerDown={(e) => handlePointerDown(e, cfg.id)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            className={`absolute flex flex-col items-center justify-center gap-1 rounded-xl border cursor-grab active:cursor-grabbing transition-[background,border-color,opacity] duration-200 touch-none
               ${status === "active"
                 ? "bg-white/[0.06] border-white/15"
                 : status === "completed"
@@ -149,8 +161,8 @@ export function ExecutionFlow({ currentAgent, completedAgents, isGenerating }: E
             style={{
               width: nodeW,
               height: nodeH,
-              left: basePos.x,
-              top: basePos.y,
+              left: basePos.x + (offsets[cfg.id]?.x ?? 0),
+              top: basePos.y + (offsets[cfg.id]?.y ?? 0),
               zIndex: status === "active" ? 3 : status === "completed" ? 2 : 1,
               boxShadow:
                 status === "active"
@@ -160,25 +172,13 @@ export function ExecutionFlow({ currentAgent, completedAgents, isGenerating }: E
                     : "none",
               opacity: status === "idle" ? 0.35 : 1,
             }}
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 400, damping: 25 }}
           >
             {status === "active" ? (
-              <Loader2
-                className="w-5 h-5 animate-spin"
-                style={{ color: cfg.color }}
-              />
+              <Loader2 className="w-5 h-5 animate-spin" style={{ color: cfg.color }} />
             ) : status === "completed" ? (
-              <CheckCircle2
-                className="w-5 h-5"
-                style={{ color: cfg.color }}
-              />
+              <CheckCircle2 className="w-5 h-5" style={{ color: cfg.color }} />
             ) : (
-              <Circle
-                className="w-4 h-4"
-                style={{ color: "rgba(255,255,255,0.15)" }}
-              />
+              <Circle className="w-4 h-4" style={{ color: "rgba(255,255,255,0.15)" }} />
             )}
             <span
               className="text-[10px] font-semibold tracking-wide"
@@ -194,21 +194,17 @@ export function ExecutionFlow({ currentAgent, completedAgents, isGenerating }: E
               {cfg.label}
             </span>
 
-            {/* Pulse ring for active */}
+            {/* Pulse ring for active — CSS animation, no JS */}
             {status === "active" && (
-              <motion.div
-                className="absolute inset-0 rounded-xl border"
-                style={{ borderColor: cfg.color }}
-                initial={{ opacity: 0.4, scale: 1 }}
-                animate={{ opacity: 0, scale: 1.2 }}
-                transition={{ duration: 1.5, repeat: Infinity }}
+              <div
+                className="absolute inset-0 rounded-xl border animate-pulse"
+                style={{ borderColor: cfg.color, opacity: 0.3 }}
               />
             )}
-          </motion.div>
+          </div>
         )
       })}
 
-      {/* Status label */}
       {isGenerating && currentAgent && (
         <div className="absolute bottom-2 left-0 right-0 text-center">
           <span className="text-[10px] text-white/30 font-mono">

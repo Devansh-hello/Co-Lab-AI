@@ -67,7 +67,29 @@
       "Bash(git:*)",
       "Bash(echo \"exit: $?\")",
       "Bash(grep \"any\" src/agents/*.ts)",
-      "Bash(grep -v \"//\")"
+      "Bash(grep -v \"//\")",
+      "Bash(find:*)",
+      "Read(///wsl.localhost/Ubuntu/home/devansh/projects/Co-Lab-AI/apps/**)",
+      "Read(//mnt/wsl/Ubuntu/home/devansh/projects/Co-Lab-AI/apps/**)",
+      "Read(///wsl.localhost/Ubuntu/home/devansh/projects/Co-Lab-AI/apps/web/public/**)",
+      "Read(///wsl.localhost/Ubuntu/home/devansh/projects/Co-Lab-AI/apps/web/**)",
+      "Bash(python scripts/search.py \"dark luxury glassmorphism gold accent auth login\" --domain style -n 5)",
+      "Bash(bash -c 'cd /mnt/c 2>/dev/null; echo running')",
+      "Read(///wsl.localhost/Ubuntu/home/devansh/projects/**)",
+      "Bash(node -e ':*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5000/api/v1/loggedin)",
+      "Bash(node:*)",
+      "Bash(npm ls:*)",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Read(///wsl.localhost/Ubuntu/home/devansh/projects/Co-Lab-AI/apps/api/src/**)",
+      "Read(///wsl.localhost/Ubuntu/home/devansh/projects/Co-Lab-AI/apps/web/src/**)",
+      "Read(///wsl.localhost/Ubuntu/home/devansh/projects/Co-Lab-AI/apps/web/src/app/**)",
+      "Bash(grep -r \"font-\" /home/devansh/projects/Co-Lab-AI/apps/web/src/components/*.tsx)"
     ]
-  }
+  },
+  "skills": [
+    ".claude/skills/web-design-principles"
+  ]
 }

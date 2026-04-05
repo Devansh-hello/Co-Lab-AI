@@ -28,6 +28,17 @@ export async function UnderstandingAgent(userMessage: string): Promise<Understan
 2. Generate 0-5 clarifying questions ONLY for genuinely ambiguous decisions (auth, DB, framework, real-time, scope). Skip if already specified.
 3. Each question: 2-4 options, no "Other".
 
+PRE-ANALYSIS (think through before responding, do not output):
+- Is this actually multiple projects disguised as one? If so, note it in the summary.
+- Are there any contradictory requirements?
+- What is the most likely auth scheme, database, and real-time need based on the description?
+- What unstated requirements are implied? (e.g., "social media app" implies auth, feeds, real-time)
+
+QUESTION QUALITY:
+- Never ask about things the user already specified or strongly implied
+- Questions should resolve genuinely ambiguous architectural decisions, not preferences
+- If the request is clear enough to build, return ZERO questions — don't ask for the sake of asking
+
 JSON format:
 {"summary":"string","projectName":"string (max 4 words)","questions":[{"id":"q1","question":"string","options":["A","B"]}]}`;
 

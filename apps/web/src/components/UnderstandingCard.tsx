@@ -12,7 +12,7 @@ interface UnderstandingCardProps {
   onReject: () => void
 }
 
-export function UnderstandingCard({ summary, hasQuestions, onConfirm, onReject }: UnderstandingCardProps) {
+export function UnderstandingCard({ summary, projectName: _projectName, hasQuestions, onConfirm, onReject }: UnderstandingCardProps) {
   const [responded, setResponded] = useState(false)
 
   function handleConfirm() {
@@ -46,7 +46,7 @@ export function UnderstandingCard({ summary, hasQuestions, onConfirm, onReject }
         <Button
           size="sm"
           onClick={handleConfirm}
-          className="text-xs h-9 px-4 bg-[#D4AF37] hover:bg-[#E0C050] text-black border-0"
+          className="text-xs h-9 px-4 bg-gold-500 hover:bg-gold-400 text-black border-0"
         >
           {hasQuestions ? "Yes, continue" : "Yes, build this"}
         </Button>

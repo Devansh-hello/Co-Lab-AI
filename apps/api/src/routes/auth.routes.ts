@@ -126,7 +126,7 @@ authRouter.post("/api/v1/auth/google", async (req, res) => {
             audience: GOOGLE_CLIENT_ID,
         });
 
-        const payload = (await ticket).getPayload();
+        const payload = ticket.getPayload();
         if (!payload || !payload.email) {
             res.status(400).json({ message: "Invalid Google token" });
             return;

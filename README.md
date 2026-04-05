@@ -14,21 +14,21 @@ Unlike single-shot generalist chatbots (which output unvalidated code blobs), Co
 - **Frontend Agent & Backend Agent:** Develop the user interface and server environment in parallel, ensuring cross-compatibility through the strict API contract.
 - **Review Agent:** Verifies feature completeness, endpoint compatibility, and platform security.
 - **Test Agent:** Generates independent test coverage against the initial specification to prevent implementation bias.
-- **Feedback & Fix Agent:** Retrieves automatic reports from the Quality Evaluator and selectively re-runs the necessary agents to fix breakage autonomously over multiple feedback loops.
+- **Feedback & Fix Agent:** Retrieves automatic reports from the Quality Scorer and selectively re-runs the necessary agents to fix breakage autonomously over multiple feedback loops.
 
 ## 2. Key Features
 
 - **Multi-Agent Pipeline:** 6 specialized autonomous agents handling distinct stages of software development.
 - **API Contract Specification:** Frontend and backend share a common contract, guaranteeing cross-layer robustness.
 - **Independent Test Generation:** Unit and integration tests evaluate the software against the architectural specification rather than the generated code.
-- **Automated Quality Grading:** Comprehensive evaluation derived from the analysis of completeness, security, API compatibility, code cleanliness, and test coverage (graded A-F).
+- **Automated Quality Scoring:** A supervisory scoring function evaluates generated output across completeness, security, API compatibility, code cleanliness, and test coverage (graded A-F).
 - **Human-in-the-Loop Checks:** The platform requires user review and approval of the architectural plan prior to resource-intensive code generation.
 - **In-Browser Execution Environment:** Embedded WebContainer allows zero-configuration live previews of your generated application directly within the browser interface.
 
 ## 3. Technology Stack
 
 The platform's core applications are designed around a modern full-stack ecosystem:
-- **Frontend Workspace:** React 19, TypeScript, Tailwind CSS, Vite, Monaco Editor, WebContainer API.
+- **Frontend Workspace:** React 19, TypeScript, Tailwind CSS, Next.js 16 (App Router), GSAP, Monaco Editor, WebContainer API.
 - **Backend Workspace:** Node.js, Express 5, TypeScript, Mongoose, WebSockets (`ws`).
 - **Data Persistence:** MongoDB Atlas for platform data, Turso/SQLite for dynamic project database provisioning.
 - **AI Infrastructure:** Modular abstraction layer supporting OpenAI, Anthropic, Google GenAI, OpenRouter, and GLM.
@@ -68,7 +68,7 @@ Core methodologies feature:
    ```
 3. Establish your environment files using the respective root directories of each workspace:
    - Provide database URIs and LLM provider tokens in `apps/api/.env`.
-   - Provide client-facing configuration keys in `apps/web/.env.local`.
+   - Copy `apps/web/.env.example` to `apps/web/.env.local` and fill in your configuration keys.
 4. Start the development server using the Turborepo concurrent execution profile:
    ```bash
    npm run dev

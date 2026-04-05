@@ -1,3 +1,5 @@
+"use client";
+
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { AxiosError } from "axios";
 import { api } from "../functions/send";
@@ -38,7 +40,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: unknown) {
       if (err instanceof AxiosError && err.response && err.response.status !== 401) {
-        console.error("Auth check failed:", err);
+        // Avoid logging the full Error object in dev to prevent noisy overlay on transient proxy/API failures.
+        console.warn(`Auth check failed with status ${err.response.status}`);
       }
       setUser(false);
       setProfile(null);

@@ -8,6 +8,9 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+/** Whether the app is running in production mode */
+export const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 /** Required env vars - app will not start without these */
 const REQUIRED_ENV = ["DATABASE_URL", "JWT_SECRET"] as const;
 
@@ -17,9 +20,14 @@ if (missingEnv.length > 0) {
     process.exit(1);
 }
 
-/* Warn if encryption key is missing (API keys will be stored in plaintext) */
+/* Encryption key is required in production — API keys must never be stored in plaintext */
 if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length !== 64) {
-    console.warn("[startup] WARNING: ENCRYPTION_KEY not set or invalid. API keys will be stored unencrypted.");
+    if (IS_PRODUCTION) {
+        console.error("[startup] FATAL: ENCRYPTION_KEY not set or invalid (must be 64-char hex). Refusing to start in production.");
+        process.exit(1);
+    } else {
+        console.warn("[startup] WARNING: ENCRYPTION_KEY not set or invalid. API keys will be stored unencrypted.");
+    }
 }
 
 /** Server port, defaults to 5000 */
@@ -30,9 +38,6 @@ export const JWT_SECRET = process.env.JWT_SECRET as string;
 
 /** Google OAuth client ID (optional - Google auth disabled if not set) */
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID as string;
-
-/** Whether the app is running in production mode */
-export const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 /** Per-user Turso storage limit in megabytes */
 export const USER_STORAGE_LIMIT_MB = 250;

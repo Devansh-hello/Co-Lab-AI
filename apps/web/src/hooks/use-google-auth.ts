@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react"
-import { useNavigate } from "react-router-dom"
+import { useRouter } from "next/navigation"
 import { sendGoogleAuth } from "../functions/send"
 import { useAuth } from "../context/AuthContext"
 import toast from "react-hot-toast"
@@ -45,7 +45,7 @@ declare global {
  * (FedCM on Chrome, popup on Firefox) without breaking on /gsi/transform.
  */
 export function useGoogleAuth() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const { refresh } = useAuth()
   const initializedRef = useRef(false)
   const mountedRef = useRef<HTMLDivElement | null>(null)
@@ -57,14 +57,14 @@ export function useGoogleAuth() {
       if (result && result.status === 200) {
         toast.success("Signed in with Google!", TOAST_SUCCESS_STYLE)
         await refresh()
-        setTimeout(() => navigate("/projects"), 1000)
+        setTimeout(() => router.push("/projects"), 1000)
       } else {
         toast.error(result?.res?.message || "Google sign-in failed", TOAST_ERROR_STYLE)
       }
     } catch {
       toast.error("Google sign-in failed. Please try again.", TOAST_ERROR_STYLE)
     }
-  }, [navigate, refresh])
+  }, [router, refresh])
 
   /**
    * Ref callback — attach to a visible container div.
@@ -76,7 +76,7 @@ export function useGoogleAuth() {
     if (!node || mountedRef.current === node) return
     mountedRef.current = node
 
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
     if (!clientId) return
 
     const tryRender = () => {

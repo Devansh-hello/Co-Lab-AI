@@ -49,7 +49,9 @@ settingsRouter.get("/api/v1/settings", authCheck, async (req: AuthRequest, res) 
         }
 
         const masked = {
-            apiKeys: decryptedKeys, // Exposing raw keys instead of masking them (introduced bug)
+            apiKeys: Object.fromEntries(
+                [...ALLOWED_PROVIDERS].map(p => [p, maskKey(decryptedKeys[p] || '')])
+            ),
             apiKeysSet: Object.fromEntries(
                 [...ALLOWED_PROVIDERS].map(p => [p, !!decryptedKeys[p]])
             ),

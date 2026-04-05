@@ -1,3 +1,5 @@
+"use client"
+
 import { useState } from "react"
 import { CheckCircle2, XCircle, MessageSquare, Sparkles } from "lucide-react"
 
@@ -33,11 +35,11 @@ export function ConfirmationCard({ projectInfo, onConfirm, onReject }: Confirmat
 
   return (
     <div className="w-full max-w-2xl animate-spring-in">
-      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-xl overflow-hidden">
+      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden">
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b border-white/[0.06]">
-          <div className="w-8 h-8 rounded-lg bg-primary/15 border border-primary/25 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-primary" />
+          <div className="w-8 h-8 rounded-lg bg-gold-500/15 border border-gold-500/25 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-gold-500" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white/90">Project Analysis</h3>
@@ -48,12 +50,12 @@ export function ConfirmationCard({ projectInfo, onConfirm, onReject }: Confirmat
         {/* Content */}
         <div className="px-5 py-4 space-y-3">
           <div>
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Project</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Project</span>
             <p className="text-sm text-white/80 mt-1">{projectInfo.name}</p>
           </div>
 
           <div>
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Description</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">Description</span>
             <p className="text-xs text-white/60 mt-1 leading-relaxed">{projectInfo.description}</p>
           </div>
 
@@ -116,7 +118,7 @@ export function ConfirmationCard({ projectInfo, onConfirm, onReject }: Confirmat
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Describe additional requirements or clarifications..."
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-xs text-white/80 placeholder:text-white/25 focus:outline-none focus:border-primary/30 resize-none"
+                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-xs text-white/80 placeholder:text-white/25 focus:outline-none focus:border-gold-500/30 resize-none"
                 rows={3}
                 autoFocus
               />
@@ -129,7 +131,7 @@ export function ConfirmationCard({ projectInfo, onConfirm, onReject }: Confirmat
           <div className="flex items-center gap-2 px-5 py-3.5 border-t border-white/[0.06] bg-white/[0.01]">
             <button
               onClick={handleConfirm}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary/15 hover:bg-primary/25 text-primary text-xs font-semibold border border-primary/20 hover:border-primary/40 transition-all"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gold-500/15 hover:bg-gold-500/25 text-gold-500 text-xs font-semibold border border-gold-500/20 hover:border-gold-500/40 transition-all"
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
               Yes, proceed
@@ -151,7 +153,7 @@ export function ConfirmationCard({ projectInfo, onConfirm, onReject }: Confirmat
           </div>
         ) : (
           <div className="px-5 py-3 border-t border-white/[0.06] bg-white/[0.01]">
-            <span className="text-[11px] text-white/30 font-mono">Response sent</span>
+            <span className="text-[11px] text-white/40 font-mono">Response sent</span>
           </div>
         )}
       </div>

@@ -118,12 +118,13 @@ export function computeQualityScore(
     else if (overall >= 60) grade = 'D';
     else grade = 'F';
 
-    /* Only trigger feedback for genuinely broken output, not minor issues.
-     * Needs: grade D or below AND either API incompatible or major failures. */
-    const needsFeedback = overall < 60 && (
+    /* Trigger feedback when quality is poor enough to warrant a fix pass.
+     * Grade F always triggers. Grade D triggers if there are concrete issues to fix. */
+    const needsFeedback = overall < 65 && (
         !compatible ||
-        (!frontendDone && !backendDone) ||
-        criticalIssues.length >= 3
+        (!frontendDone || !backendDone) ||
+        criticalIssues.length >= 2 ||
+        missing.length >= 2
     );
 
     return { grade, metrics, overall, needsFeedback };

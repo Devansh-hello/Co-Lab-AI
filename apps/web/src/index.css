@@ -1,11 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Instrument+Serif:ital@0;1&family=Outfit:wght@800;900&display=swap');
 
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: "JetBrains Mono", monospace;
+  --font-sans: "Instrument Sans", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
   --font-display: "Instrument Serif", serif;
 
@@ -69,6 +69,44 @@
     --ring: 0 0% 50%;
     --gold: 46 65% 52%;
     --radius: 2rem;
+
+    /* ─── Motion Tokens ─── */
+    --duration-instant: 100ms;
+    --duration-fast: 150ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --ease-default: cubic-bezier(0.25, 0.1, 0.25, 1);
+    --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+    --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* ─── Surface Colors ─── */
+    --surface-base: #0a0a0a;
+    --surface-raised: #161616;
+    --surface-overlay: rgba(6, 6, 6, 0.92);
+
+    /* ─── Text Opacity Tokens ───
+       Consolidated hierarchy: use these instead of arbitrary white/xx values.
+       Primary (90%)  — headings, key labels
+       Secondary (65%) — body text, nav items
+       Tertiary (45%)  — supporting text, descriptions
+       Muted (30%)     — captions, metadata, placeholders
+       Disabled (18%)  — disabled controls, decorative text
+       Ghost (8%)      — borders, dividers, bg tints only */
+    --text-primary: rgba(255,255,255,0.9);
+    --text-secondary: rgba(255,255,255,0.65);
+    --text-tertiary: rgba(255,255,255,0.45);
+    --text-muted: rgba(255,255,255,0.30);
+    --text-disabled: rgba(255,255,255,0.18);
+    --text-ghost: rgba(255,255,255,0.08);
+
+    /* ─── Glow Tokens ─── */
+    --glow-gold-soft: 0 0 20px rgba(212,175,55,0.08), 0 0 60px rgba(212,175,55,0.04);
+    --glow-gold-medium: 0 0 15px rgba(212,175,55,0.15), 0 0 40px rgba(212,175,55,0.08);
+    --glow-gold-strong: 0 0 30px rgba(212,175,55,0.3), 0 0 80px rgba(212,175,55,0.1);
+
+    /* ─── Text Glow Tokens ─── */
+    --text-glow-gold: 0 0 20px rgba(212,175,55,0.3), 0 0 40px rgba(212,175,55,0.1);
+    --text-glow-white: 0 0 30px rgba(255,255,255,0.1), 0 0 60px rgba(255,255,255,0.05);
   }
 }
 
@@ -160,8 +198,8 @@
 
 @utility transition-bouncy {
   transition-property: all;
-  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
-  transition-duration: 350ms;
+  transition-timing-function: var(--ease-default);
+  transition-duration: var(--duration-normal);
 }
 
 @utility glass {
@@ -198,9 +236,7 @@
 
   body {
     @apply bg-background text-foreground font-sans bg-grainy;
-    font-size: 13px;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    font-size: 14px;
   }
 
   /* Display headlines use serif font */
@@ -369,12 +405,12 @@
 /* ─── Fade Slide Up ──────────────────────────────────────────── */
 
 @keyframes fade-slide-up {
-  from { opacity: 0; transform: translateY(28px); }
+  from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 @utility animate-fade-slide-up {
-  animation: fade-slide-up 0.6s ease both;
+  animation: fade-slide-up 0.3s var(--ease-out) both;
 }
 
 /* Float animation for decorative elements */
@@ -602,7 +638,7 @@
 }
 
 @utility animate-grade-pop {
-  animation: grade-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation: grade-pop 0.3s var(--ease-out) forwards;
 }
 
 /* Feedback orbit */
@@ -651,17 +687,11 @@
 
 /* Gold ambient glow — use on hero, CTA, primary buttons */
 @utility glow-gold {
-  box-shadow:
-    0 0 20px rgba(212, 175, 55, 0.08),
-    0 0 60px rgba(212, 175, 55, 0.04),
-    0 0 120px rgba(212, 175, 55, 0.02);
+  box-shadow: var(--glow-gold-soft);
 }
 
 @utility glow-gold-strong {
-  box-shadow:
-    0 0 15px rgba(212, 175, 55, 0.15),
-    0 0 40px rgba(212, 175, 55, 0.08),
-    0 0 80px rgba(212, 175, 55, 0.04);
+  box-shadow: var(--glow-gold-medium);
 }
 
 /* Emerald glow for success/active states */
@@ -694,11 +724,11 @@
 
 /* Text glow — for highlighted headings */
 @utility text-glow-gold {
-  text-shadow: 0 0 20px rgba(212,175,55,0.3), 0 0 40px rgba(212,175,55,0.1);
+  text-shadow: var(--text-glow-gold);
 }
 
 @utility text-glow-white {
-  text-shadow: 0 0 30px rgba(255,255,255,0.1), 0 0 60px rgba(255,255,255,0.05);
+  text-shadow: var(--text-glow-white);
 }
 
 /* ─── WQF-Inspired: Enhanced Grain Texture ───────────────────── */
@@ -807,15 +837,15 @@
 }
 
 @utility animate-clip-up {
-  animation: clip-reveal-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: clip-reveal-up 0.3s var(--ease-out) forwards;
 }
 
 @utility animate-clip-left {
-  animation: clip-reveal-left 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: clip-reveal-left 0.3s var(--ease-out) forwards;
 }
 
 @utility animate-clip-right {
-  animation: clip-reveal-right 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: clip-reveal-right 0.3s var(--ease-out) forwards;
 }
 
 /* ─── WQF-Inspired: Corner Accent Marks ──────────────────────── */
@@ -913,4 +943,55 @@
 }
 .shine-gold:hover::after {
   transform: translateX(150%);
+}
+
+/* ─── Focus-Visible ─────────────────────────────────────────── */
+/* Opt out of focus ring for elements with custom focus handling */
+[data-no-focus-ring],
+[data-no-focus-ring]:focus,
+[data-no-focus-ring]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Consistent gold ring for all interactive elements */
+
+:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(212,175,55,0.12);
+}
+
+/* ─── Reduced Motion ────────────────────────────────────────── */
+/* Respect user preferences: collapse all animations to instant */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Disable canvas-based animations */
+  .creation-hands-canvas {
+    animation: none !important;
+  }
+
+  /* Kill grain overlay movement */
+  .grain-overlay::before {
+    animation: none !important;
+  }
 }

@@ -11,21 +11,22 @@
  */
 
 import { Router } from "express";
+import z from "zod";
 
 import { Message, Project } from "../models/index.js";
-import { authCheck, type AuthRequest } from "../middleware/index.js";
+import { authCheck, validate, type AuthRequest } from "../middleware/index.js";
 
 export const messageRouter = Router();
 
+const createMessageSchema = z.object({
+    message: z.string().trim().min(1, "Message is required").max(50000),
+    projectId: z.string().min(1, "projectId is required"),
+});
+
 // ─── Create Message ─────────────────────────────────────────────
 
-messageRouter.post("/api/v1/message", authCheck, async (req: AuthRequest, res) => {
+messageRouter.post("/api/v1/message", authCheck, validate(createMessageSchema), async (req: AuthRequest, res) => {
     const { message, projectId } = req.body;
-
-    if (!message || !projectId) {
-        res.status(400).json({ message: "message and projectId are required" });
-        return;
-    }
 
     try {
         /* Verify the authenticated user owns this project */

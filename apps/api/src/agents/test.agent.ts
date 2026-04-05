@@ -49,6 +49,14 @@ Each test: { "name": "string", "description": "short", "target": "${isFrontendOn
 
 ${isFrontendOnly ? 'For frontend-only apps: test UI components, user interactions, state management, routing, form validation, accessibility, responsive layout, and data persistence.' : 'Also validate the API contract: which endpoints are covered by tests, which are missing, any field mismatches.'}
 
+TEST QUALITY RULES:
+- Every test must test ONE specific behavior, not a vague category
+- "should handle errors" is bad — "should show error toast when POST /api/auth/login returns 401" is good
+- Edge cases should cover: empty inputs, max-length inputs, special characters, concurrent requests, expired tokens
+- Integration tests should verify the EXACT field names match between frontend calls and backend routes
+- Security tests should check: auth bypass (accessing protected routes without token), injection (SQL/NoSQL in user inputs), XSS (stored HTML in user-generated content)
+- Priority "critical" = the app is unusable if this fails. Reserve it for auth flow and core CRUD.
+
 DO NOT generate test file source code — only metadata and coverage scores.
 You MUST generate a non-zero number of tests. Every feature should have at least one test.
 

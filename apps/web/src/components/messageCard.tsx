@@ -100,7 +100,8 @@ function buildZip(files: Array<{ name: string; content: string }>): Blob {
   const eocd = new Uint8Array(22)
   u32(eocd, 0, 0x06054b50); u16(eocd, 8, files.length); u16(eocd, 10, files.length)
   u32(eocd, 12, cdSz); u32(eocd, 16, offset)
-  return new Blob([...parts, ...cdParts, eocd] as any[], { type: "application/zip" })
+  const allParts: BlobPart[] = [...parts, ...cdParts, eocd].map(p => new Uint8Array(p.buffer, p.byteOffset, p.byteLength) as unknown as BlobPart)
+  return new Blob(allParts, { type: "application/zip" })
 }
 
 function triggerDownload(blob: Blob, filename: string) {
@@ -645,7 +646,7 @@ const CodeFilesDisplay: FC<{ data: any; label: string; previousData?: any; inten
           {/* Inline preview */}
           {showPreview && isFrontend && (
             <div className="mb-1 rounded-lg overflow-hidden border border-emerald-500/10">
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0a0a0a] border-b border-emerald-500/10">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-base)] border-b border-emerald-500/10">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/50" />
                 <span className="text-[10px] text-emerald-400/60 font-semibold">Live Preview</span>
                 <span className="text-[10px] text-white/15">Frontend only</span>
@@ -671,7 +672,7 @@ const CodeFilesDisplay: FC<{ data: any; label: string; previousData?: any; inten
             <VSCodeTabs files={files} activeTab={activeTab} onSelectTab={setActiveTab} accentClass={accentTabBorder} diffPercents={diffPercents} />
 
             {files[activeTab] && (
-              <div className="relative bg-[#0a0a0a]">
+              <div className="relative bg-[var(--surface-base)]">
                 <div className="absolute top-0 right-0 flex items-center gap-1 p-2 z-10">
                   <button
                     onClick={handleCopyActive}
@@ -704,10 +705,10 @@ export const CombinedCodeCard: FC<{
   const prevBackend = allMessages?.filter(m => m.type === "backend").slice(-2, -1)[0]?.data
 
   return (
-    <div className="w-full max-w-4xl animate-bubble-in px-2 md:px-0">
-      <div className="rounded-2xl border border-[#2a2a2a] bg-[#161616] overflow-hidden shadow-elevation-1">
+    <div className="w-full max-w-3xl animate-bubble-in px-2 md:px-0">
+      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden shadow-elevation-1">
         {/* Header */}
-        <div className="px-5 py-3.5 border-b border-[#1c1c1c] flex items-center justify-between">
+        <div className="px-5 py-3.5 border-b border-white/[0.06] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
@@ -761,7 +762,7 @@ const ReviewDisplay: FC<{ data: ReviewData }> = ({ data }) => {
             onClick={() => setTab(t)}
             className={`px-3 py-2 text-[11px] font-mono font-bold uppercase tracking-wider transition-colors
               ${tab === t
-                ? "text-[#D4AF37]/80 border-b-2 border-b-[#D4AF37] -mb-px"
+                ? "text-gold-500/80 border-b-2 border-b-gold-500 -mb-px"
                 : "text-white/30 hover:text-white/50"
               }`}
           >
@@ -784,7 +785,7 @@ const ReviewDisplay: FC<{ data: ReviewData }> = ({ data }) => {
                 key={k}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border
                   ${data.completionStatus?.[k]
-                    ? "bg-[#D4AF37]/[0.06] text-[#D4AF37]/70 border-[#D4AF37]/15"
+                    ? "bg-gold-500/[0.06] text-gold-500/70 border-gold-500/15"
                     : "bg-orange-500/[0.06] text-orange-400/70 border-orange-500/15"
                   }`}
               >
@@ -815,7 +816,7 @@ const ReviewDisplay: FC<{ data: ReviewData }> = ({ data }) => {
         <div className="space-y-2.5">
           {data.setupGuide?.prerequisites?.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35 mb-1.5">Prerequisites</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-1.5">Prerequisites</p>
               <ul className="space-y-1">
                 {data.setupGuide.prerequisites.map((req, i) => (
                   <li key={i} className="text-[11px] text-white/60 flex items-start gap-2">
@@ -828,7 +829,7 @@ const ReviewDisplay: FC<{ data: ReviewData }> = ({ data }) => {
           )}
           {data.setupGuide?.steps?.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35 mb-1.5">Steps</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-1.5">Steps</p>
               <ol className="space-y-1">
                 {data.setupGuide.steps.map((step, i) => (
                   <li key={i} className="text-[11px] text-white/60 flex items-start gap-2">
@@ -841,10 +842,10 @@ const ReviewDisplay: FC<{ data: ReviewData }> = ({ data }) => {
           )}
           {data.setupGuide?.runCommands && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/35 mb-1.5">Run Commands</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-1.5">Run Commands</p>
               <div className="grid grid-cols-2 gap-1.5">
                 {(["frontend", "backend"] as const).map(side => (
-                  <div key={side} className="bg-[#0a0a0a] rounded-lg p-2.5 border border-white/[0.04]">
+                  <div key={side} className="bg-[var(--surface-base)] rounded-lg p-2.5 border border-white/[0.04]">
                     <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${side === "frontend" ? "text-emerald-500/50" : "text-blue-500/50"}`}>{side}</p>
                     <p className="text-[11px] font-mono text-white/70">
                       <span className={side === "frontend" ? "text-emerald-500/40 mr-1" : "text-blue-500/40 mr-1"}>$</span>
@@ -862,7 +863,7 @@ const ReviewDisplay: FC<{ data: ReviewData }> = ({ data }) => {
         <div className="space-y-2">
           {data.codeReview?.issues?.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-orange-400/40 mb-1.5">Issues</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-orange-400/60 mb-1.5">Issues</p>
               {data.codeReview.issues.map((issue, i) => (
                 <div key={i} className="rounded-lg border border-orange-500/10 bg-orange-500/[0.03] px-3 py-2 mb-1.5 text-[11px] text-orange-300/60">{issue}</div>
               ))}
@@ -870,7 +871,7 @@ const ReviewDisplay: FC<{ data: ReviewData }> = ({ data }) => {
           )}
           {data.codeReview?.suggestions?.length > 0 && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-400/40 mb-1.5">Suggestions</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-400/60 mb-1.5">Suggestions</p>
               {data.codeReview.suggestions.map((sug, i) => (
                 <div key={i} className="rounded-lg border border-blue-500/10 bg-blue-500/[0.03] px-3 py-2 mb-1.5 text-[11px] text-blue-300/60">{sug}</div>
               ))}
@@ -953,7 +954,7 @@ export const StreamingDropdown: FC<{
                 {tokenUsage.totalTokens.toLocaleString()} tokens
               </span>
             ) : isActive && liveEstimate && liveEstimate > 0 ? (
-              <span className="text-[10px] font-mono text-white/15 animate-pulse">
+              <span className="text-[10px] font-mono text-white/25 animate-pulse">
                 ~{liveEstimate.toLocaleString()} tokens
               </span>
             ) : parsedFiles ? (
@@ -966,11 +967,11 @@ export const StreamingDropdown: FC<{
 
         {/* Body */}
         <Collapse open={isOpen}>
-          <div className={`rounded-2xl border border-[#2a2a2a] overflow-hidden bg-[#111] shadow-elevation-1 ${isActive ? "border-[#1c1c1c]" : ""}`}>
+          <div className="rounded-2xl border border-white/[0.10] overflow-hidden bg-[var(--surface-raised)] shadow-elevation-1">
             {parsedFiles && parsedFiles.length > 0 ? (
               <>
-                <div className="flex items-center gap-2 px-4 py-2.5 bg-[#0a0a0a] border-b border-[#1c1c1c]">
-                  <span className="text-[11px] text-white/25 font-medium flex-1">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--surface-base)] border-b border-white/[0.08]">
+                  <span className="text-[11px] text-white/35 font-medium flex-1">
                     {parsedFiles.length} files generated
                   </span>
                   <button
@@ -987,7 +988,7 @@ export const StreamingDropdown: FC<{
                   accentClass={ac.tabBorder}
                 />
                 {parsedFiles[activeTab] && (
-                  <div className="relative bg-[#0a0a0a]">
+                  <div className="relative bg-[var(--surface-base)]">
                     <button
                       onClick={() => downloadFile(parsedFiles![activeTab][0], parsedFiles![activeTab][1])}
                       className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 text-[10px] bg-white/[0.04] hover:bg-white/[0.08] text-white/25 hover:text-white/70 rounded transition-all border border-white/[0.05]"
@@ -1010,7 +1011,7 @@ export const StreamingDropdown: FC<{
                     <span className="text-[12px] font-medium text-white/25">Generating... ({Math.ceil(content.length / 4).toLocaleString()} tokens)</span>
                   </div>
                 ) : (
-                  <span className="text-[12px] font-medium text-white/15">Processing output...</span>
+                  <span className="text-[12px] font-medium text-white/35">Processing output...</span>
                 )}
               </div>
             )}
@@ -1089,7 +1090,7 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
           </div>
           {showTimestamp && (
             <div className="flex justify-end mt-1 pr-1">
-              <span className="text-[10px] text-white/15 font-medium">{timestamp}</span>
+              <span className="text-[10px] text-white/30 font-medium">{timestamp}</span>
             </div>
           )}
         </div>
@@ -1108,14 +1109,14 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
 
     return (
       <div className={`flex items-center gap-2.5 w-full animate-bubble-in px-2 md:px-0 ${errorTighten ? "-mt-2" : ""}`}>
-        <div className={`flex items-start gap-3 px-4 py-3 ${errorRadius} bg-[#1c1c1c] border border-red-500/10 max-w-lg`}>
+        <div className={`flex items-start gap-3 px-4 py-3 ${errorRadius} bg-white/[0.08] border border-red-500/10 max-w-lg`}>
           <div className="w-2 h-2 rounded-full bg-red-500/60 mt-1.5 flex-shrink-0" />
           <p className="text-[13px] font-medium text-red-400/80 leading-relaxed">{message.content}</p>
         </div>
         {onRetry && (
           <button
             onClick={onRetry}
-            className="group flex items-center gap-0 h-8 rounded-lg bg-[#111] hover:bg-[#181818] border border-[#2a2a2a] hover:border-[#333] text-white/25 hover:text-white/50 transition-all flex-shrink-0 px-2 hover:px-3 hover:gap-1.5 overflow-hidden"
+            className="group flex items-center gap-0 h-8 rounded-lg bg-[#111] hover:bg-[#181818] border border-white/[0.12] hover:border-[#333] text-white/25 hover:text-white/50 transition-all flex-shrink-0 px-2 hover:px-3 hover:gap-1.5 overflow-hidden"
           >
             <RotateCcw className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="text-[13px] font-semibold tracking-[-0.02em] max-w-0 group-hover:max-w-[60px] overflow-hidden whitespace-nowrap transition-all duration-200">
@@ -1131,7 +1132,7 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
   if (message.type === "status") {
     return (
       <div className="flex justify-start w-full animate-bubble-in px-2 md:px-0">
-        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#111] border border-[#1c1c1c]">
+        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#111] border border-white/[0.08]">
           <div className="flex gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-white/30 typing-dot" />
             <div className="w-1.5 h-1.5 rounded-full bg-white/30 typing-dot" />
@@ -1167,7 +1168,7 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
       <div className={`flex justify-start w-full animate-bubble-in px-2 md:px-0 ${tightenGap ? "-mt-2" : ""}`}>
         <div className="max-w-[85%] md:max-w-[70%] min-w-0">
           {message.content && (
-            <div className={`bg-[#1c1c1c] ${bubbleRadius} px-4 py-3`}>
+            <div className={`bg-white/[0.08] ${bubbleRadius} px-4 py-3`}>
               <p className="text-[16px] font-medium text-[#e5e5e5] leading-[1.4] tracking-[-0.16px]">
                 {formatText(message.content)}
               </p>
@@ -1175,7 +1176,7 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
           )}
           {showTimestamp && (
             <div className="flex mt-1 pl-1">
-              <span className="text-[10px] text-white/15 font-medium">{timestamp}</span>
+              <span className="text-[10px] text-white/30 font-medium">{timestamp}</span>
             </div>
           )}
         </div>
@@ -1186,9 +1187,9 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
   // Structured agent output — wrapped in a card
   return (
     <div className="w-full max-w-3xl animate-bubble-in px-2 md:px-0">
-      <div className="rounded-2xl border border-[#2a2a2a] bg-[#161616] overflow-hidden shadow-elevation-1">
+      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden shadow-elevation-1">
         {/* Card header */}
-        <div className="px-5 py-3.5 border-b border-[#1c1c1c] flex items-center justify-between">
+        <div className="px-5 py-3.5 border-b border-white/[0.06] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className={`w-1.5 h-1.5 rounded-full ${
               agentKey === "Frontend Agent" ? "bg-emerald-400" :

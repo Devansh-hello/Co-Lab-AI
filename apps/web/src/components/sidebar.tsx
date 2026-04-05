@@ -1,127 +1,118 @@
-import { useState, useMemo, type ReactNode } from "react"
+"use client";
+
+import { useState, useMemo, useEffect, useRef, useCallback, type ReactNode } from "react"
 import useContent from "../hooks/useContent"
 import {
   Plus,
   Home,
   FolderOpen,
-  ChevronRight,
+  ChevronLeft,
   User,
   LogIn,
-  Sparkles,
   Search,
   X,
   LogOut,
   Hash,
   MessageSquare,
   Plug,
-  Cpu,
+  Settings,
 } from "lucide-react"
 import { ScrollArea } from "../components/ui/scroll-area"
-import { useNavigate, useParams, Link } from "react-router-dom"
+import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "../context/AuthContext"
 import { useStorageUsage } from "../hooks/useStorageUsage"
+import Logo from "./Logo"
+import gsap from "gsap"
 
-const COLLAPSED_W = 52
+const COLLAPSED_W = 56
 const EXPANDED_W = 260
 
-// ── Sidebar Section ──────────────────────────────────────────
+// ── Tooltip ────────────────────────────────────────────────────
 
-function SidebarSection({ label, collapsed, children }: {
-  label: string
-  collapsed: boolean
-  children: ReactNode
-}) {
+function Tooltip({ label, children, show }: { label: string; children: ReactNode; show: boolean }) {
+  if (!show) return <>{children}</>
   return (
-    <div className="flex flex-col gap-0.5">
-      {!collapsed && (
-        <span className="text-[10px] font-mono font-bold uppercase tracking-[0.12em] text-white/35 px-3 pt-3 pb-1 select-none">
-          {label}
-        </span>
-      )}
+    <div className="relative group/tip">
       {children}
+      <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2.5 px-2.5 py-1 rounded-md bg-[#1a1a1a] border border-white/[0.08] text-[12px] text-white/80 font-medium whitespace-nowrap opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50 shadow-lg">
+        {label}
+      </div>
     </div>
   )
 }
 
-// ── Nav Item ──────────────────────────────────────────────────
+// ── Logo ────────────────────────────────────────────────────
+// Heavy typographic wordmark using Outfit 900 (Black weight).
+// Tight letter-spacing, lowercase, gold on dark.
 
-function NavItem({ icon, label, collapsed, onClick, active, badge }: {
-  icon: ReactNode
-  label: string
-  collapsed: boolean
-  onClick: () => void
-  active?: boolean
-  badge?: number
-}) {
+const LOGO_STYLE: React.CSSProperties = {
+  fontFamily: "'Outfit', sans-serif",
+  fontWeight: 900,
+  letterSpacing: '-0.04em',
+  lineHeight: 1,
+  color: '#D4AF37',
+}
+
+function CoLabWordmark() {
   return (
-    <button
-      onClick={onClick}
-      title={collapsed ? label : undefined}
-      className={`flex items-center gap-3 rounded-lg w-full transition-all group relative
-        ${collapsed ? "justify-center px-0 py-2 h-9" : "px-3 py-2"}
-        ${active
-          ? "bg-[#D4AF37]/[0.08] text-[#D4AF37]"
-          : "text-white/50 hover:text-white/75 hover:bg-white/[0.04]"
-        }`}
-    >
-      <span className={`flex-shrink-0 transition-colors ${active ? "text-[#D4AF37]" : "group-hover:text-white/60"}`}>
-        {icon}
+    <span className="flex items-baseline gap-1.5 select-none">
+      <span style={{ ...LOGO_STYLE, fontSize: '20px' }}>
+        co-lab
       </span>
-      {!collapsed && (
-        <span className="text-[13px] font-medium whitespace-nowrap overflow-hidden flex-1 text-left sidebar-label">
-          {label}
-        </span>
-      )}
-      {badge !== undefined && badge > 0 && !collapsed && (
-        <span className="text-[10px] font-mono text-white/40 bg-white/[0.04] px-1.5 py-0.5 rounded-md">
-          {badge}
-        </span>
-      )}
-    </button>
+      <span style={{
+        fontFamily: "'Outfit', sans-serif",
+        fontWeight: 800,
+        fontSize: '13px',
+        letterSpacing: '0.04em',
+        color: 'rgba(255,255,255,0.3)',
+        lineHeight: 1,
+      }}>
+        AI
+      </span>
+    </span>
   )
 }
 
-// ── Project Item (compact) ───────────────────────────────────
-
-function ProjectItem({ id, name, isActive }: {
-  id: string
-  name: string
-  isActive: boolean
-}) {
+function CoLabIcon() {
   return (
-    <Link to={`/chat/${id}`}>
-      <div
-        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all group cursor-pointer
-          ${isActive
-            ? "bg-[#D4AF37]/[0.06] text-white/85"
-            : "text-white/50 hover:text-white/70 hover:bg-white/[0.03]"
-          }`}
-      >
-        <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-all
-          ${isActive
-            ? "bg-[#D4AF37] shadow-[0_0_6px_rgba(212,175,55,0.4)]"
-            : "bg-white/12 group-hover:bg-white/20"
-          }`}
-        />
-        <span className="text-[13px] font-medium truncate flex-1">{name}</span>
-        {isActive && (
-          <MessageSquare className="w-3.5 h-3.5 text-[#D4AF37]/40 flex-shrink-0" />
-        )}
-      </div>
-    </Link>
+    <span className="select-none" style={{ ...LOGO_STYLE, fontSize: '18px' }}>
+      c
+    </span>
   )
 }
 
 // ── Main Sidebar ─────────────────────────────────────────────
 
 export function Sidebar() {
+  // `collapsed` = target state (what user clicked toward)
+  // `layout` = visual layout state (switches when GSAP finishes)
   const [collapsed, setCollapsed] = useState(false)
+  const [layout, setLayout] = useState<"expanded" | "collapsed">("expanded")
   const [searchQuery, setSearchQuery] = useState("")
   const { projects } = useContent()
-  const { projectId } = useParams<{ projectId: string }>()
-  const navigate = useNavigate()
-  const { user, profile } = useAuth()
+  const pathname = usePathname()
+  const router = useRouter()
+  const { user, profile, logout } = useAuth()
   const storage = useStorageUsage()
+
+  const sidebarRef = useRef<HTMLDivElement>(null)
+  const isFirst = useRef(true)
+
+  // Derived: use expanded layout while animating toward collapsed,
+  // switch to collapsed layout only after animation completes.
+  // Vice versa for expanding.
+  const isCollapsedLayout = layout === "collapsed"
+
+  const projectId = useMemo(() => {
+    if (!pathname?.startsWith("/chat/")) return undefined
+    return pathname.split("/")[2] || undefined
+  }, [pathname])
+
+  const handleLogout = useCallback(async () => {
+    await logout()
+    router.push("/")
+  }, [logout, router])
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return projects
@@ -129,89 +120,122 @@ export function Sidebar() {
     return projects.filter((p: any) => p.name?.toLowerCase().includes(q))
   }, [projects, searchQuery])
 
-  const w = collapsed ? COLLAPSED_W : EXPANDED_W
+  useEffect(() => {
+    for (const route of ["/", "/projects", "/plugins", "/settings", "/login"]) {
+      router.prefetch(route)
+    }
+    for (const p of projects.slice(0, 8)) {
+      const id = p._id || p.id
+      if (id) router.prefetch(`/chat/${id}`)
+    }
+  }, [router, projects])
+
+  useEffect(() => {
+    if (collapsed) setSearchQuery("")
+  }, [collapsed])
+
+  // ── GSAP animation ──────────────────────────────────────────
+  useEffect(() => {
+    const el = sidebarRef.current
+    if (!el) return
+
+    if (isFirst.current) {
+      isFirst.current = false
+      gsap.set(el, { width: EXPANDED_W, minWidth: EXPANDED_W })
+      return
+    }
+
+    const dur = 0.3
+    const ease = "power3.inOut"
+
+    gsap.killTweensOf(el)
+
+    if (collapsed) {
+      // COLLAPSING: keep expanded layout during animation, switch at end
+      gsap.to(el, {
+        width: COLLAPSED_W,
+        minWidth: COLLAPSED_W,
+        duration: dur,
+        ease,
+        onComplete: () => setLayout("collapsed"),
+      })
+    } else {
+      // EXPANDING: switch to expanded layout immediately (at start),
+      // then animate width open
+      setLayout("expanded")
+      gsap.to(el, {
+        width: EXPANDED_W,
+        minWidth: EXPANDED_W,
+        duration: dur,
+        ease,
+      })
+    }
+  }, [collapsed])
+
+  const showSearch = !collapsed && projects.length > 3
 
   return (
     <div
-      className="flex flex-col h-full bg-[#060606] border-r border-white/[0.05] overflow-hidden flex-shrink-0 relative z-10"
-      style={{ width: w, minWidth: w, transition: "width 0.25s cubic-bezier(0.4,0,0.2,1), min-width 0.25s cubic-bezier(0.4,0,0.2,1)" }}
+      ref={sidebarRef}
+      className="flex flex-col h-full bg-[#060606] border-r border-white/[0.06] overflow-hidden flex-shrink-0 relative z-10"
     >
       {/* ── Header ─────────────────────────────────────────── */}
-      <div className={`flex items-center border-b border-white/[0.05] flex-shrink-0 ${collapsed ? "flex-col py-3 gap-2" : "px-4 py-3 gap-2.5"}`}>
-        <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/[0.06] border border-[#D4AF37]/10 flex items-center justify-center flex-shrink-0">
-          <Sparkles className="w-4 h-4 text-[#D4AF37]/60" />
-        </div>
-
-        {!collapsed && (
-          <div className="flex items-center gap-1.5 flex-1 min-w-0 sidebar-label">
-            <span className="text-sm font-bold text-white/75 font-mono tracking-wide whitespace-nowrap">
-              CoLab
-            </span>
-            <span className="text-[10px] text-[#D4AF37]/50 font-mono font-bold">AI</span>
-          </div>
-        )}
-
-        <button
-          onClick={() => setCollapsed(c => !c)}
-          className={`w-7 h-7 rounded-md flex items-center justify-center text-white/30 hover:text-white/55 hover:bg-white/[0.05] transition-all flex-shrink-0 ${collapsed ? "" : "ml-auto"}`}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <ChevronRight
-            className="w-3.5 h-3.5 transition-transform duration-200"
-            style={{ transform: collapsed ? "rotate(0deg)" : "rotate(180deg)" }}
-          />
-        </button>
-      </div>
-
-      {/* ── Navigation ─────────────────────────────────────── */}
-      <div className={`flex flex-col gap-0.5 border-b border-white/[0.05] flex-shrink-0 ${collapsed ? "py-2 px-1.5" : "py-2 px-2.5"}`}>
-        <NavItem
-          icon={<Home className="w-4 h-4" />}
-          label="Home"
-          collapsed={collapsed}
-          onClick={() => navigate("/")}
-        />
-        {user === true && (
+      <div className="flex items-center border-b border-white/[0.06] flex-shrink-0 h-14 px-2 overflow-hidden">
+        {isCollapsedLayout ? (
+          <button
+            onClick={() => setCollapsed(false)}
+            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-white/[0.04] cursor-pointer mx-auto"
+            title="Expand sidebar"
+          >
+            <CoLabIcon />
+          </button>
+        ) : (
           <>
-            <NavItem
-              icon={<FolderOpen className="w-4 h-4" />}
-              label="Projects"
-              collapsed={collapsed}
-              onClick={() => navigate("/projects")}
-              badge={projects.length}
-            />
-            <NavItem
-              icon={<Plug className="w-4 h-4" />}
-              label="Plugins"
-              collapsed={collapsed}
-              onClick={() => navigate("/plugins")}
-            />
-            <NavItem
-              icon={<Cpu className="w-4 h-4" />}
-              label="Settings"
-              collapsed={collapsed}
-              onClick={() => navigate("/settings")}
-            />
+            <Link href="/" className="flex items-center flex-1 min-w-0 ml-3">
+              <CoLabWordmark />
+            </Link>
+            <button
+              onClick={() => setCollapsed(true)}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-white/25 hover:text-white/55 hover:bg-white/[0.06] flex-shrink-0 cursor-pointer"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
           </>
         )}
       </div>
 
-      {/* ── Search (expanded only, 4+ projects) ───────────── */}
-      {!collapsed && projects.length > 3 && (
+      {/* ── Navigation ─────────────────────────────────────── */}
+      <div className="flex flex-col gap-0.5 border-b border-white/[0.06] flex-shrink-0 py-2 px-2">
+        <NavLink icon={<Home className="w-4 h-4" />} label="Home" href="/" active={pathname === "/"} collapsed={isCollapsedLayout} />
+        {user === true && (
+          <>
+            <NavLink icon={<FolderOpen className="w-4 h-4" />} label="Projects" href="/projects" active={pathname === "/projects"} collapsed={isCollapsedLayout} badge={projects.length} />
+            <NavLink icon={<Plug className="w-4 h-4" />} label="Plugins" href="/plugins" active={pathname === "/plugins"} collapsed={isCollapsedLayout} />
+            <NavLink icon={<Settings className="w-4 h-4" />} label="Settings" href="/settings" active={pathname === "/settings"} collapsed={isCollapsedLayout} />
+          </>
+        )}
+        {user === true && (
+          <>
+            <div className="h-px bg-white/[0.04] my-1" />
+            <NavLink icon={<Plus className="w-4 h-4" />} label="New Project" href="/projects" active={false} collapsed={isCollapsedLayout} />
+          </>
+        )}
+      </div>
+
+      {/* ── Search ─────────────────────────────────────────── */}
+      {showSearch && (
         <div className="px-2.5 pt-2.5 flex-shrink-0">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/15 pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20 pointer-events-none" />
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search projects..."
-              className="w-full h-8 pl-8 pr-8 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[13px] text-white/65 placeholder:text-white/25 focus:outline-none focus:border-[#D4AF37]/25 transition-colors"
+              placeholder="Search..."
+              className="w-full h-8 pl-8 pr-8 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[13px] text-white/65 placeholder:text-white/25 focus:outline-none focus:border-gold-500/30"
             />
             {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/40"
-              >
+              <button onClick={() => setSearchQuery("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/40 cursor-pointer">
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
@@ -221,150 +245,135 @@ export function Sidebar() {
 
       {/* ── Projects ───────────────────────────────────────── */}
       <ScrollArea className="flex-1 w-full">
-        <div className={`flex flex-col ${collapsed ? "py-2 px-1.5 gap-1" : "py-1 px-2.5 gap-0.5"}`}>
-          {/* New Project button */}
-          {collapsed ? (
-            <button
-              onClick={() => navigate("/projects")}
-              title="New Project"
-              className="w-8 h-8 rounded-lg mx-auto flex items-center justify-center bg-white/[0.03] hover:bg-[#D4AF37]/[0.08] text-white/35 hover:text-[#D4AF37]/70 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              className="w-full flex items-center gap-2.5 rounded-lg hover:bg-[#D4AF37]/[0.06] text-white/45 hover:text-[#D4AF37]/80 h-8 px-3 text-[13px] font-medium transition-all group"
-              onClick={() => navigate("/projects")}
-            >
-              <Plus className="w-3.5 h-3.5 group-hover:text-[#D4AF37]/60 transition-colors" />
-              <span>New Project</span>
-            </button>
+        <div className="flex flex-col py-2 px-2 gap-0.5">
+          {!collapsed && (
+            <span className="text-[11px] font-mono font-bold uppercase tracking-[0.15em] text-white/35 px-3 pt-3 pb-1 block select-none">
+              Recent
+            </span>
           )}
 
-          {/* Project list */}
-          <SidebarSection label="Recent" collapsed={collapsed}>
-            {filteredProjects.length === 0 && !collapsed && (
-              <div className="px-3 py-6 text-center">
-                <Hash className="w-5 h-5 text-white/8 mx-auto mb-2" />
-                <p className="text-xs text-white/30">
-                  {searchQuery ? "No matches" : "No projects yet"}
-                </p>
-              </div>
-            )}
-            {filteredProjects.map((project: any, index: number) => {
-              const id = project._id || project.id
-              const isActive = id === projectId
+          {filteredProjects.length === 0 && !collapsed && (
+            <div className="px-3 py-6 text-center">
+              <Hash className="w-5 h-5 text-white/[0.06] mx-auto mb-2" />
+              <p className="text-[12px] text-white/30">{searchQuery ? "No matches" : "No projects yet"}</p>
+            </div>
+          )}
 
-              if (collapsed) {
-                return (
-                  <Link key={id || index} to={`/chat/${id}`}>
-                    <div
-                      title={project.name}
-                      className={`w-8 h-8 rounded-lg mx-auto flex items-center justify-center cursor-pointer transition-all
-                        ${isActive ? "bg-[#D4AF37]/[0.08]" : "hover:bg-white/[0.03]"}`}
-                    >
-                      <div className={`w-2 h-2 rounded-full transition-all ${isActive ? "bg-[#D4AF37] shadow-[0_0_6px_rgba(212,175,55,0.35)]" : "bg-white/12"}`} />
+          {filteredProjects.map((project: any, index: number) => {
+            const id = project._id || project.id
+            const isActive = id === projectId
+
+            if (isCollapsedLayout) {
+              return (
+                <Tooltip key={id || index} label={project.name} show>
+                  <Link href={`/chat/${id}`} className="w-full">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer
+                      ${isActive ? "bg-gold-500/[0.1] border border-gold-500/20" : "hover:bg-white/[0.05] border border-transparent hover:border-white/[0.06]"}`}>
+                      <div className={`w-2 h-2 rounded-full ${isActive ? "bg-gold-500 shadow-[0_0_8px_rgba(212,175,55,0.4)]" : "bg-white/20"}`} />
                     </div>
                   </Link>
-                )
-              }
+                </Tooltip>
+              )
+            }
 
-              return <ProjectItem key={id || index} id={id} name={project.name} isActive={isActive} />
-            })}
-          </SidebarSection>
+            return (
+              <Link key={id || index} href={`/chat/${id}`}>
+                <div className={`flex items-center gap-3 px-3 py-2 rounded-lg group cursor-pointer
+                  ${isActive ? "bg-gold-500/[0.06] text-white/85" : "text-white/45 hover:text-white/70 hover:bg-white/[0.03]"}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0
+                    ${isActive ? "bg-gold-500 shadow-[0_0_6px_rgba(212,175,55,0.4)]" : "bg-white/15 group-hover:bg-white/25"}`} />
+                  <span className="text-[13px] font-medium truncate flex-1">{project.name}</span>
+                  {isActive && <MessageSquare className="w-3.5 h-3.5 text-gold-500/40 flex-shrink-0" />}
+                </div>
+              </Link>
+            )
+          })}
         </div>
       </ScrollArea>
 
       {/* ── Footer ─────────────────────────────────────────── */}
-      <div className={`border-t border-white/[0.05] flex-shrink-0 ${collapsed ? "py-2 px-1.5" : "p-2.5"}`}>
-        {collapsed ? (
-          <div className="flex flex-col items-center gap-1.5">
-            {user === true ? (
-              profile?.avatar ? (
-                <img src={profile.avatar} alt="" className="w-8 h-8 rounded-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <div
-                  title="Account"
-                  className="w-8 h-8 rounded-full bg-[#D4AF37]/[0.06] border border-[#D4AF37]/10 flex items-center justify-center"
-                >
-                  <User className="w-3.5 h-3.5 text-[#D4AF37]/40" />
+      <div className="border-t border-white/[0.06] flex-shrink-0 p-2 overflow-hidden">
+        {user === true ? (
+          <>
+            {!isCollapsedLayout && storage.isAvailable && storage.databases.length > 0 && (
+              <div className="px-2 py-2">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-mono font-bold uppercase tracking-[0.15em] text-white/35">Storage</span>
+                  <span className="text-[11px] font-mono text-white/40">{storage.usedMB} / {storage.limitMB} MB</span>
                 </div>
-              )
-            ) : (
-              <button
-                onClick={() => navigate("/login")}
-                title="Sign in"
-                className="w-8 h-8 rounded-full bg-white/[0.03] flex items-center justify-center hover:bg-white/[0.06] transition-all"
-              >
-                <LogIn className="w-3.5 h-3.5 text-white/25" />
-              </button>
+                <div className="w-full h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div className="h-full rounded-full" style={{
+                    width: `${Math.min(storage.percentage, 100)}%`,
+                    backgroundColor: storage.percentage > 85 ? "rgba(212,175,55,0.9)" : storage.percentage > 60 ? "rgba(212,175,55,0.5)" : "rgba(212,175,55,0.3)",
+                  }} />
+                </div>
+              </div>
             )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-1">
-            {user === true ? (
-              <>
-                {/* Storage usage bar */}
-                {storage.isAvailable && storage.databases.length > 0 && (
-                  <div className="px-2 py-2">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-[0.1em] text-white/30">Storage</span>
-                      <span className="text-[10px] font-mono text-white/35">
-                        {storage.usedMB} / {storage.limitMB} MB
-                      </span>
-                    </div>
-                    <div className="w-full h-1 rounded-full bg-white/[0.05] overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.min(storage.percentage, 100)}%`,
-                          backgroundColor: storage.percentage > 85
-                            ? "rgba(212,175,55,0.9)"
-                            : storage.percentage > 60
-                            ? "rgba(212,175,55,0.5)"
-                            : "rgba(212,175,55,0.3)",
-                        }}
-                      />
-                    </div>
+            <div className="flex items-center">
+              {/* Avatar — fixed w-9 h-9 cell, never changes size/position */}
+              <div className="w-9 h-9 flex items-center justify-center flex-shrink-0">
+                {profile?.avatar ? (
+                  <img src={profile.avatar} alt="" className="w-8 h-8 rounded-full object-cover ring-1 ring-white/[0.08]" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gold-500/[0.08] border border-gold-500/15 flex items-center justify-center">
+                    <User className="w-3.5 h-3.5 text-gold-500/50" />
                   </div>
                 )}
-
-                {/* User row + sign out */}
-                <div className="flex items-center gap-2.5 px-1.5 py-1.5">
-                  {profile?.avatar ? (
-                    <img src={profile.avatar} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-[#D4AF37]/[0.06] border border-[#D4AF37]/10 flex items-center justify-center flex-shrink-0">
-                      <User className="w-3 h-3 text-[#D4AF37]/40" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
+              </div>
+              {!isCollapsedLayout && (
+                <>
+                  <div className="flex-1 min-w-0 ml-1.5 overflow-hidden whitespace-nowrap">
                     <p className="text-[13px] font-medium text-white/65 truncate">{profile?.username || 'Account'}</p>
-                    <p className="text-[11px] text-white/35 font-mono">
-                      {projects.length} project{projects.length !== 1 ? "s" : ""}
-                    </p>
+                    <p className="text-[11px] text-white/35 font-mono">{projects.length} project{projects.length !== 1 ? "s" : ""}</p>
                   </div>
-                  <button
-                    onClick={() => {/* TODO: sign out logic */}}
-                    title="Sign out"
-                    className="w-7 h-7 rounded-md flex items-center justify-center text-white/30 hover:text-red-400/70 hover:bg-red-400/[0.06] transition-all"
-                  >
+                  <button onClick={handleLogout} title="Sign out" className="w-7 h-7 rounded-lg flex items-center justify-center text-white/25 hover:text-red-400/70 hover:bg-red-500/[0.06] cursor-pointer">
                     <LogOut className="w-3.5 h-3.5" />
                   </button>
-                </div>
-              </>
-            ) : (
-              <button
-                onClick={() => navigate("/login")}
-                className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-all group"
-              >
-                <LogIn className="w-4 h-4 text-white/35 group-hover:text-[#D4AF37]/60 transition-colors" />
-                <span className="text-[13px] text-white/45 group-hover:text-white/65 font-medium">Sign in</span>
-              </button>
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center">
+            <Link href="/login" prefetch className="w-9 h-9 flex items-center justify-center flex-shrink-0 rounded-full hover:bg-white/[0.04] group">
+              <LogIn className="w-4 h-4 text-white/30 group-hover:text-gold-500/60" />
+            </Link>
+            {!isCollapsedLayout && (
+              <span className="text-[13px] text-white/45 font-medium ml-1.5">Sign in</span>
             )}
           </div>
         )}
       </div>
     </div>
+  )
+}
+
+// ── Nav Link ────────────────────────────────────────────────
+
+function NavLink({ icon, label, href, active, collapsed, badge }: {
+  icon: ReactNode; label: string; href: string; active: boolean; collapsed: boolean; badge?: number
+}) {
+  // Icon always sits in a fixed 36x36 centered cell — position never changes between states
+  return (
+    <Tooltip label={label} show={collapsed}>
+      <Link
+        href={href}
+        prefetch
+        className={`flex items-center rounded-lg group relative w-full overflow-hidden
+          ${active ? "bg-gold-500/[0.08] text-gold-500" : "text-white/40 hover:text-white/75 hover:bg-white/[0.04]"}`}
+      >
+        <span className={`w-9 h-9 flex items-center justify-center flex-shrink-0 ${active ? "text-gold-500" : "group-hover:text-white/70"}`}>
+          {icon}
+        </span>
+        {!collapsed && (
+          <>
+            <span className="text-[13px] font-medium whitespace-nowrap overflow-hidden flex-1 text-left">{label}</span>
+            {badge !== undefined && badge > 0 && (
+              <span className="text-[10px] font-mono text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded-md mr-2">{badge}</span>
+            )}
+          </>
+        )}
+      </Link>
+    </Tooltip>
   )
 }

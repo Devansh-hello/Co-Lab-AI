@@ -1,3 +1,5 @@
+"use client"
+
 import { useRef, useEffect } from "react"
 import { LumaSpin } from "./ui/luma-spin"
 

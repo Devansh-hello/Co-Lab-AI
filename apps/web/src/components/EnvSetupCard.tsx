@@ -74,7 +74,7 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
 
   return (
     <div className="w-full max-w-2xl animate-bubble-in px-2 md:px-0">
-      <div className="rounded-2xl border border-[#2a2a2a] bg-[#161616] overflow-hidden shadow-elevation-1">
+      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden shadow-elevation-1">
         {/* Header — clickable to collapse */}
         <button
           onClick={() => setExpanded(e => !e)}
@@ -86,7 +86,7 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
             </div>
             <div className="text-left">
               <span className="text-[13px] font-semibold text-white/80 tracking-[-0.02em]">Environment Variables</span>
-              <span className="text-[11px] text-white/20 ml-2">{filledCount}/{parsed.length} configured</span>
+              <span className="text-[11px] text-white/35 ml-2">{filledCount}/{parsed.length} configured</span>
             </div>
           </div>
           <ChevronRight className={`w-4 h-4 text-white/15 chevron-rotate ${expanded ? "open" : ""}`} />
@@ -94,7 +94,7 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
 
         {/* Collapsible body */}
         <Collapse open={expanded}>
-          <div className="border-t border-[#1c1c1c]">
+          <div className="border-t border-white/[0.08]">
             {/* .env toggle + raw view */}
             <div className="px-4 pt-3 pb-1 flex justify-end">
               <button
@@ -111,8 +111,8 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
             </div>
 
             <Collapse open={showEnvFile}>
-              <div className="mx-4 mb-3 rounded-lg overflow-hidden border border-[#1c1c1c]">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-[#0a0a0a] border-b border-[#1c1c1c]">
+              <div className="mx-4 mb-3 rounded-lg overflow-hidden border border-white/[0.08]">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--surface-base)] border-b border-white/[0.08]">
                   <span className="text-[10px] font-mono text-white/20 flex-1">.env</span>
                   <button
                     onClick={handleCopy}
@@ -127,7 +127,7 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
                     <Download className="w-3 h-3" /> Download
                   </button>
                 </div>
-                <pre className="px-3 py-2.5 text-[12px] font-mono text-amber-400/50 leading-relaxed overflow-x-auto bg-[#0a0a0a]">
+                <pre className="px-3 py-2.5 text-[12px] font-mono text-amber-400/50 leading-relaxed overflow-x-auto bg-[var(--surface-base)]">
                   {envFileContent || "# No variables configured yet"}
                 </pre>
               </div>
@@ -137,7 +137,7 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
             <div className="px-4 pb-4 space-y-2.5">
           {parsed.map(({ key, isSecret }) => (
             <div key={key} className="flex items-center gap-2">
-              <label className="text-[12px] font-mono text-white/30 w-44 truncate flex-shrink-0" title={key}>
+              <label className="text-[12px] font-mono text-white/40 w-44 truncate flex-shrink-0" title={key}>
                 {key}
               </label>
               <div className="relative flex-1">
@@ -146,7 +146,7 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
                   value={values[key] || ""}
                   onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))}
                   placeholder={isSecret ? "Enter secret..." : "Enter value..."}
-                  className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-3 py-1.5 text-[12px] font-mono text-white/60 placeholder:text-white/10 outline-none focus:border-[#404040] transition-colors"
+                  className="w-full bg-[var(--surface-base)] border border-white/[0.12] rounded-lg px-3 py-1.5 text-[12px] font-mono text-white/60 placeholder:text-white/25 outline-none focus:border-[#404040] transition-colors"
                 />
                 {isSecret && (
                   <button

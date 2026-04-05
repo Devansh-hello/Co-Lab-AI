@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom"
-import { Sparkles } from "lucide-react"
+import Link from "next/link"
+import Logo from "./Logo"
 
-const links = [
+const navLinks = [
   { label: "Features", href: "#features" },
   { label: "Agents", href: "#agents" },
   { label: "Docs", href: "#" },
@@ -23,67 +23,59 @@ const socials = [
 export function Footer() {
   return (
     <footer className="relative border-t border-white/[0.06]">
-      <div className="container mx-auto px-4 md:px-6">
-        {/* Main row */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-5 md:py-4">
-          {/* Left — Logo + tagline */}
-          <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#D4AF37]/10">
-                <Sparkles className="h-3 w-3 text-[#D4AF37]" />
-              </div>
-              <span className="text-sm font-bold text-white/70 tracking-tight">
-                Co-Lab <span className="text-[#D4AF37]/70">AI</span>
-              </span>
-            </Link>
-            <span className="hidden lg:block text-[11px] text-white/20 border-l border-white/[0.06] pl-3 font-medium">
-              Multi-agent AI engineering
-            </span>
-          </div>
+      <div className="mx-auto max-w-5xl px-4 md:px-8">
+        {/* Top row */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-6 pb-4">
+          {/* Logo */}
+          <Link href="/" className="flex items-center">
+            <Logo size="md" />
+          </Link>
 
-          {/* Center — Links */}
+          {/* Nav + Socials */}
           <nav className="flex items-center gap-1 flex-wrap justify-center">
-            {links.map((link) => (
+            {navLinks.map((link) => (
               link.href.startsWith("#") ? (
                 <a
                   key={link.label}
                   href={link.href}
-                  className="px-3 py-1.5 text-[12px] text-white/30 hover:text-white/60 font-medium transition-colors rounded-lg hover:bg-white/[0.03]"
+                  className="px-3 py-1.5 text-[13px] text-white/40 hover:text-white/70 font-medium transition-colors rounded-md"
                 >
                   {link.label}
                 </a>
               ) : (
                 <Link
                   key={link.label}
-                  to={link.href}
-                  className="px-3 py-1.5 text-[12px] text-white/30 hover:text-white/60 font-medium transition-colors rounded-lg hover:bg-white/[0.03]"
+                  href={link.href}
+                  className="px-3 py-1.5 text-[13px] text-white/40 hover:text-white/70 font-medium transition-colors rounded-md"
                 >
                   {link.label}
                 </Link>
               )
             ))}
 
-            {/* Separator dot */}
-            <div className="w-px h-3 bg-white/[0.08] mx-1.5" />
+            <div className="w-px h-3 bg-white/[0.08] mx-1" />
 
-            {/* Social icons */}
             {socials.map((s) => (
               <a
                 key={s.label}
                 href={s.href}
                 aria-label={s.label}
-                className="p-2 text-white/20 hover:text-white/50 transition-colors rounded-lg hover:bg-white/[0.03]"
+                className="p-2 text-white/30 hover:text-white/60 transition-colors rounded-md"
               >
                 {s.icon}
               </a>
             ))}
           </nav>
+        </div>
 
-          {/* Right — Legal */}
-          <div className="flex items-center gap-4 text-[11px] text-white/20">
-            <a href="#" className="hover:text-white/40 transition-colors">Privacy</a>
-            <a href="#" className="hover:text-white/40 transition-colors">Terms</a>
-            <span className="text-white/10">&copy; {new Date().getFullYear()}</span>
+        {/* Bottom row */}
+        <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-2 border-t border-white/[0.04] py-4">
+          <span className="text-[12px] text-white/25">
+            &copy; {new Date().getFullYear()} Co-Lab AI. All rights reserved.
+          </span>
+          <div className="flex items-center gap-4 text-[12px] text-white/30">
+            <a href="#" className="hover:text-white/50 transition-colors">Privacy</a>
+            <a href="#" className="hover:text-white/50 transition-colors">Terms</a>
           </div>
         </div>
       </div>

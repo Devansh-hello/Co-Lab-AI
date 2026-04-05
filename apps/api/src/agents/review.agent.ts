@@ -90,6 +90,22 @@ MISSING ITEMS = only features the user EXPLICITLY requested that are completely 
 
 QUALITY SCORING: Rate 0-100 FAIRLY — a working app with minor issues is 75-85, not 40-50. Grade: A(90+) B(80+) C(70+) D(60+) F(<60). If C or below, list actionableFixes.
 
+OUTPUT QUALITY RULES:
+- Lead with the most critical finding, not a summary paragraph
+- Each actionableFix must be specific and actionable — "improve error handling" is useless, "add try-catch to POST /api/auth/login to handle bcrypt.compare failures" is useful
+- Don't repeat the same class of issue — "missing input validation" said once with 3 example endpoints is better than listing it 15 times
+- Setup guide steps must be copy-pasteable terminal commands, not descriptions
+- envVariables must include placeholder values showing expected format (e.g., "DATABASE_URL=mongodb://localhost:27017/myapp" not just "DATABASE_URL=")
+- runCommands must be the EXACT commands needed (e.g., if the project uses tsx, use "npx tsx server.ts" not "node server.js")
+- suggestions should be ranked by impact — most impactful first
+
+VERIFICATION CHECKS (do these in order):
+1. Does every frontend API call have a matching backend route? List mismatches.
+2. Do request/response field names match exactly between frontend and backend?
+3. Are auth tokens attached to requests that hit protected backend routes?
+4. Does the frontend handle all possible error responses from the backend?
+5. Are all environment variables referenced in code present in .env.example?
+
 JSON format:
 {"completionStatus":{"frontendComplete":true,"backendComplete":true,"missingItems":[]},"apiCompatibility":{"compatible":true,"mismatches":[]},"setupGuide":{"prerequisites":[],"steps":[],"envVariables":[],"runCommands":{"frontend":"npm run dev","backend":"npm start"}},"codeReview":{"criticalIssues":[],"suggestions":[],"actionableFixes":[]},"qualityScore":{"grade":"B","metrics":{"completeness":90,"security":85,"compatibility":95,"codeQuality":80},"overall":88},"summary":"string"}`;
 
