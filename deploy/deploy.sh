@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # --- Config ---
-INSTANCE_IP="54.82.24.94"
+INSTANCE_IP="100.30.210.48"
 KEY_PATH="$HOME/.ssh/colab-ai-key.pem"
 SSH_USER="ubuntu"
 APP_DIR="/home/deploy/app"

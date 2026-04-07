@@ -1,0 +1,91 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "20"
+  EC2_INSTANCE_ID: i-0dfd7406ea32cc027
+  EC2_USER: ubuntu
+  DEPLOY_USER: deploy
+  APP_DIR: /home/deploy/app
+  AWS_REGION: us-east-1
+
+jobs:
+  build:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+
+  deploy:
+    name: Deploy to EC2
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Generate temporary SSH key
+        run: |
+          ssh-keygen -t ed25519 -f /tmp/ec2_key -N "" -q
+          echo "SSH_PUBKEY=$(cat /tmp/ec2_key.pub)" >> "$GITHUB_ENV"
+
+      - name: Push key via EC2 Instance Connect
+        run: |
+          aws ec2-instance-connect send-ssh-public-key \
+            --instance-id ${{ env.EC2_INSTANCE_ID }} \
+            --instance-os-user ${{ env.EC2_USER }} \
+            --ssh-public-key "${{ env.SSH_PUBKEY }}"
+
+      - name: Get EC2 public IP
+        run: |
+          IP=$(aws ec2 describe-instances \
+            --instance-ids ${{ env.EC2_INSTANCE_ID }} \
+            --query "Reservations[0].Instances[0].PublicIpAddress" \
+            --output text)
+          echo "EC2_IP=$IP" >> "$GITHUB_ENV"
+
+      - name: Deploy via SSH
+        run: |
+          chmod 600 /tmp/ec2_key
+          ssh -i /tmp/ec2_key -o StrictHostKeyChecking=no ${{ env.EC2_USER }}@${{ env.EC2_IP }} << 'EOF'
+            set -e
+            sudo su - ${{ env.DEPLOY_USER }} -c "
+              cd ${{ env.APP_DIR }}
+              echo '=== Pulling latest ==='
+              git pull origin main
+              echo '=== Installing dependencies ==='
+              npm install
+              echo '=== Building ==='
+              npm run build
+              echo '=== Restarting services ==='
+              pm2 delete all 2>/dev/null || true
+              cd apps/api && pm2 start dist/index.js --name colab-api --env production && cd ../..
+              cd apps/web && pm2 start npm --name colab-web -- start && cd ../..
+              pm2 save
+              echo '=== Deploy complete ==='
+              pm2 list
+            "
+          EOF
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f /tmp/ec2_key /tmp/ec2_key.pub
