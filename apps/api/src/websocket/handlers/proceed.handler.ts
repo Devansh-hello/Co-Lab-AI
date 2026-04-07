@@ -10,6 +10,7 @@
 import type { ConnectionContext } from "../types.js";
 import { emitEvent } from "../event-emitter.js";
 import { Project, ProjectSnapshot } from "../../models/index.js";
+import { tryRestorePipelineFromRun } from "./restore-pipeline.js";
 import { recordQualityTrend, detectRegression } from "../../services/quality-trends.js";
 import { FrontendCodeAgent } from "../../agents/frontend.agent.js";
 import { BackendCodeAgent } from "../../agents/backend.agent.js";
@@ -23,11 +24,16 @@ export async function handleProceed(
     parsed: any,
     ctx: ConnectionContext,
 ): Promise<void> {
-    const pipeline = ctx.pipeline;
-    if (!pipeline) {
-        emitEvent(ctx, { type: 'error', message: 'No pending pipeline to proceed' });
-        return;
+    /* If pipeline is missing (e.g. after page refresh), try restoring from DB */
+    if (!ctx.pipeline) {
+        const restored = await tryRestorePipelineFromRun(ctx, ['planning']);
+        if (!restored) {
+            emitEvent(ctx, { type: 'error', message: 'No pending pipeline to proceed' });
+            return;
+        }
     }
+
+    const pipeline = ctx.pipeline!;
 
     const { proceed } = parsed;
     if (!proceed) {
@@ -346,3 +352,4 @@ export async function handleProceed(
     ctx.pipelineAbort = null;
     ctx.pipelineRunId = null;
 }
+

@@ -49,15 +49,18 @@ export function setupWebSocket(server: Server) {
     const wss = new WebSocketServer({ server, path: "/ws" });
 
     // ── Heartbeat: detect dead connections ──────────────────
+    // Allow 2 missed pongs before terminating to tolerate network blips
     const HEARTBEAT_INTERVAL = 30_000;
     const heartbeat = setInterval(() => {
         for (const client of wss.clients) {
-            const ws = client as WebSocket & { isAlive?: boolean };
-            if (ws.isAlive === false) {
+            const ws = client as WebSocket & { missedPongs?: number };
+            if (ws.missedPongs === undefined) ws.missedPongs = 0;
+
+            ws.missedPongs++;
+            if (ws.missedPongs > 2) {
                 ws.terminate();
                 continue;
             }
-            ws.isAlive = false;
             ws.ping();
         }
     }, HEARTBEAT_INTERVAL);
@@ -65,8 +68,8 @@ export function setupWebSocket(server: Server) {
     wss.on("close", () => clearInterval(heartbeat));
 
     wss.on("connection", function connection(ws: WebSocket & { isAlive?: boolean }, req: IncomingMessage) {
-        ws.isAlive = true;
-        ws.on("pong", () => { ws.isAlive = true; });
+        (ws as any).missedPongs = 0;
+        ws.on("pong", () => { (ws as any).missedPongs = 0; });
 
         /* Authenticate via cookie */
         const rawCookies = req.headers.cookie || "";
