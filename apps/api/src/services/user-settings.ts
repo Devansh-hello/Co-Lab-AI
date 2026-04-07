@@ -130,6 +130,24 @@ export async function getUserSettings(userId: string): Promise<UserSettings> {
 }
 
 /**
+ * Check which providers used by the agent config are missing API keys.
+ * Returns a list of provider names that have no key (user or server).
+ */
+export function getMissingProviders(settings: UserSettings): string[] {
+    const neededProviders = new Set<string>();
+    for (const role of Object.values(settings.agentModels)) {
+        neededProviders.add(role.provider);
+    }
+
+    const missing: string[] = [];
+    for (const provider of neededProviders) {
+        const key = resolveApiKey(provider, settings.apiKeys);
+        if (!key) missing.push(provider);
+    }
+    return missing;
+}
+
+/**
  * Resolve the API key for a given provider.
  * Priority: user's personal key > server-level env var.
  */

@@ -8,7 +8,7 @@
 import type { ConnectionContext, PipelineState } from "../types.js";
 import { emitEvent } from "../event-emitter.js";
 import { Message, Project, ProjectSnapshot, PipelineRun } from "../../models/index.js";
-import { getUserSettings } from "../../services/user-settings.js";
+import { getUserSettings, getMissingProviders } from "../../services/user-settings.js";
 import { getPluginContext } from "../../services/plugin-context.js";
 import { UnderstandingAgent } from "../../agents/understanding.agent.js";
 import { handleProceed } from "./proceed.handler.js";
@@ -45,6 +45,17 @@ export async function handleNewMessage(
         return;
     }
 
+    /* Check if the user has API keys configured for required providers */
+    const preCheckSettings = await getUserSettings(ctx.userId);
+    const missingProviders = getMissingProviders(preCheckSettings);
+    if (missingProviders.length > 0) {
+        emitEvent(ctx, {
+            type: 'error',
+            message: `API keys not configured. Please go to Settings and add your API key for: ${missingProviders.join(', ')}. Without API keys, I can't generate code for you.`,
+        });
+        return;
+    }
+
     /* Queue if a pipeline is already running for this project */
     if (ctx.pipeline) {
         const queued = await enqueuePipeline(projectId, ctx.userId, parsed);
@@ -66,7 +77,7 @@ export async function handleNewMessage(
 
         const [pluginContext, userSettings] = await Promise.all([
             getPluginContext(ctx.userId, projectId, userMessage),
-            getUserSettings(ctx.userId),
+            Promise.resolve(preCheckSettings),
         ]);
 
         const pipelineState: PipelineState = {
@@ -106,8 +117,7 @@ export async function handleNewMessage(
     const messageDoc = new Message({ projectId, userMessage, status: 'processing' });
     await messageDoc.save();
 
-    /* Load user settings first (needed by UnderstandingAgent), then run remaining in parallel */
-    const userSettings = await getUserSettings(ctx.userId);
+    const userSettings = preCheckSettings;
     const [understanding, pluginContext] = await Promise.all([
         UnderstandingAgent(userMessage, userSettings),
         getPluginContext(ctx.userId, projectId, userMessage),
