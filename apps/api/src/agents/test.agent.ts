@@ -15,6 +15,13 @@ import { callAIGenerateStream, type TokenUsage } from "../services/ai-generate.j
 import { extractJSON } from "../services/json-parser.js";
 import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 
+/** Safely coerce a code-map value to a string (LLMs sometimes return objects). */
+function asString(v: unknown): string {
+    if (typeof v === 'string') return v;
+    if (v == null) return '';
+    try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+}
+
 /**
  * Generate test metadata and coverage scores for the generated code.
  * Tests are based on the API contract and features, NOT the code itself.
@@ -34,7 +41,7 @@ export async function TestAgent(
     const backendRoutes: string[] = [];
     if (backendCode && typeof backendCode === 'object') {
         for (const [, content] of Object.entries(backendCode)) {
-            const matches = (content as string).match(/\.(get|post|put|patch|delete)\s*\(\s*['"](\/[^'"]+)['"]/gi) || [];
+            const matches = asString(content).match(/\.(get|post|put|patch|delete)\s*\(\s*['"](\/[^'"]+)['"]/gi) || [];
             backendRoutes.push(...matches);
         }
     }

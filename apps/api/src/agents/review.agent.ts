@@ -16,6 +16,13 @@ import { extractJSON } from "../services/json-parser.js";
 import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 import { buildCompactContract } from "./helpers.js";
 
+/** Safely coerce a code-map value to a string (LLMs sometimes return objects). */
+function asString(v: unknown): string {
+    if (typeof v === 'string') return v;
+    if (v == null) return '';
+    try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+}
+
 /**
  * Review generated frontend and backend code against the task file.
  * Returns a structured review with quality scores and setup guide.
@@ -30,14 +37,14 @@ export async function ReviewAgent(
     /* Build concise file summaries instead of dumping full code */
     const frontendSummary = frontendCode && typeof frontendCode === 'object'
         ? Object.entries(frontendCode).map(([name, content]) => {
-            const lines = (content as string).split('\n').length;
+            const lines = asString(content).split('\n').length;
             return `  ${name} (${lines} lines)`;
         }).join('\n')
         : 'No frontend code';
 
     const backendSummary = backendCode && typeof backendCode === 'object'
         ? Object.entries(backendCode).map(([name, content]) => {
-            const lines = (content as string).split('\n').length;
+            const lines = asString(content).split('\n').length;
             return `  ${name} (${lines} lines)`;
         }).join('\n')
         : 'No backend code';
@@ -47,7 +54,7 @@ export async function ReviewAgent(
         if (!code || typeof code !== 'object') return [];
         const imports: string[] = [];
         for (const [, content] of Object.entries(code)) {
-            const matches = (content as string).match(/(?:import|require)\s*\(?['"]([@\w\-\/]+)['"]\)?/g) || [];
+            const matches = asString(content).match(/(?:import|require)\s*\(?['"]([@\w\-\/]+)['"]\)?/g) || [];
             imports.push(...matches);
         }
         return [...new Set(imports)];
@@ -58,7 +65,7 @@ export async function ReviewAgent(
         if (!code || typeof code !== 'object') return [];
         const calls: string[] = [];
         for (const [, content] of Object.entries(code)) {
-            const matches = (content as string).match(/fetch\s*\(\s*[`'"](\/api\/[^`'"]+)[`'"]/g) || [];
+            const matches = asString(content).match(/fetch\s*\(\s*[`'"](\/api\/[^`'"]+)[`'"]/g) || [];
             calls.push(...matches);
         }
         return [...new Set(calls)];
@@ -69,7 +76,7 @@ export async function ReviewAgent(
         if (!code || typeof code !== 'object') return [];
         const routes: string[] = [];
         for (const [, content] of Object.entries(code)) {
-            const matches = (content as string).match(/\.(get|post|put|patch|delete)\s*\(\s*['"](\/[^'"]+)['"]/gi) || [];
+            const matches = asString(content).match(/\.(get|post|put|patch|delete)\s*\(\s*['"](\/[^'"]+)['"]/gi) || [];
             routes.push(...matches);
         }
         return [...new Set(routes)];
