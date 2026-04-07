@@ -10,6 +10,7 @@
 
 import { callAIGenerate } from "../services/ai-generate.js";
 import { extractJSON } from "../services/json-parser.js";
+import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 
 export interface UnderstandingResponse {
     summary: string;
@@ -21,7 +22,7 @@ export interface UnderstandingResponse {
  * Analyze a user's message to extract project intent and generate
  * clarifying questions for ambiguous decisions.
  */
-export async function UnderstandingAgent(userMessage: string): Promise<UnderstandingResponse> {
+export async function UnderstandingAgent(userMessage: string, userSettings?: UserSettings): Promise<UnderstandingResponse> {
     const systemPrompt = `Analyze the user's project description. Return ONLY valid JSON.
 
 1. Summarize in 2-3 sentences.
@@ -42,9 +43,14 @@ QUESTION QUALITY:
 JSON format:
 {"summary":"string","projectName":"string (max 4 words)","questions":[{"id":"q1","question":"string","options":["A","B"]}]}`;
 
+    const uProvider = userSettings?.agentModels.orchestrator.provider || DEFAULT_AGENT_MODELS.orchestrator.provider;
+    const uModel = userSettings?.agentModels.orchestrator.model || DEFAULT_AGENT_MODELS.orchestrator.model;
+    const uKey = userSettings ? resolveApiKey(uProvider, userSettings.apiKeys) : '';
+
     const content = await callAIGenerate(
-        'openrouter', 'google/gemini-2.5-flash',
-        systemPrompt, 'USER REQUEST: ' + userMessage
+        uProvider, uModel,
+        systemPrompt, 'USER REQUEST: ' + userMessage,
+        undefined, uKey || undefined
     );
 
     try {

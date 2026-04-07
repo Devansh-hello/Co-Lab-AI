@@ -13,7 +13,7 @@ import type { WebSocket } from "ws";
 
 import { callAIGenerateStream, type TokenUsage } from "../services/ai-generate.js";
 import { extractJSON } from "../services/json-parser.js";
-import { resolveApiKey, type UserSettings } from "../services/user-settings.js";
+import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 import { buildCompactContract } from "./helpers.js";
 
 /**
@@ -132,8 +132,8 @@ Review completeness, API compatibility, and generate setup guide.`;
         ws.send(JSON.stringify({ type: 'token_usage', agent: 'Review Agent', usage }));
     };
 
-    const rvProvider = userSettings?.agentModels.review.provider || 'glm';
-    const rvModel = userSettings?.agentModels.review.model || 'GLM-4.7-FlashX';
+    const rvProvider = userSettings?.agentModels.review.provider || DEFAULT_AGENT_MODELS.review.provider;
+    const rvModel = userSettings?.agentModels.review.model || DEFAULT_AGENT_MODELS.review.model;
     const rvKey = userSettings ? resolveApiKey(rvProvider, userSettings.apiKeys) : '';
 
     for await (const chunk of callAIGenerateStream(rvProvider, rvModel, systemPrompt, userPrompt, onUsage, 16000, rvKey || undefined)) {

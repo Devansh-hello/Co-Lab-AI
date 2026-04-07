@@ -106,11 +106,11 @@ export async function handleNewMessage(
     const messageDoc = new Message({ projectId, userMessage, status: 'processing' });
     await messageDoc.save();
 
-    /* Run understanding, plugin context, and user settings in parallel */
-    const [understanding, pluginContext, userSettings] = await Promise.all([
-        UnderstandingAgent(userMessage),
+    /* Load user settings first (needed by UnderstandingAgent), then run remaining in parallel */
+    const userSettings = await getUserSettings(ctx.userId);
+    const [understanding, pluginContext] = await Promise.all([
+        UnderstandingAgent(userMessage, userSettings),
         getPluginContext(ctx.userId, projectId, userMessage),
-        getUserSettings(ctx.userId),
     ]);
 
     emitEvent(ctx, {

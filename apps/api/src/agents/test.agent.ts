@@ -13,7 +13,7 @@ import type { WebSocket } from "ws";
 
 import { callAIGenerateStream, type TokenUsage } from "../services/ai-generate.js";
 import { extractJSON } from "../services/json-parser.js";
-import { resolveApiKey, type UserSettings } from "../services/user-settings.js";
+import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 
 /**
  * Generate test metadata and coverage scores for the generated code.
@@ -93,8 +93,8 @@ Generate test metadata and coverage scores.${isFrontendOnly ? ' Focus on feature
         ws.send(JSON.stringify({ type: 'token_usage', agent: 'Test Agent', usage }));
     };
 
-    const testProvider = userSettings?.agentModels.test.provider || 'glm';
-    const testModel = userSettings?.agentModels.test.model || 'GLM-4.7-FlashX';
+    const testProvider = userSettings?.agentModels.test.provider || DEFAULT_AGENT_MODELS.test.provider;
+    const testModel = userSettings?.agentModels.test.model || DEFAULT_AGENT_MODELS.test.model;
     const testKey = userSettings ? resolveApiKey(testProvider, userSettings.apiKeys) : '';
 
     /* Reduced from 16000 to 8000 — metadata-only mode doesn't need full generation tokens */

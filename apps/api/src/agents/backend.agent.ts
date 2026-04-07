@@ -15,7 +15,7 @@ import type { WebSocket } from "ws";
 
 import { callAIGenerate, callAIGenerateStream, type TokenUsage } from "../services/ai-generate.js";
 import { extractJSON } from "../services/json-parser.js";
-import { resolveApiKey, type UserSettings } from "../services/user-settings.js";
+import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 import { compressSnapshotForAgent } from "./helpers.js";
 
 /**
@@ -25,8 +25,6 @@ import { compressSnapshotForAgent } from "./helpers.js";
 export async function BackendCodeAgent(
     taskFile: any,
     previousCode: any | null,
-    provider: string,
-    model: string,
     ws: WebSocket,
     pluginContext: string = '',
     userSettings?: UserSettings
@@ -133,8 +131,8 @@ ${intentInstruction}`;
         ws.send(JSON.stringify({ type: 'token_usage', agent: 'Backend Agent', usage }));
     };
 
-    const beProvider = userSettings?.agentModels.backend.provider || provider;
-    const beModel = userSettings?.agentModels.backend.model || model;
+    const beProvider = userSettings?.agentModels.backend.provider || DEFAULT_AGENT_MODELS.backend.provider;
+    const beModel = userSettings?.agentModels.backend.model || DEFAULT_AGENT_MODELS.backend.model;
     const beKey = userSettings ? resolveApiKey(beProvider, userSettings.apiKeys) : '';
 
     for await (const chunk of callAIGenerateStream(beProvider, beModel, systemPrompt, userPrompt, onUsage, 16000, beKey || undefined)) {

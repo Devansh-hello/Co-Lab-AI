@@ -15,7 +15,7 @@ import type { WebSocket } from "ws";
 
 import { callAIGenerate, callAIGenerateStream, type TokenUsage } from "../services/ai-generate.js";
 import { extractJSON } from "../services/json-parser.js";
-import { resolveApiKey, type UserSettings } from "../services/user-settings.js";
+import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 import { compressSnapshotForAgent } from "./helpers.js";
 
 /**
@@ -143,8 +143,8 @@ ${intentInstruction}`;
         ws.send(JSON.stringify({ type: 'token_usage', agent: 'Frontend Agent', usage }));
     };
 
-    const feProvider = userSettings?.agentModels.frontend.provider || 'openai';
-    const feModel = userSettings?.agentModels.frontend.model || 'gpt-5-mini';
+    const feProvider = userSettings?.agentModels.frontend.provider || DEFAULT_AGENT_MODELS.frontend.provider;
+    const feModel = userSettings?.agentModels.frontend.model || DEFAULT_AGENT_MODELS.frontend.model;
     const feKey = userSettings ? resolveApiKey(feProvider, userSettings.apiKeys) : '';
 
     for await (const chunk of callAIGenerateStream(feProvider, feModel, systemPrompt, userPrompt, onUsage, 16000, feKey || undefined)) {

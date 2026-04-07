@@ -41,7 +41,7 @@ export async function handleProceed(
 
     pipeline.phase = 'building';
     const pipelineStartTime = Date.now();
-    const { messageDoc, snapshot, provider, model, projectId } = pipeline;
+    const { messageDoc, snapshot, projectId } = pipeline;
     const taskFile = pipeline.taskFile;
 
     if (!taskFile) {
@@ -96,11 +96,12 @@ export async function handleProceed(
         emitEvent(ctx, {
             type: 'status', agent: 'Backend Agent',
             message: 'Building backend...',
-            provider, model,
+            provider: pipeline.userSettings.agentModels.backend.provider,
+            model: pipeline.userSettings.agentModels.backend.model,
         });
 
         agentPromises.push(
-            BackendCodeAgent(taskFile, snapshot?.backendCode || null, provider, model, ctx.ws, pipeline.pluginContext, pipeline.userSettings)
+            BackendCodeAgent(taskFile, snapshot?.backendCode || null, ctx.ws, pipeline.pluginContext, pipeline.userSettings)
                 .then(result => {
                     const agentOutput = result as CodeMap;
                     const isPartial = (taskFile.intent === 'iterate' || taskFile.intent === 'debug') && snapshot?.backendCode;
@@ -137,8 +138,8 @@ export async function handleProceed(
     emitEvent(ctx, {
         type: 'status', agent: 'Test Agent',
         message: 'Generating test cases...',
-        provider: pipeline.userSettings.agentModels.test.provider || 'glm',
-        model: pipeline.userSettings.agentModels.test.model || 'GLM-4.7-FlashX',
+        provider: pipeline.userSettings.agentModels.test.provider,
+        model: pipeline.userSettings.agentModels.test.model,
     });
 
     const testResult = await TestAgent(taskFile, frontendResult, backendResult, ctx.ws, pipeline.userSettings);

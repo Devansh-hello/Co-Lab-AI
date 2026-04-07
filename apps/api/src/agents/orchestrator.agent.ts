@@ -14,7 +14,7 @@ import type { WebSocket } from "ws";
 
 import { callAIGenerate } from "../services/ai-generate.js";
 import { extractJSON, extractAndValidate, ORCHESTRATOR_SHAPE } from "../services/json-parser.js";
-import { resolveApiKey, type UserSettings } from "../services/user-settings.js";
+import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 import { validateOrchestratorPlan } from "./helpers.js";
 
 /**
@@ -77,8 +77,8 @@ If you detect issues, include them in "warnings" (array of strings) in the outpu
 JSON format:
 {"intent":"build|iterate|debug","projectMeta":{"name":"string","description":"string"},"techStack":{"frontend":{"framework":"string","styling":"string","libraries":["string"]},"backend":{"runtime":"string","framework":"string","database":"string","libraries":["string"]}},"apiContract":{"baseUrl":"/api","auth":{"scheme":"JWT Bearer","headerName":"Authorization","tokenStorage":"localStorage"},"models":{"ModelName":{"field":"type"}},"endpoints":[{"method":"POST","path":"/api/auth/register","body":{"email":"string"},"response":{"token":"string"}}]},"features":["feature"],"complexity":{"overall":3,"reasoning":"string"},"frontendTasks":[{"task":"string","details":"string","complexity":2}],"backendTasks":[{"task":"string","details":"string","complexity":3}],"architecture":"string","fileStructure":{"frontend":["src/App.tsx"],"backend":["server.js"]},"warnings":[],"notes":"string"}`;
 
-    const orchProvider = userSettings?.agentModels.orchestrator.provider || 'glm';
-    const orchModel = userSettings?.agentModels.orchestrator.model || 'GLM-4.7-FlashX';
+    const orchProvider = userSettings?.agentModels.orchestrator.provider || DEFAULT_AGENT_MODELS.orchestrator.provider;
+    const orchModel = userSettings?.agentModels.orchestrator.model || DEFAULT_AGENT_MODELS.orchestrator.model;
     const orchKey = userSettings ? resolveApiKey(orchProvider, userSettings.apiKeys) : '';
     const fullUserPrompt = previousContext + snapshotContext + pluginContext + '\n\nUSER REQUEST: ' + userMessage;
 
