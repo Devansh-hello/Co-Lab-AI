@@ -130,6 +130,7 @@ export const useWebSocket = (projectId: string) => {
   const ws = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const intentRef = useRef<string | undefined>(undefined);
+  const prevProjectIdRef = useRef(projectId);
 
   // ── Activity tracker callback ────────────────────────────────
   const rawMessageCallbackRef = useRef<((data: any) => void) | null>(null);
@@ -304,6 +305,34 @@ export const useWebSocket = (projectId: string) => {
     loadHistory();
   }, [projectId]);
 
+  // ── Reset pipeline state when project changes ────────────────
+  useEffect(() => {
+    if (prevProjectIdRef.current !== projectId) {
+      prevProjectIdRef.current = projectId;
+      sessionIdRef.current = null;
+      lastSeqRef.current = 0;
+      setWsState(prev => ({
+        ...prev,
+        isGenerating: false,
+        currentStatus: '',
+        currentAgent: undefined,
+        currentProvider: undefined,
+        currentModel: undefined,
+        error: null,
+        streaming: { frontendStream: '', backendStream: '', reviewStream: '', testStream: '', activeAgent: null },
+        tokenUsage: { currentEstimate: 0 },
+        flowStage: 'idle',
+        completedAgents: [],
+        understandingData: undefined,
+        featureReviewData: undefined,
+        complexityScore: undefined,
+        qualityScore: undefined,
+        feedbackIteration: 0,
+        pendingPermission: undefined,
+      }));
+    }
+  }, [projectId]);
+
   // ── Message helpers ──────────────────────────────────────────
   const addMessage = useCallback((message: Omit<Message, 'id' | 'timestamp'>) => {
     const newMessage: Message = {
@@ -369,10 +398,11 @@ export const useWebSocket = (projectId: string) => {
       case 'understanding':
         setWsState(prev => ({
           ...prev,
-          isGenerating: true,
+          isGenerating: false,
           flowStage: 'waiting_understanding',
           currentStatus: '',
           currentAgent: undefined,
+          completedAgents: [],
           understandingData: {
             summary: data.summary,
             projectName: data.projectName,
@@ -393,11 +423,12 @@ export const useWebSocket = (projectId: string) => {
         intentRef.current = data.content?.intent;
         setWsState(prev => ({
           ...prev,
+          isGenerating: false,
           flowStage: 'waiting_plan_review',
           currentStatus: '',
           currentAgent: undefined,
           featureReviewData: data.content,
-          completedAgents: [...prev.completedAgents, 'Orchestrator Agent'],
+          completedAgents: [],
           currentIntent: data.content?.intent,
         }));
         addMessage({
@@ -730,14 +761,26 @@ export const useWebSocket = (projectId: string) => {
       ws.current.onopen = () => {
         reconnectAttemptRef.current = 0;
         consecutiveFailuresRef.current = 0;
-        setWsState(prev => ({ ...prev, isConnected: true, error: null, transportMode: 'websocket' }));
 
-        // Resume if we have a session
         if (sessionIdRef.current) {
+          // Resume existing session — keep pipeline state until server confirms
+          setWsState(prev => ({ ...prev, isConnected: true, error: null, transportMode: 'websocket' }));
           ws.current?.send(JSON.stringify({
             type: 'resume',
             sessionId: sessionIdRef.current,
             lastSeq: lastSeqRef.current,
+            projectId,
+          }));
+        } else {
+          // Fresh connection — no active session, reset generation state
+          setWsState(prev => ({
+            ...prev,
+            isConnected: true,
+            error: null,
+            transportMode: 'websocket',
+            isGenerating: false,
+            currentStatus: '',
+            currentAgent: undefined,
           }));
         }
 
@@ -782,7 +825,15 @@ export const useWebSocket = (projectId: string) => {
     const interval = setInterval(() => {
       const gap = Date.now() - lastEventTimeRef.current;
       if (gap > SLEEP_THRESHOLD && wsState.isGenerating) {
-        console.warn(`[ws] Sleep detected (${Math.round(gap / 1000)}s gap) — forcing reconnect`);
+        console.warn(`[ws] Sleep detected (${Math.round(gap / 1000)}s gap) — resetting generation state`);
+        // Generation is certainly stale after 2+ minutes of silence — reset
+        sessionIdRef.current = null;
+        setWsState(prev => ({
+          ...prev,
+          isGenerating: false,
+          currentStatus: '',
+          currentAgent: undefined,
+        }));
         ws.current?.close();
         // onclose handler will trigger reconnect with backoff
       }
@@ -868,6 +919,19 @@ export const useWebSocket = (projectId: string) => {
     }));
   }, [safeSend]);
 
+  const cancelPipeline = useCallback(() => {
+    safeSend({ type: 'cancel' });
+    setWsState(prev => ({
+      ...prev,
+      isGenerating: false,
+      flowStage: 'idle',
+      currentStatus: '',
+      currentAgent: undefined,
+      streaming: { frontendStream: '', backendStream: '', reviewStream: '', testStream: '', activeAgent: null },
+      completedAgents: [],
+    }));
+  }, [safeSend]);
+
   useEffect(() => {
     const delay = setTimeout(connect, 500);
     return () => {
@@ -891,6 +955,7 @@ export const useWebSocket = (projectId: string) => {
     sendQAComplete,
     sendProceed,
     sendPermissionResponse,
+    cancelPipeline,
     setRawMessageCallback,
     connect,
     addMessage,

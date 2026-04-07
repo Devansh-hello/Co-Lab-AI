@@ -12,6 +12,7 @@
  */
 
 import mongoose from "mongoose";
+import { encrypt, decrypt, isEncryptionConfigured } from "../services/crypto.js";
 
 const discoveredToolSchema = new mongoose.Schema({
     name: { type: String, required: true },
@@ -60,5 +61,42 @@ const mcpServerSchema = new mongoose.Schema({
 
 /** One server name per user per project scope */
 mcpServerSchema.index({ userId: 1, name: 1, projectId: 1 }, { unique: true });
+
+/** Encrypt sensitive fields before save */
+mcpServerSchema.pre('save', function () {
+    if (!isEncryptionConfigured()) return;
+    // Encrypt env values
+    if (this.env && typeof this.env === 'object') {
+        const encrypted: Record<string, string> = {};
+        for (const [k, v] of Object.entries(this.env as Record<string, string>)) {
+            encrypted[k] = typeof v === 'string' && v ? encrypt(v) : v;
+        }
+        this.env = encrypted;
+    }
+    // Encrypt header values (often contain auth tokens)
+    if (this.headers && typeof this.headers === 'object') {
+        const encrypted: Record<string, string> = {};
+        for (const [k, v] of Object.entries(this.headers as Record<string, string>)) {
+            encrypted[k] = typeof v === 'string' && v ? encrypt(v) : v;
+        }
+        this.headers = encrypted;
+    }
+});
+
+/** Decrypt sensitive fields on read */
+function decryptMixed(obj: Record<string, any>): Record<string, any> {
+    if (!obj || typeof obj !== 'object') return obj;
+    const result: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) {
+        result[k] = typeof v === 'string' ? decrypt(v) : v;
+    }
+    return result;
+}
+
+mcpServerSchema.post('init', function () {
+    if (!isEncryptionConfigured()) return;
+    if (this.env) this.env = decryptMixed(this.env as Record<string, any>);
+    if (this.headers) this.headers = decryptMixed(this.headers as Record<string, any>);
+});
 
 export const MCPServer = mongoose.model("mcpServer", mcpServerSchema);

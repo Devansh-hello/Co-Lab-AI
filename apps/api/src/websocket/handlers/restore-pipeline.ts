@@ -17,12 +17,15 @@ import { getPluginContext } from "../../services/plugin-context.js";
 export async function tryRestorePipelineFromRun(
     ctx: ConnectionContext,
     phases: string[],
+    projectId?: string,
 ): Promise<boolean> {
     try {
-        const activeRun = await PipelineRun.findOne({
+        const query: any = {
             userId: ctx.userId,
             phase: { $in: phases },
-        }).sort({ updatedAt: -1 }).lean() as any;
+        };
+        if (projectId) query.projectId = projectId;
+        const activeRun = await PipelineRun.findOne(query).sort({ updatedAt: -1 }).lean() as any;
 
         if (!activeRun?.state) return false;
 

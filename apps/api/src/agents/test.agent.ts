@@ -31,7 +31,8 @@ export async function TestAgent(
     frontendCode: any,
     backendCode: any,
     ws: WebSocket,
-    userSettings?: UserSettings
+    userSettings?: UserSettings,
+    signal?: AbortSignal,
 ): Promise<any> {
     const apiContract = taskFile.apiContract || {};
     const endpoints = apiContract.endpoints || [];
@@ -105,7 +106,7 @@ Generate test metadata and coverage scores.${isFrontendOnly ? ' Focus on feature
     const testKey = userSettings ? resolveApiKey(testProvider, userSettings.apiKeys) : '';
 
     /* Reduced from 16000 to 8000 — metadata-only mode doesn't need full generation tokens */
-    for await (const chunk of callAIGenerateStream(testProvider, testModel, systemPrompt, userPrompt, onUsage, 8000, testKey || undefined)) {
+    for await (const chunk of callAIGenerateStream(testProvider, testModel, systemPrompt, userPrompt, onUsage, 8000, testKey || undefined, signal)) {
         if (chunk) {
             fullContent += chunk;
             ws.send(JSON.stringify({

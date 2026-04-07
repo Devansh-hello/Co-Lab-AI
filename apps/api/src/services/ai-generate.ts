@@ -96,7 +96,8 @@ export async function* callAIGenerateStream(
     userPrompt: string,
     onUsage?: (usage: TokenUsage) => void,
     maxTokens = 16000,
-    userApiKey?: string
+    userApiKey?: string,
+    signal?: AbortSignal,
 ) {
     const key = userApiKey || '';
 
@@ -110,6 +111,7 @@ export async function* callAIGenerateStream(
         });
         let charCount = 0;
         for await (const chunk of responseStream) {
+            if (signal?.aborted) return;
             const text = chunk.text || "";
             charCount += text.length;
             yield text;
@@ -134,6 +136,7 @@ export async function* callAIGenerateStream(
         });
         let inputTokens = 0, outputTokens = 0;
         for await (const chunk of stream) {
+            if (signal?.aborted) return;
             if (chunk.type === 'message_start') {
                 inputTokens = chunk.message.usage.input_tokens;
             } else if (chunk.type === 'message_delta') {
@@ -179,6 +182,7 @@ export async function* callAIGenerateStream(
     let charCount = 0;
     let usageFired = false;
     for await (const chunk of stream) {
+        if (signal?.aborted) return;
         if ((chunk as any).usage && onUsage) {
             const u = (chunk as any).usage;
             onUsage({ promptTokens: u.prompt_tokens, completionTokens: u.completion_tokens, totalTokens: u.total_tokens });

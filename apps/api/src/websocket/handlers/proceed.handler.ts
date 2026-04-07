@@ -26,7 +26,7 @@ export async function handleProceed(
 ): Promise<void> {
     /* If pipeline is missing (e.g. after page refresh), try restoring from DB */
     if (!ctx.pipeline) {
-        const restored = await tryRestorePipelineFromRun(ctx, ['planning']);
+        const restored = await tryRestorePipelineFromRun(ctx, ['planning'], parsed.projectId);
         if (!restored) {
             emitEvent(ctx, { type: 'error', message: 'No pending pipeline to proceed' });
             return;
@@ -49,6 +49,7 @@ export async function handleProceed(
     const pipelineStartTime = Date.now();
     const { messageDoc, snapshot, projectId } = pipeline;
     const taskFile = pipeline.taskFile;
+    const signal = ctx.pipelineAbort?.signal;
 
     if (!taskFile) {
         emitEvent(ctx, { type: 'error', message: 'No task plan available' });
@@ -83,7 +84,7 @@ export async function handleProceed(
         });
 
         agentPromises.push(
-            FrontendCodeAgent(taskFile, snapshot?.frontendCode || null, ctx.ws, pipeline.pluginContext, pipeline.userSettings)
+            FrontendCodeAgent(taskFile, snapshot?.frontendCode || null, ctx.ws, pipeline.pluginContext, pipeline.userSettings, signal)
                 .then(result => {
                     const agentOutput = result as CodeMap;
                     /* For iterate/debug: merge with existing code so unchanged files are preserved */
@@ -107,7 +108,7 @@ export async function handleProceed(
         });
 
         agentPromises.push(
-            BackendCodeAgent(taskFile, snapshot?.backendCode || null, ctx.ws, pipeline.pluginContext, pipeline.userSettings)
+            BackendCodeAgent(taskFile, snapshot?.backendCode || null, ctx.ws, pipeline.pluginContext, pipeline.userSettings, signal)
                 .then(result => {
                     const agentOutput = result as CodeMap;
                     const isPartial = (taskFile.intent === 'iterate' || taskFile.intent === 'debug') && snapshot?.backendCode;
@@ -134,7 +135,7 @@ export async function handleProceed(
         model: pipeline.userSettings.agentModels.review.model,
     });
 
-    const reviewResult = await ReviewAgent(taskFile, frontendResult, backendResult, ctx.ws, pipeline.userSettings);
+    const reviewResult = await ReviewAgent(taskFile, frontendResult, backendResult, ctx.ws, pipeline.userSettings, signal);
     messageDoc.reviewResponse = { content: reviewResult, timestamp: new Date() };
     await messageDoc.save();
     emitEvent(ctx, { type: 'review_complete', content: reviewResult });
@@ -148,7 +149,7 @@ export async function handleProceed(
         model: pipeline.userSettings.agentModels.test.model,
     });
 
-    const testResult = await TestAgent(taskFile, frontendResult, backendResult, ctx.ws, pipeline.userSettings);
+    const testResult = await TestAgent(taskFile, frontendResult, backendResult, ctx.ws, pipeline.userSettings, signal);
     messageDoc.testResponse = { content: testResult, timestamp: new Date() };
     await messageDoc.save();
     emitEvent(ctx, { type: 'test_complete', content: testResult });
@@ -205,7 +206,7 @@ export async function handleProceed(
                 model: pipeline.userSettings.agentModels.frontend.model,
             });
             fixPromises.push(
-                FeedbackFixAgent(frontendIssues, frontendResult, 'frontend', taskFile, ctx.ws, pipeline.userSettings)
+                FeedbackFixAgent(frontendIssues, frontendResult, 'frontend', taskFile, ctx.ws, pipeline.userSettings, signal)
                     .then(fixed => {
                         frontendResult = fixed as CodeMap;
                         pipeline.frontendResult = fixed as CodeMap;
@@ -223,7 +224,7 @@ export async function handleProceed(
                 model: pipeline.userSettings.agentModels.backend.model,
             });
             fixPromises.push(
-                FeedbackFixAgent(backendIssues, backendResult, 'backend', taskFile, ctx.ws, pipeline.userSettings)
+                FeedbackFixAgent(backendIssues, backendResult, 'backend', taskFile, ctx.ws, pipeline.userSettings, signal)
                     .then(fixed => {
                         backendResult = fixed as CodeMap;
                         pipeline.backendResult = fixed as CodeMap;
@@ -242,7 +243,7 @@ export async function handleProceed(
                 message: 'Re-evaluating fixed code...',
             });
 
-            const postFixReview = await ReviewAgent(taskFile, frontendResult, backendResult, ctx.ws, pipeline.userSettings);
+            const postFixReview = await ReviewAgent(taskFile, frontendResult, backendResult, ctx.ws, pipeline.userSettings, signal);
             const postFixQuality = computeQualityScore(postFixReview, testResult, taskFile);
             emitEvent(ctx, {
                 type: 'quality_score',

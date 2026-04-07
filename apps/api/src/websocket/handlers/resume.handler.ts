@@ -18,7 +18,7 @@ export async function handleResume(
     parsed: any,
     ctx: ConnectionContext,
 ): Promise<void> {
-    const { lastSeq } = parsed;
+    const { lastSeq, projectId } = parsed;
 
     // Try buffer replay first (fast path)
     const bufferOldest = ctx.eventBuffer.oldestSeq();
@@ -31,10 +31,12 @@ export async function handleResume(
     if (!ctx.pipelineRunId) {
         // Try to find an active pipeline run for this user
         const { PipelineRun } = await import("../../models/index.js");
-        const activeRun = await PipelineRun.findOne({
+        const query: any = {
             userId: ctx.userId,
             phase: { $nin: ['done', 'error', 'cancelled'] },
-        }).sort({ updatedAt: -1 }).lean();
+        };
+        if (projectId) query.projectId = projectId;
+        const activeRun = await PipelineRun.findOne(query).sort({ updatedAt: -1 }).lean();
 
         if (!activeRun) {
             emitEvent(ctx, { type: 'resume_failed', reason: 'no_active_pipeline' });

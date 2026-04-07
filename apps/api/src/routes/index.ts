@@ -16,8 +16,9 @@ import { messageRouter } from "./message.routes.js";
 import { settingsRouter } from "./settings.routes.js";
 import { pluginRouter } from "./plugin.routes.js";
 import { tursoRouter } from "./turso.routes.js";
-import { pipelineCommandRouter } from "./pipeline-command.routes.js";
-import { sseRouter } from "../websocket/sse-fallback.js";
+// SSE fallback is not yet implemented — stubs exist but are not registered
+// import { pipelineCommandRouter } from "./pipeline-command.routes.js";
+// import { sseRouter } from "../websocket/sse-fallback.js";
 import { permissionRouter } from "./permission.routes.js";
 import { mcpRouter } from "./mcp.routes.js";
 import { qualityTrendRouter } from "./quality-trend.routes.js";
@@ -44,7 +45,7 @@ export const apiRouter = Router();
 
 apiRouter.use("/api/v1/signup", authLimiter);
 apiRouter.use("/api/v1/signin", authLimiter);
-apiRouter.use("/api/v1/google-auth", authLimiter);
+apiRouter.use("/api/v1/auth/google", authLimiter);
 apiRouter.use(apiLimiter);
 
 apiRouter.use(authRouter);
@@ -53,8 +54,8 @@ apiRouter.use(messageRouter);
 apiRouter.use(settingsRouter);
 apiRouter.use(pluginRouter);
 apiRouter.use(tursoRouter);
-apiRouter.use(pipelineCommandRouter);
-apiRouter.use(sseRouter);
+// apiRouter.use(pipelineCommandRouter);  // SSE stub — not yet implemented
+// apiRouter.use(sseRouter);              // SSE stub — not yet implemented
 apiRouter.use(permissionRouter);
 apiRouter.use(mcpRouter);
 apiRouter.use(qualityTrendRouter);

@@ -7,6 +7,7 @@
  */
 
 import mongoose from "mongoose";
+import { encrypt, decrypt, isEncryptionConfigured } from "../services/crypto.js";
 
 const tursoDatabaseSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true, index: true },
@@ -19,5 +20,19 @@ const tursoDatabaseSchema = new mongoose.Schema({
     /** Last time storage was checked via Turso API */
     lastUsageCheck: { type: Date },
 }, { timestamps: true });
+
+/** Encrypt authToken before save */
+tursoDatabaseSchema.pre('save', function () {
+    if (!isEncryptionConfigured()) return;
+    if (this.authToken && !this.authToken.startsWith('enc:')) {
+        this.authToken = encrypt(this.authToken);
+    }
+});
+
+/** Decrypt authToken on read */
+tursoDatabaseSchema.post('init', function () {
+    if (!isEncryptionConfigured()) return;
+    if (this.authToken) this.authToken = decrypt(this.authToken);
+});
 
 export const TursoDatabase = mongoose.model("tursoDatabase", tursoDatabaseSchema);

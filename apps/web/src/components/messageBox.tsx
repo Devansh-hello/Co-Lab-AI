@@ -2,15 +2,16 @@
 
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
-import { Send, Loader2 } from "lucide-react"
+import { Send, Square } from "lucide-react"
 
 interface MessageBoxProps {
   onSendMessage: (message: string) => void
+  onStop?: () => void
   isGenerating: boolean
   hasMessages?: boolean
 }
 
-export const MessageBox: React.FC<MessageBoxProps> = ({ onSendMessage, isGenerating, hasMessages }) => {
+export const MessageBox: React.FC<MessageBoxProps> = ({ onSendMessage, onStop, isGenerating, hasMessages }) => {
   const [message, setMessage] = useState("")
   const [isFocused, setIsFocused] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -42,22 +43,12 @@ export const MessageBox: React.FC<MessageBoxProps> = ({ onSendMessage, isGenerat
 
   return (
     <div className="w-full max-w-3xl relative">
-      {/* Agent running indicator */}
-      {isGenerating && (
-        <div className="flex items-center gap-2 px-4 mb-2 animate-fade-in">
-          <div className="w-2 h-2 rounded-full bg-[#52d68c] animate-agent-pulse" />
-          <span className="text-[13px] font-medium text-[#52d68c] tracking-tight">
-            Agent is running
-          </span>
-        </div>
-      )}
-
-      {/* Outer wrapper */}
+      {/* Outer wrapper — glass pill */}
       <div className={`
         rounded-[20px] border transition-all duration-300
         ${isFocused || hasContent
-          ? "bg-[#050505]/80 backdrop-blur-xl border-[#3a3420] shadow-[0_0_0_1px_rgba(212,175,55,0.06),0_-4px_24px_rgba(0,0,0,0.4),0_-1px_4px_rgba(0,0,0,0.2)]"
-          : "bg-[#050505]/70 backdrop-blur-xl border-white/[0.12] shadow-message-box"
+          ? "bg-white/[0.06] backdrop-blur-2xl border-[#3a3420]/60 shadow-[0_0_0_1px_rgba(212,175,55,0.06),0_4px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]"
+          : "bg-white/[0.04] backdrop-blur-2xl border-white/[0.08] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)]"
         }
         p-1.5
       `}>
@@ -65,10 +56,10 @@ export const MessageBox: React.FC<MessageBoxProps> = ({ onSendMessage, isGenerat
         <form
           onSubmit={handleSubmit}
           className={`
-            flex items-end gap-2 w-full px-4 py-3 rounded-2xl border transition-all duration-200
+            flex ${hasContent ? "items-end" : "items-center"} gap-2 w-full px-4 py-3 rounded-2xl border transition-all duration-200
             ${isFocused
-              ? "bg-[#111]/60 border-transparent"
-              : "bg-[#111]/50 border-transparent"
+              ? "bg-white/[0.04] border-white/[0.06]"
+              : "bg-white/[0.02] border-transparent"
             }
           `}
         >
@@ -93,26 +84,32 @@ export const MessageBox: React.FC<MessageBoxProps> = ({ onSendMessage, isGenerat
             `}
           />
 
-          {/* Send button */}
-          <button
-            type="submit"
-            disabled={isGenerating || !hasContent}
-            className={`
-              flex items-center justify-center w-8 h-8 rounded-lg flex-shrink-0 transition-all duration-200 mb-0.5
-              ${hasContent && !isGenerating
-                ? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_16px_rgba(212,175,55,0.2)]"
-                : isGenerating
-                  ? "bg-transparent text-white/20"
+          {/* Send / Stop button */}
+          {isGenerating && onStop ? (
+            <button
+              type="button"
+              onClick={onStop}
+              className="flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0 transition-all duration-200
+                bg-white/[0.08] text-white/60 hover:bg-red-500/20 hover:text-red-400 border border-white/[0.1]"
+            >
+              <Square className="w-3.5 h-3.5 fill-current" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!hasContent}
+              className={`
+                flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0 transition-all duration-200
+                ${hasContent
+                  ? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_16px_rgba(212,175,55,0.2)]"
                   : "bg-transparent text-white/15 border border-white/[0.12]"
-              }
-              disabled:cursor-default
-            `}
-          >
-            {isGenerating
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <Send className="w-3.5 h-3.5" />
-            }
-          </button>
+                }
+                disabled:cursor-default
+              `}
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          )}
         </form>
       </div>
     </div>

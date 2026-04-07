@@ -31,7 +31,7 @@ export async function handleUnderstandingResponse(
     ctx: ConnectionContext,
 ): Promise<void> {
     if (!ctx.pipeline) {
-        const restored = await tryRestorePipelineFromRun(ctx, ['understanding', 'qa']);
+        const restored = await tryRestorePipelineFromRun(ctx, ['understanding', 'qa'], parsed.projectId);
         if (!restored) {
             emitEvent(ctx, { type: 'error', message: 'No pending project' });
             return;

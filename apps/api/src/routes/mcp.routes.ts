@@ -20,6 +20,20 @@ import { mcpManager } from "../services/mcp-client.js";
 
 export const mcpRouter = Router();
 
+/** Strip sensitive fields from server documents returned to the client */
+function sanitizeServer(server: any): any {
+    const s = { ...server };
+    // Redact env values (keep keys for display)
+    if (s.env && typeof s.env === 'object') {
+        s.env = Object.fromEntries(Object.keys(s.env).map(k => [k, '••••••']));
+    }
+    // Redact header values
+    if (s.headers && typeof s.headers === 'object') {
+        s.headers = Object.fromEntries(Object.keys(s.headers).map(k => [k, '••••••']));
+    }
+    return s;
+}
+
 // ─── List MCP Servers ───────────────────────────────────────────
 
 mcpRouter.get("/api/v1/mcp/servers", authCheck, async (req: AuthRequest, res) => {
@@ -31,7 +45,7 @@ mcpRouter.get("/api/v1/mcp/servers", authCheck, async (req: AuthRequest, res) =>
         }
 
         const servers = await MCPServer.find(filter).lean();
-        res.json({ servers });
+        res.json({ servers: servers.map(sanitizeServer) });
     } catch {
         res.status(500).json({ message: "Failed to fetch MCP servers" });
     }
@@ -70,7 +84,7 @@ mcpRouter.post("/api/v1/mcp/servers", authCheck, async (req: AuthRequest, res) =
             headers: headers || {},
         });
 
-        res.status(201).json({ server });
+        res.status(201).json({ server: sanitizeServer(server.toObject()) });
     } catch (err: any) {
         if (err.code === 11000) {
             res.status(409).json({ message: "An MCP server with this name already exists" });
@@ -110,7 +124,7 @@ mcpRouter.put("/api/v1/mcp/servers/:id", authCheck, async (req: AuthRequest, res
         // Disconnect if config changed (will reconnect with new config on next use)
         await mcpManager.disconnect(req.params.id as string);
 
-        res.json({ server });
+        res.json({ server: sanitizeServer(server.toObject()) });
     } catch {
         res.status(500).json({ message: "Failed to update MCP server" });
     }

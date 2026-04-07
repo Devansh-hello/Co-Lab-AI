@@ -7,6 +7,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { MessageBox } from "../components/messageBox"
 import { MessageCard, StreamingDropdown, type BubbleGroupPos } from "../components/messageCard"
 import { Sidebar } from "../components/sidebar"
+import { MobileSidebar } from "../components/MobileSidebar"
 import { UnderstandingCard } from "../components/UnderstandingCard"
 import { ClarifyingQuestion } from "../components/ClarifyingQuestion"
 import { FeatureReviewCard } from "../components/FeatureReviewCard"
@@ -90,7 +91,7 @@ function PipelineStatusBar({ currentAgent, completedAgents, currentStatus, token
   }, [completedAgents.length])
 
   return (
-    <div ref={barRef} className="flex items-center gap-2 w-full max-w-3xl px-1 animate-spring-in overflow-x-auto">
+    <div ref={barRef} className="flex items-center gap-2 w-full max-w-3xl px-1 animate-spring-in overflow-x-auto scrollbar-none">
       <div className="flex items-center gap-1 flex-1 min-w-0">
         {PIPELINE_ORDER.map((agent, i) => {
           const cfg = AGENT_STATUS[agent]
@@ -219,12 +220,16 @@ function App({ projectId }: { projectId: string }) {
     sendUnderstandingResponse,
     sendQAComplete,
     sendProceed,
+    cancelPipeline,
     addMessage,
   } = useWebSocket(projectId)
 
   const [previewOpen, setPreviewOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const sidebarWrapRef = useRef<HTMLDivElement>(null)
+  const chatAreaRef = useRef<HTMLDivElement>(null)
+  const hasPageAnimated = useRef(false)
   const autoStarted = useRef(false)
 
   // ── Q&A local state ──────────────────────────────────────
@@ -302,12 +307,45 @@ function App({ projectId }: { projectId: string }) {
     }
   }, [searchParams, isLoading, wsState.isConnected, messages.length, projectId, sendMessage, router, pathname])
 
-  // Auto-scroll on new messages (not on status changes during parallel generation)
+  // Auto-scroll on new messages and initial load
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight
     }
-  }, [messages])
+  }, [messages, isLoading])
+
+  // Page entrance animation — sidebar + chat area in sync
+  useEffect(() => {
+    if (isLoading || hasPageAnimated.current) return
+    hasPageAnimated.current = true
+    requestAnimationFrame(() => {
+      const tl = gsap.timeline({ defaults: { ease: "power2.out" } })
+      if (sidebarWrapRef.current) {
+        tl.to(sidebarWrapRef.current, { opacity: 1, x: 0, duration: 0.4 }, 0)
+      }
+      if (chatAreaRef.current) {
+        tl.to(chatAreaRef.current, { opacity: 1, y: 0, duration: 0.45 }, 0.05)
+      }
+    })
+  }, [isLoading])
+
+  // iOS virtual keyboard handling — adjust input bar position
+  const inputBarRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    function onResize() {
+      if (!inputBarRef.current || !vv) return
+      const offset = window.innerHeight - vv.height - vv.offsetTop
+      inputBarRef.current.style.transform = offset > 0 ? `translateY(-${offset}px)` : ""
+    }
+    vv.addEventListener("resize", onResize)
+    vv.addEventListener("scroll", onResize)
+    return () => {
+      vv.removeEventListener("resize", onResize)
+      vv.removeEventListener("scroll", onResize)
+    }
+  }, [])
 
   // Latest frontend files for IDE
   const latestFrontendFiles = useMemo(() => {
@@ -432,22 +470,15 @@ function App({ projectId }: { projectId: string }) {
 
       <div className="flex flex-row h-screen w-screen bg-background overflow-hidden">
         {/* Desktop sidebar */}
-        <div className="hidden md:block">
+        <div ref={sidebarWrapRef} className="hidden md:block" style={{ opacity: 0, transform: "translateX(-16px)" }}>
           <Sidebar />
         </div>
 
         {/* Mobile sidebar overlay */}
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-50 md:hidden">
-            <div className="absolute inset-0 bg-black/60 animate-overlay-in" onClick={() => setSidebarOpen(false)} />
-            <div className="relative z-10 h-full w-[280px] animate-slide-in-left">
-              <Sidebar />
-            </div>
-          </div>
-        )}
+        <MobileSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         {/* ── Main Chat Area ───────────────────────────────── */}
-        <div className="flex flex-col h-full flex-1 overflow-hidden min-w-0">
+        <div ref={chatAreaRef} className="flex flex-col h-full flex-1 overflow-hidden min-w-0" style={{ opacity: 0, transform: "translateY(8px)" }}>
 
           {/* Top bar */}
           <div className="flex items-center justify-between px-4 md:px-6 py-2 border-b border-white/[0.05] flex-shrink-0 bg-[#050505]">
@@ -688,15 +719,17 @@ function App({ projectId }: { projectId: string }) {
                         const label = target === 'frontend' ? 'Frontend' : 'Backend';
                         return (
                           <div key={message.id} className="w-full max-w-3xl animate-bubble-in px-2 md:px-0">
-                            <div className="rounded-xl border border-orange-500/20 bg-[var(--surface-raised)] p-4 flex items-center gap-4">
-                              <div className="w-9 h-9 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
-                                <span className="text-orange-400 text-[14px]">!</span>
+                            <div className="rounded-xl border border-orange-500/20 bg-[var(--surface-raised)] p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center flex-shrink-0">
+                                  <span className="text-orange-400 text-[14px]">!</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[13px] font-semibold text-white/80">{label} generation failed</p>
+                                  <p className="text-[11px] text-white/40 mt-0.5">Output couldn't be parsed. You can retry just this agent.</p>
+                                </div>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-semibold text-white/80">{label} generation failed</p>
-                                <p className="text-[11px] text-white/40 mt-0.5">Output couldn't be parsed. You can retry just this agent.</p>
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-auto">
                                 <button
                                   onClick={() => sendMessage(`retry ${target}`)}
                                   className="px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-gold-500/10 text-gold-500 border border-gold-500/20 hover:bg-gold-500/20 transition-all"
@@ -900,7 +933,7 @@ function App({ projectId }: { projectId: string }) {
             </div>
 
             {/* ── Pipeline status + Input bar ────────────── */}
-            <div className="flex flex-col items-center gap-2.5 px-3 md:px-8 py-3 md:py-4 flex-shrink-0 border-t border-white/[0.05] bg-[#050505]">
+            <div ref={inputBarRef} className="flex flex-col items-center gap-2 px-3 md:px-8 py-2.5 md:py-3 flex-shrink-0 border-t border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl shadow-[0_-8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] transition-transform duration-100" style={{ paddingBottom: "max(0.625rem, var(--safe-bottom))" }}>
               {showPipeline && (
                 <PipelineStatusBar
                   currentAgent={wsState.currentAgent}
@@ -911,7 +944,7 @@ function App({ projectId }: { projectId: string }) {
               )}
 
               <div className="flex items-center gap-2 w-full max-w-3xl">
-                <MessageBox onSendMessage={sendMessage} isGenerating={wsState.isGenerating} hasMessages={messages.length > 0} />
+                <MessageBox onSendMessage={sendMessage} onStop={cancelPipeline} isGenerating={wsState.isGenerating} hasMessages={messages.length > 0} />
               </div>
             </div>
           </div>

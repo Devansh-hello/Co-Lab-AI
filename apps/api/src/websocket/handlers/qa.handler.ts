@@ -17,7 +17,7 @@ export async function handleQAComplete(
     ctx: ConnectionContext,
 ): Promise<void> {
     if (!ctx.pipeline) {
-        const restored = await tryRestorePipelineFromRun(ctx, ['qa', 'planning']);
+        const restored = await tryRestorePipelineFromRun(ctx, ['qa', 'planning'], parsed.projectId);
         if (!restored) {
             emitEvent(ctx, { type: 'error', message: 'No pending project' });
             return;

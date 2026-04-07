@@ -27,7 +27,8 @@ export async function FeedbackFixAgent(
     side: 'frontend' | 'backend',
     taskFile: any,
     ws: WebSocket,
-    userSettings?: UserSettings
+    userSettings?: UserSettings,
+    signal?: AbortSignal,
 ): Promise<unknown> {
     const systemPrompt = `You are a senior code debugger. You will receive code that has specific issues that need fixing.
 
@@ -88,7 +89,7 @@ Fix the listed issues and return the corrected files as JSON.`;
         : userSettings?.agentModels.backend || DEFAULT_AGENT_MODELS.backend;
     const key = userSettings ? resolveApiKey(agentConfig.provider, userSettings.apiKeys) : '';
 
-    for await (const chunk of callAIGenerateStream(agentConfig.provider, agentConfig.model, systemPrompt, userPrompt, undefined, 16000, key || undefined)) {
+    for await (const chunk of callAIGenerateStream(agentConfig.provider, agentConfig.model, systemPrompt, userPrompt, undefined, 16000, key || undefined, signal)) {
         if (chunk) {
             fullContent += chunk;
             ws.send(JSON.stringify({

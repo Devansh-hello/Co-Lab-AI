@@ -27,7 +27,8 @@ export async function FrontendCodeAgent(
     previousCode: any | null,
     ws: WebSocket,
     pluginContext: string = '',
-    userSettings?: UserSettings
+    userSettings?: UserSettings,
+    signal?: AbortSignal,
 ): Promise<unknown> {
     if (!taskFile.frontendTasks || taskFile.frontendTasks.length === 0) return "";
 
@@ -147,7 +148,7 @@ ${intentInstruction}`;
     const feModel = userSettings?.agentModels.frontend.model || DEFAULT_AGENT_MODELS.frontend.model;
     const feKey = userSettings ? resolveApiKey(feProvider, userSettings.apiKeys) : '';
 
-    for await (const chunk of callAIGenerateStream(feProvider, feModel, systemPrompt, userPrompt, onUsage, 16000, feKey || undefined)) {
+    for await (const chunk of callAIGenerateStream(feProvider, feModel, systemPrompt, userPrompt, onUsage, 16000, feKey || undefined, signal)) {
         if (chunk) {
             fullContent += chunk;
             ws.send(JSON.stringify({

@@ -32,7 +32,8 @@ export async function ReviewAgent(
     frontendCode: any,
     backendCode: any,
     ws: WebSocket,
-    userSettings?: UserSettings
+    userSettings?: UserSettings,
+    signal?: AbortSignal,
 ): Promise<any> {
     /* Build concise file summaries instead of dumping full code */
     const frontendSummary = frontendCode && typeof frontendCode === 'object'
@@ -143,7 +144,7 @@ Review completeness, API compatibility, and generate setup guide.`;
     const rvModel = userSettings?.agentModels.review.model || DEFAULT_AGENT_MODELS.review.model;
     const rvKey = userSettings ? resolveApiKey(rvProvider, userSettings.apiKeys) : '';
 
-    for await (const chunk of callAIGenerateStream(rvProvider, rvModel, systemPrompt, userPrompt, onUsage, 16000, rvKey || undefined)) {
+    for await (const chunk of callAIGenerateStream(rvProvider, rvModel, systemPrompt, userPrompt, onUsage, 16000, rvKey || undefined, signal)) {
         if (chunk) {
             fullContent += chunk;
             ws.send(JSON.stringify({

@@ -36,8 +36,56 @@ interface MCPConnection {
 
 const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
-/** Allowlist for stdio commands to prevent arbitrary command execution */
-const ALLOWED_COMMANDS = ['npx', 'node', 'python', 'python3', 'uvx', 'bunx'];
+/** Block SSRF: reject internal/metadata URLs */
+function validateUrl(raw: string): URL {
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase();
+    // Block metadata endpoints
+    if (host === '169.254.169.254' || host === 'metadata.google.internal') {
+        throw new Error('Connections to cloud metadata endpoints are not allowed');
+    }
+    // Block localhost / loopback
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '0.0.0.0') {
+        throw new Error('Connections to localhost are not allowed');
+    }
+    // Block private IP ranges
+    const parts = host.split('.').map(Number);
+    if (parts.length === 4 && !parts.some(isNaN)) {
+        const [a, b] = parts;
+        if (a === 10 || (a === 172 && b! >= 16 && b! <= 31) || (a === 192 && b === 168)) {
+            throw new Error('Connections to private IP ranges are not allowed');
+        }
+    }
+    // Only allow http/https
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        throw new Error(`Protocol "${url.protocol}" is not allowed`);
+    }
+    return url;
+}
+
+/** Allowlist for stdio commands — only package runners, not interpreters */
+const ALLOWED_COMMANDS = ['npx', 'uvx', 'bunx'];
+
+/** Args that allow arbitrary code execution via interpreters */
+const BLOCKED_ARGS = ['-c', '-e', '--eval', '-exec', '--import', '-i', '--interactive'];
+
+/** Validate stdio args to prevent code execution even through allowed commands */
+function validateStdioArgs(command: string, args: string[]): void {
+    const cmd = command.split('/').pop()?.split('\\').pop() || '';
+    if (!ALLOWED_COMMANDS.includes(cmd)) {
+        throw new Error(`Command "${command}" is not allowed. Permitted: ${ALLOWED_COMMANDS.join(', ')}`);
+    }
+    for (const arg of args) {
+        const lower = arg.toLowerCase();
+        if (BLOCKED_ARGS.includes(lower)) {
+            throw new Error(`Argument "${arg}" is not allowed — it enables arbitrary code execution`);
+        }
+    }
+    // Block npx/bunx from running node/python directly
+    if (args[0] && ['node', 'python', 'python3', 'bash', 'sh', 'zsh'].includes(args[0])) {
+        throw new Error(`Running "${args[0]}" via ${cmd} is not allowed`);
+    }
+}
 
 // ─── Client Manager ─────────────────────────────────────────────
 
@@ -58,12 +106,9 @@ export class MCPClientManager {
             return existing.tools;
         }
 
-        // Validate stdio command against allowlist
+        // Validate stdio command and args against allowlist
         if (serverConfig.transport === 'stdio') {
-            const cmd = serverConfig.command?.split('/').pop()?.split('\\').pop();
-            if (!cmd || !ALLOWED_COMMANDS.includes(cmd)) {
-                throw new Error(`Command "${serverConfig.command}" is not in the allowed list: ${ALLOWED_COMMANDS.join(', ')}`);
-            }
+            validateStdioArgs(serverConfig.command || '', serverConfig.args || []);
         }
 
         try {
@@ -74,19 +119,31 @@ export class MCPClientManager {
 
             if (serverConfig.transport === 'stdio') {
                 const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
+                // Only forward safe env vars — never let user override PATH, NODE_OPTIONS, etc.
+                const safeEnv: Record<string, string> = {};
+                for (const [k, v] of Object.entries(process.env)) {
+                    if (v !== undefined) safeEnv[k] = v;
+                }
+                const userEnv = serverConfig.env || {};
+                const BLOCKED_ENV = ['PATH', 'NODE_OPTIONS', 'NODE_PATH', 'LD_PRELOAD', 'LD_LIBRARY_PATH', 'DYLD_INSERT_LIBRARIES'];
+                for (const [k, v] of Object.entries(userEnv)) {
+                    if (!BLOCKED_ENV.includes(k.toUpperCase())) safeEnv[k] = v as string;
+                }
                 transport = new StdioClientTransport({
                     command: serverConfig.command,
                     args: serverConfig.args || [],
-                    env: { ...process.env, ...(serverConfig.env || {}) },
+                    env: safeEnv,
                 });
             } else if (serverConfig.transport === 'http-sse') {
+                const validatedUrl = validateUrl(serverConfig.url);
                 const { SSEClientTransport } = await import("@modelcontextprotocol/sdk/client/sse.js");
-                transport = new SSEClientTransport(new URL(serverConfig.url), {
+                transport = new SSEClientTransport(validatedUrl, {
                     requestInit: { headers: serverConfig.headers || {} },
                 });
             } else if (serverConfig.transport === 'streamable-http') {
+                const validatedUrl = validateUrl(serverConfig.url);
                 const { StreamableHTTPClientTransport } = await import("@modelcontextprotocol/sdk/client/streamableHttp.js");
-                transport = new StreamableHTTPClientTransport(new URL(serverConfig.url), {
+                transport = new StreamableHTTPClientTransport(validatedUrl, {
                     requestInit: { headers: serverConfig.headers || {} },
                 });
             } else {

@@ -85,7 +85,8 @@ export type ClientMessage =
     | { type: 'understanding_response'; confirmed: boolean; projectId?: string }
     | { type: 'qa_complete'; answers: Array<{ questionId: string; answer: string }>; projectId?: string }
     | { type: 'proceed'; proceed: boolean; projectId?: string }
-    | { type: 'resume'; sessionId: string; lastSeq: number }
+    | { type: 'resume'; sessionId: string; lastSeq: number; projectId?: string }
+    | { type: 'cancel' }
     | { type: 'permission_response'; requestId: string; decision: PermissionDecision };
 
 export type PermissionDecision = 'allow' | 'deny' | 'allow_always';

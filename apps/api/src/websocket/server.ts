@@ -202,6 +202,27 @@ export function setupWebSocket(server: Server) {
                         await handleResume(parsed, ctx);
                         break;
 
+                    case 'cancel':
+                        if (ctx.pipelineAbort) {
+                            ctx.pipelineAbort.abort();
+                            ctx.pipelineAbort = null;
+                        }
+                        if (ctx.pipeline) {
+                            ctx.pipeline.messageDoc.status = 'cancelled';
+                            await ctx.pipeline.messageDoc.save();
+                            if (ctx.pipelineRunId) {
+                                const { PipelineRun } = await import("../models/index.js");
+                                await PipelineRun.findByIdAndUpdate(ctx.pipelineRunId, {
+                                    phase: 'cancelled',
+                                    updatedAt: new Date(),
+                                });
+                            }
+                            emitEvent(ctx, { type: 'cancelled', message: 'Generation stopped by user.' });
+                            ctx.pipeline = null;
+                            ctx.pipelineRunId = null;
+                        }
+                        break;
+
                     case 'permission_response':
                         await handlePermissionResponse(parsed, ctx);
                         break;

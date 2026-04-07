@@ -27,7 +27,8 @@ export async function BackendCodeAgent(
     previousCode: any | null,
     ws: WebSocket,
     pluginContext: string = '',
-    userSettings?: UserSettings
+    userSettings?: UserSettings,
+    signal?: AbortSignal,
 ): Promise<unknown> {
     if (!taskFile.backendTasks || taskFile.backendTasks.length === 0) return "";
 
@@ -135,7 +136,7 @@ ${intentInstruction}`;
     const beModel = userSettings?.agentModels.backend.model || DEFAULT_AGENT_MODELS.backend.model;
     const beKey = userSettings ? resolveApiKey(beProvider, userSettings.apiKeys) : '';
 
-    for await (const chunk of callAIGenerateStream(beProvider, beModel, systemPrompt, userPrompt, onUsage, 16000, beKey || undefined)) {
+    for await (const chunk of callAIGenerateStream(beProvider, beModel, systemPrompt, userPrompt, onUsage, 16000, beKey || undefined, signal)) {
         if (chunk) {
             fullContent += chunk;
             ws.send(JSON.stringify({
