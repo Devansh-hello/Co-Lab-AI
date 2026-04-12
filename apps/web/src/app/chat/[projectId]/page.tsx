@@ -1,14 +1,12 @@
+"use client"
+
 import App from "../../../screens/App";
 import { ProtectedPage } from "../../../components/ProtectedPage";
+import { useParams } from "next/navigation";
 
-type ChatPageProps = {
-  params: Promise<{
-    projectId: string;
-  }>;
-};
-
-export default async function ChatPage({ params }: ChatPageProps) {
-  const { projectId } = await params;
+export default function ChatPage() {
+  const params = useParams();
+  const projectId = params?.projectId as string;
 
   return (
     <ProtectedPage>

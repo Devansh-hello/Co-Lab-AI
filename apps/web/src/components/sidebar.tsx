@@ -22,7 +22,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "../context/AuthContext"
 import { useStorageUsage } from "../hooks/useStorageUsage"
-import Logo from "./Logo"
+import Logo, { LogoMark } from "./Logo"
 import gsap from "gsap"
 
 const COLLAPSED_W = 56
@@ -47,11 +47,11 @@ function Tooltip({ label, children, show }: { label: string; children: ReactNode
 // Tight letter-spacing, lowercase, gold on dark.
 
 const LOGO_STYLE: React.CSSProperties = {
-  fontFamily: "'Outfit', sans-serif",
+  fontFamily: "'Plus Jakarta Sans', sans-serif",
   fontWeight: 900,
   letterSpacing: '-0.04em',
   lineHeight: 1,
-  color: '#D4AF37',
+  color: '#E6B33E',
 }
 
 function CoLabWordmark() {
@@ -61,7 +61,7 @@ function CoLabWordmark() {
         co-lab
       </span>
       <span style={{
-        fontFamily: "'Outfit', sans-serif",
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
         fontWeight: 800,
         fontSize: '13px',
         letterSpacing: '0.04em',
@@ -75,11 +75,7 @@ function CoLabWordmark() {
 }
 
 function CoLabIcon() {
-  return (
-    <span className="select-none" style={{ ...LOGO_STYLE, fontSize: '18px' }}>
-      c
-    </span>
-  )
+  return <LogoMark size={20} />
 }
 
 // ── Main Sidebar ─────────────────────────────────────────────
@@ -145,29 +141,44 @@ export function Sidebar() {
       return
     }
 
-    const dur = 0.3
-    const ease = "power3.inOut"
+    const dur = 0.28
+    const ease = "power2.inOut"
 
     gsap.killTweensOf(el)
 
+    // Fade targets: all text labels and elements that should hide/show
+    const labels = el.querySelectorAll(".sidebar-label")
+
     if (collapsed) {
-      // COLLAPSING: keep expanded layout during animation, switch at end
+      // COLLAPSING: fade labels out first, then shrink width, then switch layout
+      gsap.to(labels, {
+        opacity: 0,
+        duration: dur * 0.4,
+        ease: "power1.in",
+      })
       gsap.to(el, {
         width: COLLAPSED_W,
         minWidth: COLLAPSED_W,
         duration: dur,
         ease,
+        delay: dur * 0.15,
         onComplete: () => setLayout("collapsed"),
       })
     } else {
-      // EXPANDING: switch to expanded layout immediately (at start),
-      // then animate width open
+      // EXPANDING: switch layout immediately, expand width, then fade labels in
       setLayout("expanded")
+      gsap.set(labels, { opacity: 0 })
       gsap.to(el, {
         width: EXPANDED_W,
         minWidth: EXPANDED_W,
         duration: dur,
         ease,
+      })
+      gsap.to(labels, {
+        opacity: 1,
+        duration: dur * 0.5,
+        ease: "power1.out",
+        delay: dur * 0.5,
       })
     }
   }, [collapsed])
@@ -177,7 +188,7 @@ export function Sidebar() {
   return (
     <div
       ref={sidebarRef}
-      className="flex flex-col h-full bg-[#060606] border-r border-white/[0.06] overflow-hidden flex-shrink-0 relative z-10"
+      className="flex flex-col h-full bg-[#1A1A1A] border-r border-white/[0.06] overflow-hidden flex-shrink-0 relative z-10"
     >
       {/* ── Header ─────────────────────────────────────────── */}
       <div className="flex items-center border-b border-white/[0.06] flex-shrink-0 h-14 px-2 overflow-hidden">
@@ -191,8 +202,8 @@ export function Sidebar() {
           </button>
         ) : (
           <>
-            <Link href="/" className="flex items-center flex-1 min-w-0 ml-3">
-              <CoLabWordmark />
+            <Link href="/" className="sidebar-label flex items-center flex-1 min-w-0 ml-3">
+              <Logo size="sm" />
             </Link>
             <button
               onClick={() => setCollapsed(true)}
@@ -246,8 +257,8 @@ export function Sidebar() {
       {/* ── Projects ───────────────────────────────────────── */}
       <ScrollArea className="flex-1 w-full">
         <div className="flex flex-col py-2 px-2 gap-0.5">
-          {!collapsed && (
-            <span className="text-[11px] font-mono font-bold uppercase tracking-[0.15em] text-white/35 px-3 pt-3 pb-1 block select-none">
+          {!isCollapsedLayout && (
+            <span className="sidebar-label text-[11px] font-mono font-bold uppercase tracking-[0.15em] text-white/35 px-3 pt-3 pb-1 block select-none whitespace-nowrap">
               Recent
             </span>
           )}
@@ -266,10 +277,10 @@ export function Sidebar() {
             if (isCollapsedLayout) {
               return (
                 <Tooltip key={id || index} label={project.name} show>
-                  <Link href={`/chat/${id}`} className="w-full">
+                  <Link href={`/chat/${id}`} prefetch  className="w-full">
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer
                       ${isActive ? "bg-gold-500/[0.1] border border-gold-500/20" : "hover:bg-white/[0.05] border border-transparent hover:border-white/[0.06]"}`}>
-                      <div className={`w-2 h-2 rounded-full ${isActive ? "bg-gold-500 shadow-[0_0_8px_rgba(212,175,55,0.4)]" : "bg-white/20"}`} />
+                      <div className={`w-2 h-2 rounded-full ${isActive ? "bg-gold-500 shadow-[0_0_8px_rgba(230,179,62,0.4)]" : "bg-white/20"}`} />
                     </div>
                   </Link>
                 </Tooltip>
@@ -277,12 +288,12 @@ export function Sidebar() {
             }
 
             return (
-              <Link key={id || index} href={`/chat/${id}`}>
+              <Link key={id || index} href={`/chat/${id}`} prefetch >
                 <div className={`flex items-center gap-3 px-3 py-2 rounded-lg group cursor-pointer
                   ${isActive ? "bg-gold-500/[0.06] text-white/85" : "text-white/45 hover:text-white/70 hover:bg-white/[0.03]"}`}>
                   <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0
-                    ${isActive ? "bg-gold-500 shadow-[0_0_6px_rgba(212,175,55,0.4)]" : "bg-white/15 group-hover:bg-white/25"}`} />
-                  <span className="text-[13px] font-medium truncate flex-1">{project.name}</span>
+                    ${isActive ? "bg-gold-500 shadow-[0_0_6px_rgba(230,179,62,0.4)]" : "bg-white/15 group-hover:bg-white/25"}`} />
+                  <span className="sidebar-label text-[13px] font-medium truncate flex-1">{project.name}</span>
                   {isActive && <MessageSquare className="w-3.5 h-3.5 text-gold-500/40 flex-shrink-0" />}
                 </div>
               </Link>
@@ -304,7 +315,7 @@ export function Sidebar() {
                 <div className="w-full h-1 rounded-full bg-white/[0.06] overflow-hidden">
                   <div className="h-full rounded-full" style={{
                     width: `${Math.min(storage.percentage, 100)}%`,
-                    backgroundColor: storage.percentage > 85 ? "rgba(212,175,55,0.9)" : storage.percentage > 60 ? "rgba(212,175,55,0.5)" : "rgba(212,175,55,0.3)",
+                    backgroundColor: storage.percentage > 85 ? "rgba(230,179,62,0.9)" : storage.percentage > 60 ? "rgba(230,179,62,0.5)" : "rgba(230,179,62,0.3)",
                   }} />
                 </div>
               </div>
@@ -339,7 +350,7 @@ export function Sidebar() {
               <LogIn className="w-4 h-4 text-white/30 group-hover:text-gold-500/60" />
             </Link>
             {!isCollapsedLayout && (
-              <span className="text-[13px] text-white/45 font-medium ml-1.5">Sign in</span>
+              <span className="sidebar-label text-[13px] text-white/45 font-medium ml-1.5">Sign in</span>
             )}
           </div>
         )}
@@ -367,9 +378,9 @@ function NavLink({ icon, label, href, active, collapsed, badge }: {
         </span>
         {!collapsed && (
           <>
-            <span className="text-[13px] font-medium whitespace-nowrap overflow-hidden flex-1 text-left">{label}</span>
+            <span className="sidebar-label text-[13px] font-medium whitespace-nowrap overflow-hidden flex-1 text-left">{label}</span>
             {badge !== undefined && badge > 0 && (
-              <span className="text-[10px] font-mono text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded-md mr-2">{badge}</span>
+              <span className="sidebar-label text-[10px] font-mono text-white/40 bg-white/[0.06] px-1.5 py-0.5 rounded-md mr-2">{badge}</span>
             )}
           </>
         )}

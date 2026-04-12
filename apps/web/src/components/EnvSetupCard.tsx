@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Eye, EyeOff, Copy, Check, Download, KeyRound, ChevronRight } from "lucide-react"
+import { Eye, EyeOff, Copy, Check, Download, KeyRound, ChevronDown } from "lucide-react"
 import { Collapse } from "./Collapse"
 
 interface EnvSetupCardProps {
@@ -73,23 +73,20 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
   const filledCount = parsed.filter(({ key }) => values[key]?.trim()).length
 
   return (
-    <div className="w-full max-w-2xl animate-bubble-in px-2 md:px-0">
-      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden shadow-elevation-1">
-        {/* Header — clickable to collapse */}
+    <div className="w-full animate-bubble-in px-2 md:px-0">
+      <div className="overflow-hidden border border-white/[0.08]" style={{ backgroundColor: "#1A1A1A", borderRadius: "6px" }}>
+        {/* Header — accordion trigger style */}
         <button
           onClick={() => setExpanded(e => !e)}
-          className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-white/[0.01] transition-colors"
+          className="accordion-trigger w-full px-5 py-3 flex items-center gap-2.5 transition-all duration-150 cursor-pointer"
+          style={{
+            borderBottom: expanded ? "1px solid rgba(255,255,255,0.06)" : "none",
+          }}
         >
-          <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded-lg bg-amber-500/[0.08] border border-amber-500/15 flex items-center justify-center">
-              <KeyRound className="w-3 h-3 text-amber-400/70" />
-            </div>
-            <div className="text-left">
-              <span className="text-[13px] font-semibold text-white/80 tracking-[-0.02em]">Environment Variables</span>
-              <span className="text-[11px] text-white/35 ml-2">{filledCount}/{parsed.length} configured</span>
-            </div>
-          </div>
-          <ChevronRight className={`w-4 h-4 text-white/15 chevron-rotate ${expanded ? "open" : ""}`} />
+          <KeyRound className="w-4 h-4 text-gold-500/50 flex-shrink-0" />
+          <span className="text-[13px] font-semibold text-white/70 tracking-[-0.02em]">Environment Variables</span>
+          <span className="text-[10px] font-mono text-white/30 tabular-nums">{filledCount}/{parsed.length}</span>
+          <ChevronDown className={`w-3.5 h-3.5 text-white/20 ml-auto transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
         </button>
 
         {/* Collapsible body */}
@@ -101,7 +98,7 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
                 onClick={() => setShowEnvFile(e => !e)}
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
                   showEnvFile
-                    ? "text-amber-400/70 bg-amber-500/[0.08] border border-amber-500/15"
+                    ? "text-gold-500/70 bg-gold-500/[0.08] border border-gold-500/15"
                     : "text-white/25 hover:text-white/40 border border-transparent hover:border-white/[0.06]"
                 }`}
               >
@@ -127,7 +124,7 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
                     <Download className="w-3 h-3" /> Download
                   </button>
                 </div>
-                <pre className="px-3 py-2.5 text-[12px] font-mono text-amber-400/50 leading-relaxed overflow-x-auto bg-[var(--surface-base)]">
+                <pre className="px-3 py-2.5 text-[12px] font-mono text-gold-500/50 leading-relaxed overflow-x-auto" style={{ backgroundColor: "#0A0A0A" }}>
                   {envFileContent || "# No variables configured yet"}
                 </pre>
               </div>
@@ -146,7 +143,8 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
                   value={values[key] || ""}
                   onChange={e => setValues(prev => ({ ...prev, [key]: e.target.value }))}
                   placeholder={isSecret ? "Enter secret..." : "Enter value..."}
-                  className="w-full bg-[var(--surface-base)] border border-white/[0.12] rounded-lg px-3 py-1.5 text-[12px] font-mono text-white/60 placeholder:text-white/25 outline-none focus:border-[#404040] transition-colors"
+                  className="w-full border border-white/[0.08] px-3 py-1.5 text-[12px] font-mono text-white/60 placeholder:text-white/25 outline-none focus:border-gold-500/30 transition-colors"
+                  style={{ backgroundColor: "#0A0A0A", borderRadius: "6px" }}
                 />
                 {isSecret && (
                   <button
@@ -166,7 +164,8 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
             <div className="flex justify-end pt-1">
               <button
                 onClick={handleSave}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12px] font-semibold bg-emerald-500/[0.10] text-emerald-400/80 border border-emerald-500/20 hover:bg-emerald-500/[0.15] transition-all"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-semibold bg-gold-500 text-black hover:bg-gold-400 transition-all"
+                style={{ borderRadius: "6px" }}
               >
                 {saved ? <><Check className="w-3 h-3" /> Saved</> : "Save"}
               </button>
@@ -189,7 +188,8 @@ export function EnvButton({ envVariables, onClick }: { envVariables: string[]; o
     <button
       onClick={onClick}
       title="View environment variables"
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-all text-amber-400/60 bg-amber-500/[0.06] border-amber-500/15 hover:bg-amber-500/[0.10] hover:border-amber-500/25"
+      className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-semibold border transition-all text-gold-500/60 bg-gold-500/[0.06] border-gold-500/15 hover:bg-gold-500/[0.10] hover:border-gold-500/25"
+      style={{ borderRadius: "6px" }}
     >
       <KeyRound className="w-3.5 h-3.5" />
       .env

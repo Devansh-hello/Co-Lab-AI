@@ -87,7 +87,7 @@ function CoverageMetric({ label, value, delay = 0 }: { label: string; value: num
         <div
           ref={barRef}
           className="h-full rounded-full"
-          style={{ width: 0, backgroundColor: isNA ? "rgba(255,255,255,0.08)" : "var(--color-gold-500)", boxShadow: isNA ? "none" : "0 0 8px rgba(212,175,55,0.2)" }}
+          style={{ width: 0, backgroundColor: isNA ? "rgba(255,255,255,0.08)" : "var(--color-gold-500)", boxShadow: isNA ? "none" : "0 0 8px rgba(230,179,62,0.2)" }}
         />
       </div>
       <span ref={numRef} className={`text-[11px] font-mono w-8 text-right tabular-nums ${isNA ? "text-white/20" : "text-gold-500/80"}`}>
@@ -139,8 +139,8 @@ export const TestResultsCard: FC<{ data: TestResultsData }> = ({ data }) => {
   }, { dependencies: [expanded, expandedCategory] })
 
   return (
-    <div ref={cardRef} className="w-full max-w-3xl" style={{ opacity: 0 }}>
-      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden shadow-elevation-1">
+    <div ref={cardRef} className="w-full" style={{ opacity: 0 }}>
+      <div className="overflow-hidden border border-white/[0.08]" style={{ backgroundColor: "#1A1A1A", borderRadius: "6px" }}>
         <button
           onClick={() => setExpanded(e => !e)}
           className="w-full flex items-center gap-3 px-5 py-3.5 border-b border-white/[0.06] hover:bg-white/[0.01] transition-[background] duration-150"

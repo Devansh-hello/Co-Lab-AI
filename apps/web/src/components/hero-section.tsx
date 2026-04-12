@@ -40,7 +40,7 @@ export function HeroSection() {
             top: "5%",
             left: "50%",
             transform: "translateX(-50%)",
-            background: "radial-gradient(circle, rgba(212,175,55,0.12) 0%, rgba(212,175,55,0.05) 45%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(230,179,62,0.12) 0%, rgba(230,179,62,0.05) 45%, transparent 70%)",
           }}
         />
       </div>
@@ -58,12 +58,12 @@ export function HeroSection() {
       {/* Content — CSS-only reveals, 300ms max */}
       <div className="relative z-[2] h-full flex flex-col items-center justify-center text-center px-4">
 
-        <h1 className="leading-[0.88] tracking-[-0.05em] mb-4 animate-fade-slide-up" style={{ animationDuration: "0.3s" }}>
-          <span className="block text-[clamp(2rem,5.5vw,5.5rem)] font-black text-white">
+        <h1 className="relative font-display leading-[0.88] tracking-[-0.05em] mb-4 animate-fade-slide-up" style={{ animationDuration: "0.3s" }}>
+          <span className="block text-[clamp(2rem,5.5vw,5.5rem)] font-extrabold text-white">
             AI ENGINEERING
           </span>
           <span
-            className="block text-[clamp(2rem,5.5vw,5.5rem)] font-black text-gold-500 text-glow-gold"
+            className="block text-[clamp(2rem,5.5vw,5.5rem)] font-extrabold text-gold-500 text-glow-gold"
           >
             TEAM.
           </span>
@@ -96,10 +96,9 @@ export function HeroSection() {
             <ChevronDown className="w-4 h-4" />
           </button>
         </div>
+
       </div>
 
-      {/* Bottom fade */}
-      <div className="absolute bottom-0 left-0 right-0 h-24 z-[1] pointer-events-none bg-gradient-to-t from-background to-transparent" />
     </section>
   )
 }

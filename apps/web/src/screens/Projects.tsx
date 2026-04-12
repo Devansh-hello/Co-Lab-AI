@@ -145,7 +145,7 @@ function ProjectPage() {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/10" />
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" style={{
-                  background: "radial-gradient(ellipse at center bottom, rgba(212,175,55,0.08) 0%, transparent 70%)"
+                  background: "radial-gradient(ellipse at center bottom, rgba(230,179,62,0.08) 0%, transparent 70%)"
                 }} />
                 <div className="absolute bottom-5 left-5 right-5">
                   <div className="w-6 h-px bg-gold-500/50 mb-3" />

@@ -13,7 +13,7 @@ export function TerminalWindow({ title = "colab-minds — zsh", children, classN
       style={{
         background: "rgba(6, 6, 6, 0.92)",
         boxShadow:
-          "0 0 0 1px rgba(255,255,255,0.06), 0 24px 48px rgba(0,0,0,0.6), 0 0 80px rgba(212,175,55,0.04)",
+          "0 0 0 1px rgba(255,255,255,0.06), 0 24px 48px rgba(0,0,0,0.6), 0 0 80px rgba(230,179,62,0.04)",
       }}
     >
       {/* Title bar */}

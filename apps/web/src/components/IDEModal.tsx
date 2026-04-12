@@ -373,7 +373,7 @@ export const IDEModal: React.FC<{
 
   const previewPane = (
     <div className="flex flex-col h-full bg-white">
-      <div className="flex items-center gap-2.5 px-4 py-2 bg-[#111] border-b border-white/[0.12] flex-shrink-0">
+      <div className="flex items-center gap-2.5 px-4 py-2 bg-[#1A1A1A] border-b border-white/[0.12] flex-shrink-0">
         <div className="flex items-center gap-1.5">
           {fullStackMode && wc.status !== "idle" ? (
             <>
@@ -435,7 +435,7 @@ export const IDEModal: React.FC<{
             <select
               value={apiMethod}
               onChange={e => setApiMethod(e.target.value)}
-              className="bg-[#111] border border-white/[0.12] rounded-lg px-2 py-1.5 text-[12px] font-mono font-bold text-white/70 outline-none"
+              className="bg-[#1A1A1A] border border-white/[0.12] rounded-lg px-2 py-1.5 text-[12px] font-mono font-bold text-white/70 outline-none"
             >
               {["GET", "POST", "PUT", "PATCH", "DELETE"].map(m => (
                 <option key={m} value={m}>{m}</option>
@@ -446,7 +446,7 @@ export const IDEModal: React.FC<{
               onChange={e => setApiPath(e.target.value)}
               placeholder="/api/..."
               onKeyDown={e => e.key === "Enter" && sendApiRequest()}
-              className="flex-1 bg-[#111] border border-white/[0.12] rounded-lg px-3 py-1.5 text-[13px] font-mono text-white/70 placeholder:text-white/20 outline-none focus:border-[#404040]"
+              className="flex-1 bg-[#1A1A1A] border border-white/[0.12] rounded-lg px-3 py-1.5 text-[13px] font-mono text-white/70 placeholder:text-white/20 outline-none focus:border-[#404040]"
             />
             <button
               onClick={sendApiRequest}
@@ -567,7 +567,7 @@ export const IDEModal: React.FC<{
           </div>
 
           {/* Center: view toggle */}
-          <div className="flex items-center gap-0.5 mx-auto p-1 rounded-xl bg-[#111] border border-white/[0.08]">
+          <div className="flex items-center gap-0.5 mx-auto p-1 rounded-xl bg-[#1A1A1A] border border-white/[0.08]">
             {([
               { id: "editor" as const,  icon: <Code2    className="w-3.5 h-3.5" />, label: "Code" },
               { id: "split" as const,   icon: <Columns2 className="w-3.5 h-3.5" />, label: "Split" },

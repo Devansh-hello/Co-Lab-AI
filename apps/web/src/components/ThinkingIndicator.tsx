@@ -48,12 +48,12 @@ export default function ThinkingIndicator({ agent, message, compact = false }: T
         <div className="relative w-4 h-4">
           <div ref={orbit1} className="absolute inset-0">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                 style={{ background: '#D4AF37' }} />
+                 style={{ background: '#E6B33E' }} />
           </div>
           <div className="absolute inset-[2px]">
             <div ref={orbit2}>
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[3px] h-[3px] rounded-full"
-                   style={{ background: 'rgba(212,175,55,0.5)' }} />
+                   style={{ background: 'rgba(230,179,62,0.5)' }} />
             </div>
           </div>
         </div>
@@ -70,8 +70,8 @@ export default function ThinkingIndicator({ agent, message, compact = false }: T
     <div ref={containerRef}
          className="flex items-center gap-4 px-4 py-2 rounded-lg"
          style={{
-           background: 'rgba(212,175,55,0.03)',
-           border: '1px solid rgba(212,175,55,0.06)',
+           background: 'rgba(230,179,62,0.03)',
+           border: '1px solid rgba(230,179,62,0.06)',
            backdropFilter: 'blur(12px)',
          }}>
       {/* Orbital animation — 2 rings (subtle, not competing) */}
@@ -79,21 +79,21 @@ export default function ThinkingIndicator({ agent, message, compact = false }: T
         {/* Center glow */}
         <div className="absolute inset-[10px] rounded-full"
              style={{
-               background: 'rgba(212,175,55,0.25)',
-               boxShadow: '0 0 8px rgba(212,175,55,0.15)',
+               background: 'rgba(230,179,62,0.25)',
+               boxShadow: '0 0 8px rgba(230,179,62,0.15)',
              }} />
 
         {/* Orbit 1 — outer */}
         <div ref={orbit1} className="absolute inset-0">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full"
-               style={{ background: '#D4AF37' }} />
+               style={{ background: '#E6B33E' }} />
         </div>
 
         {/* Orbit 2 — inner, counter-rotating */}
         <div className="absolute inset-[6px]">
           <div ref={orbit2}>
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                 style={{ background: 'rgba(212,175,55,0.5)' }} />
+                 style={{ background: 'rgba(230,179,62,0.5)' }} />
           </div>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function ThinkingIndicator({ agent, message, compact = false }: T
       <div className="min-w-0">
         {agent && (
           <p className="text-xs font-mono uppercase tracking-wider mb-0.5"
-             style={{ color: 'rgba(212,175,55,0.45)' }}>
+             style={{ color: 'rgba(230,179,62,0.45)' }}>
             {agent}
           </p>
         )}

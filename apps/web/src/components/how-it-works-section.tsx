@@ -31,22 +31,20 @@ const steps = [
 
 export function HowItWorksSection() {
   return (
-    <section className="relative py-16 md:py-24 px-4 md:px-8" style={{ backgroundColor: "#0c0a06" }}>
+    <section className="relative py-16 md:py-24 px-4 md:px-8">
       {/* Gold radial glow — offset low-right for asymmetry */}
-      <div className="absolute bottom-[10%] right-[15%] w-[700px] h-[500px] pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(212,175,55,0.06) 0%, rgba(212,175,55,0.02) 45%, transparent 70%)" }} />
-      <div className="absolute top-0 left-0 right-0 h-24 pointer-events-none bg-gradient-to-b from-black to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none bg-gradient-to-t from-black to-transparent" />
+      <div className="absolute bottom-[10%] right-[15%] w-[700px] h-[500px] pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(230,179,62,0.06) 0%, rgba(230,179,62,0.02) 45%, transparent 70%)" }} />
       <div className="relative mx-auto max-w-5xl">
         {/* Header — subtle fade, 300ms, no JS */}
         <div className="text-center mb-10 md:mb-14">
           <p
-            className="text-[11px] font-mono text-gold-500/60 mb-3 tracking-[0.15em] uppercase font-bold animate-fade-slide-up"
+            className="text-[11px] font-label text-gold-500 mb-3 tracking-[0.15em] uppercase font-bold animate-fade-slide-up"
             style={{ animationDuration: "0.3s" }}
           >
             How it works
           </p>
           <h2
-            className="text-[clamp(1.4rem,3vw,2.2rem)] font-black text-foreground mb-3 tracking-[-0.03em] animate-fade-slide-up"
+            className="text-[clamp(1.4rem,3vw,2.2rem)] font-display font-extrabold text-foreground mb-3 tracking-[-0.03em] animate-fade-slide-up"
             style={{ animationDuration: "0.3s", animationDelay: "0.06s", animationFillMode: "both" }}
           >
             Three steps to production
@@ -67,11 +65,7 @@ export function HowItWorksSection() {
               className="relative animate-fade-slide-up"
               style={{ animationDuration: "0.3s", animationDelay: `${0.12 + i * 0.08}s`, animationFillMode: "both" }}
             >
-              {i < steps.length - 1 && (
-                <div className="hidden md:block absolute top-12 left-[calc(50%+3rem)] w-[calc(100%-4rem)] h-px bg-border/40" />
-              )}
-
-              <Card className="border-white/[0.07] bg-white/[0.03] text-center h-full hover:bg-white/[0.05] hover:border-white/[0.12] transition-[background,border-color] duration-150">
+              <Card className="border-white/[0.08] text-center h-full hover:border-gold-500/20 transition-[background,border-color] duration-200 backdrop-blur-xl" style={{ background: "rgba(255,255,255,0.04)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}>
                 <CardHeader className="items-center">
                   <div className="relative mb-2">
                     <div className={`w-14 h-14 rounded-2xl ${s.bgColor} flex items-center justify-center`}>

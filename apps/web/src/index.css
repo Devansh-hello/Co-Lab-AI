@@ -1,13 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Instrument+Serif:ital@0;1&family=Outfit:wght@800;900&display=swap');
+/* Fonts loaded via <link> in layout.tsx */
 
 @import "tailwindcss";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-sans: "Instrument Sans", sans-serif;
+  --font-sans: "Manrope", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
-  --font-display: "Instrument Serif", serif;
+  --font-display: "Plus Jakarta Sans", sans-serif;
+  --font-label: "Inter", sans-serif;
 
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
@@ -36,10 +37,10 @@
   --color-card: hsl(var(--card));
   --color-card-foreground: hsl(var(--card-foreground));
 
-  --color-gold: hsl(46, 65%, 52%);
-  --color-gold-500: #D4AF37;
-  --color-gold-400: #FFDF00;
-  --color-gold-600: #AA8C2C;
+  --color-gold: hsl(43, 79%, 57%);
+  --color-gold-500: #E6B33E;
+  --color-gold-400: #F0CA4F;
+  --color-gold-600: #BF9530;
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
@@ -48,7 +49,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
+    --background: 0 0% 4%;
     --foreground: 0 0% 100%;
     --card: 0 0% 4%;
     --card-foreground: 0 0% 100%;
@@ -67,7 +68,7 @@
     --border: 0 0% 15%;
     --input: 0 0% 15%;
     --ring: 0 0% 50%;
-    --gold: 46 65% 52%;
+    --gold: 43 79% 57%;
     --radius: 2rem;
 
     /* ─── Motion Tokens ─── */
@@ -81,7 +82,7 @@
 
     /* ─── Surface Colors ─── */
     --surface-base: #0a0a0a;
-    --surface-raised: #161616;
+    --surface-raised: #1A1A1A;
     --surface-overlay: rgba(6, 6, 6, 0.92);
 
     /* ─── Text Opacity Tokens ───
@@ -100,12 +101,12 @@
     --text-ghost: rgba(255,255,255,0.08);
 
     /* ─── Glow Tokens ─── */
-    --glow-gold-soft: 0 0 20px rgba(212,175,55,0.08), 0 0 60px rgba(212,175,55,0.04);
-    --glow-gold-medium: 0 0 15px rgba(212,175,55,0.15), 0 0 40px rgba(212,175,55,0.08);
-    --glow-gold-strong: 0 0 30px rgba(212,175,55,0.3), 0 0 80px rgba(212,175,55,0.1);
+    --glow-gold-soft: 0 0 20px rgba(230,179,62,0.08), 0 0 60px rgba(230,179,62,0.04);
+    --glow-gold-medium: 0 0 15px rgba(230,179,62,0.15), 0 0 40px rgba(230,179,62,0.08);
+    --glow-gold-strong: 0 0 30px rgba(230,179,62,0.3), 0 0 80px rgba(230,179,62,0.1);
 
     /* ─── Text Glow Tokens ─── */
-    --text-glow-gold: 0 0 20px rgba(212,175,55,0.3), 0 0 40px rgba(212,175,55,0.1);
+    --text-glow-gold: 0 0 20px rgba(230,179,62,0.3), 0 0 40px rgba(230,179,62,0.1);
     --text-glow-white: 0 0 30px rgba(255,255,255,0.1), 0 0 60px rgba(255,255,255,0.05);
   }
 }
@@ -183,7 +184,7 @@
 /* Input focus shadow — gold ring */
 @utility shadow-input-focus {
   box-shadow:
-    0 0 0 3px rgba(212, 175, 55, 0.08),
+    0 0 0 3px rgba(230, 179, 62, 0.08),
     0 1px 2px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
@@ -239,11 +240,16 @@
     font-size: 14px;
   }
 
-  /* Display headlines use serif font */
+  /* Display headlines use Plus Jakarta Sans */
   .font-display {
-    font-family: "Instrument Serif", serif;
+    font-family: "Plus Jakarta Sans", sans-serif;
     text-transform: none;
     letter-spacing: -0.03em;
+  }
+
+  /* Label text uses Inter */
+  .font-label {
+    font-family: "Inter", sans-serif;
   }
 
   /* Reset text-transform for body content areas */
@@ -711,10 +717,10 @@
 /* Animated glow pulse — WQF "blur dot" inspired */
 @keyframes glow-pulse-gold {
   0%, 100% {
-    box-shadow: 0 0 20px rgba(212,175,55,0.05), 0 0 60px rgba(212,175,55,0.02);
+    box-shadow: 0 0 20px rgba(230,179,62,0.05), 0 0 60px rgba(230,179,62,0.02);
   }
   50% {
-    box-shadow: 0 0 30px rgba(212,175,55,0.12), 0 0 80px rgba(212,175,55,0.06);
+    box-shadow: 0 0 30px rgba(230,179,62,0.12), 0 0 80px rgba(230,179,62,0.06);
   }
 }
 
@@ -780,12 +786,12 @@
 
 /* Glass with gold tint — for featured/CTA cards */
 @utility glass-gold {
-  background: rgba(212, 175, 55, 0.04);
+  background: rgba(230, 179, 62, 0.04);
   backdrop-filter: blur(30px) saturate(1.1);
   -webkit-backdrop-filter: blur(30px) saturate(1.1);
-  border: 1px solid rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(230, 179, 62, 0.1);
   box-shadow:
-    inset 0 1px 0 rgba(212, 175, 55, 0.08),
+    inset 0 1px 0 rgba(230, 179, 62, 0.08),
     0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
@@ -860,7 +866,7 @@
   position: absolute;
   width: 8px;
   height: 8px;
-  border-color: rgba(212, 175, 55, 0.3);
+  border-color: rgba(230, 179, 62, 0.3);
   pointer-events: none;
   transition: opacity 0.3s ease, border-color 0.3s ease;
   opacity: 0;
@@ -880,7 +886,7 @@
 .corner-accents:hover::before,
 .corner-accents:hover::after {
   opacity: 1;
-  border-color: rgba(212, 175, 55, 0.6);
+  border-color: rgba(230, 179, 62, 0.6);
 }
 
 /* ─── WQF-Inspired: Text Split Reveal ────────────────────────── */
@@ -913,7 +919,7 @@
   width: 8px;
   height: 8px;
   border-radius: 3px;
-  background: #D4AF37;
+  background: #E6B33E;
   opacity: 0;
   filter: blur(12px);
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -932,9 +938,9 @@
   background: linear-gradient(
     105deg,
     transparent 40%,
-    rgba(212, 175, 55, 0.08) 45%,
-    rgba(212, 175, 55, 0.15) 50%,
-    rgba(212, 175, 55, 0.08) 55%,
+    rgba(230, 179, 62, 0.08) 45%,
+    rgba(230, 179, 62, 0.15) 50%,
+    rgba(230, 179, 62, 0.08) 55%,
     transparent 60%
   );
   transform: translateX(-150%);
@@ -943,6 +949,15 @@
 }
 .shine-gold:hover::after {
   transform: translateX(150%);
+}
+
+/* Accordion trigger hover — bg + border reveal */
+.accordion-trigger:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.accordion-trigger:hover span:first-child {
+  color: rgba(255, 255, 255, 0.65) !important;
 }
 
 /* ─── Focus-Visible ─────────────────────────────────────────── */
@@ -969,7 +984,7 @@ select:focus-visible,
 textarea:focus-visible {
   outline: 2px solid var(--color-gold-500);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(212,175,55,0.12);
+  box-shadow: 0 0 0 4px rgba(230,179,62,0.12);
 }
 
 /* ─── Reduced Motion ────────────────────────────────────────── */

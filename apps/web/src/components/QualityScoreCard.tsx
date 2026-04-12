@@ -74,7 +74,7 @@ function RingGauge({ value, size = 88, stroke = 5 }: { value: number; size?: num
           fill="none" stroke="var(--color-gold-500)" strokeWidth={stroke}
           strokeDasharray={circ} strokeDashoffset={circ}
           strokeLinecap="round"
-          style={{ filter: "drop-shadow(0 0 6px rgba(212,175,55,0.3))" }}
+          style={{ filter: "drop-shadow(0 0 6px rgba(230,179,62,0.3))" }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -171,11 +171,11 @@ export const QualityScoreCard: FC<QualityScoreProps> = ({ grade, metrics, overal
   }, { scope: cardRef })
 
   return (
-    <div ref={cardRef} className="w-full max-w-3xl" style={{ opacity: 0 }}>
-      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden shadow-elevation-1 relative">
+    <div ref={cardRef} className="w-full" style={{ opacity: 0 }}>
+      <div className="overflow-hidden border border-white/[0.08] relative" style={{ backgroundColor: "#1A1A1A", borderRadius: "6px" }}>
         <div
           className="absolute -top-10 -right-10 w-40 h-40 rounded-full blur-3xl opacity-20 pointer-events-none"
-          style={{ background: "radial-gradient(circle, rgba(212,175,55,0.15), transparent)" }}
+          style={{ background: "radial-gradient(circle, rgba(230,179,62,0.15), transparent)" }}
         />
 
         <div className="px-5 py-3.5 border-b border-white/[0.06] flex items-center gap-3">

@@ -419,7 +419,7 @@ export default function PluginsPage() {
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <div className="w-10 h-10 rounded-xl bg-[#111] border border-white/[0.12] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-[#1A1A1A] border border-white/[0.12] flex items-center justify-center">
                 <Plug className="w-5 h-5 text-white/40" />
               </div>
               <div>
@@ -438,7 +438,7 @@ export default function PluginsPage() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder="Search plugins..."
-                  className="w-full bg-[#111] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-white/70 placeholder:text-white/20 outline-none focus:border-white/[0.12] transition-colors"
+                  className="w-full bg-[#1A1A1A] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-white/70 placeholder:text-white/20 outline-none focus:border-white/[0.12] transition-colors"
                 />
                 {search && (
                   <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/40">

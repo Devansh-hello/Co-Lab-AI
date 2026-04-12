@@ -125,11 +125,11 @@ export default function PipelineInsightBar({ wsState }: PipelineInsightBarProps)
                     ${isActive ? 'animate-agent-pulse' : ''}`}
                   style={{
                     background: isDone ? 'rgba(16,185,129,0.15)'
-                      : isActive ? 'rgba(212,175,55,0.15)'
+                      : isActive ? 'rgba(230,179,62,0.15)'
                       : 'rgba(255,255,255,0.03)',
-                    border: `1px solid ${isDone ? 'rgba(16,185,129,0.3)' : isActive ? 'rgba(212,175,55,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                    border: `1px solid ${isDone ? 'rgba(16,185,129,0.3)' : isActive ? 'rgba(230,179,62,0.3)' : 'rgba(255,255,255,0.06)'}`,
                     color: isDone ? '#10b981'
-                      : isActive ? '#D4AF37'
+                      : isActive ? '#E6B33E'
                       : 'rgba(255,255,255,0.18)',
                   }}
                 >
@@ -154,7 +154,7 @@ export default function PipelineInsightBar({ wsState }: PipelineInsightBarProps)
       {/* Active agent + model */}
       {wsState.currentAgent && (
         <div className="flex items-center gap-2 min-w-0">
-          <Loader2 size={12} className="animate-spin shrink-0" style={{ color: '#D4AF37' }} />
+          <Loader2 size={12} className="animate-spin shrink-0" style={{ color: '#E6B33E' }} />
           <span className="text-xs font-medium truncate"
                 style={{ color: 'rgba(255,255,255,0.45)' }}>
             {wsState.currentAgent}

@@ -206,15 +206,15 @@ function ColabDiagram() {
   const fbTo   = fe.y
   const feedbackArc = `M${fbX + 10},${fbFrom} C${fbX},${fbFrom} ${fbX},${fbTo} ${fbX + 10},${fbTo}`
 
-  const LINE_GOLD    = "rgba(212,175,55,0.6)"
-  const LINE_GOLD_LT = "rgba(212,175,55,0.35)"
-  const DOT_GOLD     = "#D4AF37"
-  const NODE_STROKE  = "rgba(212,175,55,0.45)"
-  const NODE_ACCENT  = "rgba(212,175,55,0.7)"
-  const TEXT_GOLD     = "#D4AF37"
+  const LINE_GOLD    = "rgba(230,179,62,0.6)"
+  const LINE_GOLD_LT = "rgba(230,179,62,0.35)"
+  const DOT_GOLD     = "#E6B33E"
+  const NODE_STROKE  = "rgba(230,179,62,0.45)"
+  const NODE_ACCENT  = "rgba(230,179,62,0.7)"
+  const TEXT_GOLD     = "#E6B33E"
   const TEXT_WHITE    = "rgba(255,255,255,0.88)"
   const TEXT_DIM      = "rgba(255,255,255,0.45)"
-  const FB_COLOR      = "rgba(212,175,55,0.35)"
+  const FB_COLOR      = "rgba(230,179,62,0.35)"
 
   useGSAP(() => {
     if (!container.current) return
@@ -321,7 +321,7 @@ function ColabDiagram() {
       {/* Pulse rings */}
       {[0, 1].map(i => (
         <circle key={`pulse-${i}`} cx={coord.x} cy={coord.y} r="20" fill="none"
-          stroke="rgba(212,175,55,0.1)" strokeWidth={0.7}>
+          stroke="rgba(230,179,62,0.1)" strokeWidth={0.7}>
           <animate attributeName="r" values="26;50" dur="3.5s" begin={`${i * 1.5}s`} repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.25;0" dur="3.5s" begin={`${i * 1.5}s`} repeatCount="indefinite" />
         </circle>
@@ -351,8 +351,8 @@ function ColabDiagram() {
       <g className="lbl-parallel" style={{ opacity: 0 }}>
         <line x1={fe.x - fe.w / 2} y1={parallelY} x2={be.x + be.w / 2} y2={parallelY}
           stroke="rgba(255,255,255,0.08)" strokeWidth={0.8} strokeDasharray="4 6" />
-        <circle cx={fe.x} cy={parallelY} r={1.8} fill="rgba(212,175,55,0.4)" />
-        <circle cx={be.x} cy={parallelY} r={1.8} fill="rgba(212,175,55,0.4)" />
+        <circle cx={fe.x} cy={parallelY} r={1.8} fill="rgba(230,179,62,0.4)" />
+        <circle cx={be.x} cy={parallelY} r={1.8} fill="rgba(230,179,62,0.4)" />
         <rect x={CX - 66} y={parallelY - 10} width={132} height={20} rx={5}
           fill="rgba(5,5,5,0.95)" stroke="rgba(255,255,255,0.1)" strokeWidth={0.7} />
         <text x={CX} y={parallelY + 1} fill={TEXT_DIM} fontSize={7.5}
@@ -456,26 +456,26 @@ export function WorkflowSection() {
   return (
     <section ref={container} id="workflow" className="relative py-16 md:py-24 px-4 md:px-8">
       {/* Subtle gold glow behind the diagram area */}
-      <div className="absolute top-[40%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(212,175,55,0.04) 0%, transparent 60%)" }} />
+      <div className="absolute top-[40%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(230,179,62,0.04) 0%, transparent 60%)" }} />
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
-        <p className="header-text text-[11px] font-mono text-gold-500/60 tracking-[0.15em] uppercase font-bold text-center mb-3" style={{ opacity: 0 }}>
+        <p className="header-text text-[11px] font-label text-gold-500 tracking-[0.15em] uppercase font-bold text-center mb-3" style={{ opacity: 0 }}>
           Why Co-Lab
         </p>
-        <h2 className="header-text text-[clamp(1.4rem,3vw,2.2rem)] font-black text-center text-foreground mb-8 tracking-[-0.03em]" style={{ opacity: 0 }}>
+        <h2 className="header-text text-[clamp(1.4rem,3vw,2.2rem)] font-display font-extrabold text-center text-foreground mb-8 tracking-[-0.03em]" style={{ opacity: 0 }}>
           A better way to build software
         </h2>
 
         {/* Toggle */}
         <div className="flex justify-center mb-10">
-          <div className="relative flex p-0.5 rounded-lg bg-white/[0.04] border border-white/[0.08]">
+          <div className="relative flex p-0.5 rounded-lg bg-white/[0.04] border border-white/[0.08] backdrop-blur-xl">
             <div
               className="absolute top-0.5 bottom-0.5 rounded-md transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
               style={{
                 left: isColab ? "50%" : "2px",
                 right: isColab ? "2px" : "50%",
-                backgroundColor: isColab ? "rgba(212,175,55,1)" : "rgba(255,255,255,0.14)",
+                backgroundColor: isColab ? "rgba(230,179,62,1)" : "rgba(255,255,255,0.14)",
               }}
             />
             {(["old", "colab"] as const).map(tab => (
@@ -543,7 +543,7 @@ export function WorkflowSection() {
                     { val: "A–F", sub: "Quality Gate" },
                   ].map(s => (
                     <div key={s.sub}
-                      className="p-3 rounded-lg border border-gold-500/20 bg-gold-500/[0.05] text-center">
+                      className="p-3 rounded-lg border border-gold-500/20 bg-gold-500/[0.05] text-center backdrop-blur-xl">
                       <div className="text-xl font-mono font-bold text-gold-500">{s.val}</div>
                       <div className="text-[10px] text-white/50 normal-case">{s.sub}</div>
                     </div>
@@ -558,12 +558,13 @@ export function WorkflowSection() {
             <div
               className={[
                 "relative rounded-xl border transition-colors duration-300 overflow-hidden",
-                isColab ? "border-gold-500/[0.15] bg-[#060606]" : "border-white/[0.06] bg-[#060606]",
+                isColab ? "border-gold-500/[0.15] backdrop-blur-xl" : "border-white/[0.08] backdrop-blur-xl",
               ].join(" ")}
               style={{
+                background: "rgba(255,255,255,0.04)",
                 boxShadow: isColab
-                  ? "0 0 80px rgba(212,175,55,0.04), 0 4px 24px rgba(0,0,0,0.5)"
-                  : "0 4px 24px rgba(0,0,0,0.5)",
+                  ? "inset 0 1px 0 rgba(255,255,255,0.06), 0 0 80px rgba(230,179,62,0.04), 0 4px 24px rgba(0,0,0,0.5)"
+                  : "inset 0 1px 0 rgba(255,255,255,0.06), 0 4px 24px rgba(0,0,0,0.5)",
                 aspectRatio: "5 / 4",
                 padding: "16px",
               }}
@@ -578,7 +579,7 @@ export function WorkflowSection() {
               className="absolute inset-0 -z-10 rounded-xl transition-opacity duration-500"
               style={{
                 opacity: isColab ? 1 : 0,
-                background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(212,175,55,0.06), transparent)",
+                background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(230,179,62,0.06), transparent)",
                 filter: "blur(30px)",
               }}
             />

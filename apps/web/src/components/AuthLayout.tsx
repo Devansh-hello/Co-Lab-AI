@@ -42,7 +42,7 @@ export function AuthLayout({ label, title, subtitle, artSrc, children, footer }:
           style={{
             top: "-10%",
             right: "-5%",
-            background: "radial-gradient(circle, rgba(212,175,55,0.12) 0%, rgba(161,98,7,0.06) 50%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(230,179,62,0.12) 0%, rgba(161,98,7,0.06) 50%, transparent 70%)",
             animationDuration: "8s",
           }}
         />
@@ -51,7 +51,7 @@ export function AuthLayout({ label, title, subtitle, artSrc, children, footer }:
           style={{
             bottom: "-15%",
             left: "-10%",
-            background: "radial-gradient(circle, rgba(212,175,55,0.08) 0%, rgba(161,98,7,0.04) 50%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(230,179,62,0.08) 0%, rgba(161,98,7,0.04) 50%, transparent 70%)",
             animationDuration: "12s",
             animationDelay: "2s",
           }}
@@ -62,7 +62,7 @@ export function AuthLayout({ label, title, subtitle, artSrc, children, footer }:
             top: "40%",
             left: "50%",
             transform: "translateX(-50%)",
-            background: "radial-gradient(circle, rgba(212,175,55,0.06) 0%, transparent 60%)",
+            background: "radial-gradient(circle, rgba(230,179,62,0.06) 0%, transparent 60%)",
             animationDuration: "10s",
             animationDelay: "4s",
           }}
@@ -91,7 +91,7 @@ export function AuthLayout({ label, title, subtitle, artSrc, children, footer }:
             top: "15%",
             left: "50%",
             transform: "translateX(-50%)",
-            background: "radial-gradient(circle, rgba(212,175,55,0.20) 0%, rgba(212,175,55,0.06) 50%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(230,179,62,0.20) 0%, rgba(230,179,62,0.06) 50%, transparent 70%)",
           }}
         />
       </div>

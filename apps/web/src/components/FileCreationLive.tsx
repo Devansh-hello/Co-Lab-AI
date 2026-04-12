@@ -161,7 +161,7 @@ function FileTreeRow({ node, index }: { node: TreeNode; index: number }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const isCreating = node.file?.status === 'creating';
   const agent = node.file?.agent;
-  const agentColor = agent === 'frontend' ? '#10b981' : agent === 'backend' ? '#3b82f6' : '#D4AF37';
+  const agentColor = agent === 'frontend' ? '#10b981' : agent === 'backend' ? '#3b82f6' : '#E6B33E';
 
   useGSAP(() => {
     if (!rowRef.current) return;

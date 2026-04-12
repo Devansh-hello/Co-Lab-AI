@@ -3,7 +3,7 @@
 import { useMemo, useState, useRef, useEffect } from "react"
 import dynamic from "next/dynamic"
 import gsap from "gsap"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams, useParams } from "next/navigation"
 import { MessageBox } from "../components/messageBox"
 import { MessageCard, StreamingDropdown, type BubbleGroupPos } from "../components/messageCard"
 import { Sidebar } from "../components/sidebar"
@@ -16,6 +16,7 @@ import { Collapse } from "../components/Collapse"
 import { BGPattern } from "../components/ui/bg-pattern"
 import { useWebSocket } from "../hooks/useWebSocket"
 import { TestResultsCard } from "../components/TestResultsCard"
+import { QAPromptBox } from "../components/QAPromptBox"
 import { QualityScoreCard } from "../components/QualityScoreCard"
 import MainLoadingScreen from "../components/MainLoadingScreen"
 import {
@@ -27,6 +28,7 @@ import {
   CheckCircle2,
   Circle,
   ChevronRight,
+  ChevronDown,
   Check,
   Menu,
   Shield,
@@ -50,7 +52,7 @@ const IDEModal = dynamic(
     ssr: false,
     loading: () => (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="rounded-xl border border-white/10 bg-[#111] px-4 py-2 text-[12px] text-white/60">
+        <div className="rounded-xl border border-white/10 bg-[#1A1A1A] px-4 py-2 text-[12px] text-white/60">
           Loading IDE...
         </div>
       </div>
@@ -104,10 +106,10 @@ function PipelineStatusBar({ currentAgent, completedAgents, currentStatus, token
               <div
                 className={`pipe-badge flex items-center gap-1.5 px-1.5 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all whitespace-nowrap tracking-[-0.02em]
                   ${isActive
-                    ? "bg-[#111] border border-white/[0.12]"
+                    ? "bg-[#1A1A1A] border border-white/[0.12]"
                     : isCompleted
                       ? "bg-[var(--surface-base)] border border-white/[0.08]"
-                      : "opacity-25"
+                      : "opacity-50"
                   }`}
                 style={isActive ? { boxShadow: `0 0 12px ${cfg.color}15` } : undefined}
               >
@@ -208,7 +210,9 @@ function FeedbackCard({ iteration, issues }: { iteration: number; issues: string
 
 // ── Main App ─────────────────────────────────────────────────
 
-function App({ projectId }: { projectId: string }) {
+function App({ projectId: initialProjectId }: { projectId: string }) {
+  const params = useParams()
+  const projectId = (params?.projectId as string) || initialProjectId
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -237,7 +241,7 @@ function App({ projectId }: { projectId: string }) {
   const [qaAnswers, setQaAnswers] = useState<Array<{ questionId: string; answer: string }>>([])
   const [qaCollapsed, setQaCollapsed] = useState(false)
   const [firstQuestionAdded, setFirstQuestionAdded] = useState(false)
-  const [understandingExpanded, setUnderstandingExpanded] = useState(false)
+  const [understandingExpanded, setUnderstandingExpanded] = useState<string | null>(null)
   const [planExpanded, setPlanExpanded] = useState(false)
   const [qaSummaryExpanded, setQaSummaryExpanded] = useState(false)
 
@@ -419,7 +423,7 @@ function App({ projectId }: { projectId: string }) {
     return <MainLoadingScreen label="Loading project" />
   }
 
-  if (isLoading) {
+  if (isLoading && messages.length === 0) {
     return <MainLoadingScreen label="Loading project" />
   }
 
@@ -432,6 +436,7 @@ function App({ projectId }: { projectId: string }) {
 
   const showPipeline = wsState.isGenerating && (wsState.currentAgent || wsState.completedAgents.length > 0)
     && wsState.flowStage !== 'understanding' && wsState.flowStage !== 'waiting_understanding' && wsState.flowStage !== 'qa'
+    && wsState.flowStage !== 'waiting_plan_review'
 
   // Count Q&A messages for collapse
   const qaQuestionCount = messages.filter(m => m.type === 'qa_question').length
@@ -525,7 +530,7 @@ function App({ projectId }: { projectId: string }) {
                 title={latestFrontendFiles ? "Open IDE" : "Generate a project first"}
                 className={`flex items-center gap-2 px-3 py-1 rounded-lg text-[13px] font-semibold border transition-all tracking-[-0.02em] ${
                   latestFrontendFiles
-                    ? "text-white/90 bg-gold-500/[0.08] hover:bg-gold-500/[0.12] border-gold-500/20 hover:border-gold-500/35 shadow-[0_0_12px_rgba(212,175,55,0.06)]"
+                    ? "text-white/90 bg-gold-500/[0.08] hover:bg-gold-500/[0.12] border-gold-500/20 hover:border-gold-500/35 shadow-[0_0_12px_rgba(230,179,62,0.06)]"
                     : "text-white/10 bg-transparent border-white/[0.06] cursor-not-allowed"
                 }`}
               >
@@ -537,7 +542,7 @@ function App({ projectId }: { projectId: string }) {
 
           {/* ── Chat Column ────────────────────────────────── */}
           <div className="relative flex flex-col flex-1 overflow-hidden min-w-0">
-            <BGPattern mask="fade-edges" size={28} fill="#1a1a1a" />
+            <BGPattern mask="fade-edges" size={28} fill="rgba(255,255,255,0.03)" />
 
             {/* Messages */}
             <div
@@ -548,7 +553,7 @@ function App({ projectId }: { projectId: string }) {
                 /* ── Welcome state ──────────────────── */
                 <div className="flex-1 flex items-center justify-center">
                   <div className="flex flex-col items-center text-center max-w-lg px-6 md:p-10 animate-spring-in">
-                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gold-500/[0.04] border border-gold-500/10 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(212,175,55,0.04)]">
+                    <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-gold-500/[0.04] border border-gold-500/10 flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(230,179,62,0.04)]">
                       <Sparkles className="w-6 h-6 md:w-7 md:h-7 text-gold-500/40" />
                     </div>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-[0.15em] text-gold-500/35 mb-3">
@@ -583,22 +588,28 @@ function App({ projectId }: { projectId: string }) {
                       if (message.type === 'understanding' && message.data) {
                         if (understandingCompleted) {
                           return (
-                            <div key={message.id} className="animate-spring-in flex gap-3">
-                              <div className="flex flex-col items-center flex-shrink-0">
-                                <Check className="w-4 h-4 text-gold-500/50" />
-                                <div className="w-px flex-1 bg-white/[0.06]" />
-                              </div>
-                              <div className="flex-1 min-w-0 -mt-0.5">
+                            <div key={message.id} className="animate-spring-in w-full">
+                              <div className="flex-1 min-w-0">
                                 <button
-                                  onClick={() => setUnderstandingExpanded(e => !e)}
-                                  className="flex items-center gap-1 hover:opacity-80 transition-opacity text-sm text-white/45"
+                                  onClick={() => setUnderstandingExpanded(prev => prev === message.id ? null : message.id)}
+                                  className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 cursor-pointer"
+                                  style={{
+                                    borderRadius: "8px",
+                                    border: understandingExpanded === message.id ? "1px solid rgba(255,255,255,0.10)" : "1px solid transparent",
+                                    backgroundColor: understandingExpanded === message.id ? "rgba(255,255,255,0.05)" : "transparent",
+                                    color: understandingExpanded === message.id ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.45)",
+                                  }}
                                 >
+                                  <Check className="w-4 h-4 text-gold-500/50 flex-shrink-0" />
                                   Project understood
-                                  <ChevronRight className={`w-3 h-3 chevron-rotate ${understandingExpanded ? "open" : ""}`} />
+                                  <ChevronDown className="w-3.5 h-3.5 ml-auto" style={{ color: "rgba(255,255,255,0.20)", transform: understandingExpanded === message.id ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
                                 </button>
-                                <Collapse open={understandingExpanded}>
-                                  <div className="mt-2 mb-2">
-                                    <p className="text-sm text-white/50 leading-relaxed">{message.data.summary}</p>
+                                <Collapse open={understandingExpanded === message.id}>
+                                  <div className="mt-1 ml-5">
+                                    <div className="w-px h-4 ml-2" style={{ backgroundColor: "rgba(255,255,255,0.15)" }} />
+                                    <div className="px-4 py-3" style={{ borderRadius: "10px", border: "1px solid rgba(255,255,255,0.10)" }}>
+                                      <p className="text-sm text-white/50 leading-relaxed">{message.data.summary}</p>
+                                    </div>
                                   </div>
                                 </Collapse>
                               </div>
@@ -623,17 +634,17 @@ function App({ projectId }: { projectId: string }) {
                           if (!qaBlockRendered) {
                             qaBlockRendered = true
                             return (
-                              <button
-                                key="qa-collapsed"
-                                onClick={() => setQaCollapsed(false)}
-                                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-                              >
-                                <Check className="w-4 h-4 text-gold-500/50 flex-shrink-0" />
-                                <span className="text-sm text-white/45 flex items-center gap-1">
-                                  {qaQuestionCount} {qaQuestionCount === 1 ? 'question' : 'questions'} answered
-                                  <ChevronRight className="w-3 h-3 chevron-rotate" />
-                                </span>
-                              </button>
+                              <div key="qa-collapsed" className="w-full">
+                                <button
+                                  onClick={() => setQaCollapsed(false)}
+                                  className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 cursor-pointer"
+                                  style={{ borderRadius: "8px", border: "1px solid transparent", backgroundColor: "transparent", color: "rgba(255,255,255,0.45)" }}
+                                >
+                                  <Check className="w-4 h-4 text-gold-500/50 flex-shrink-0" />
+                                  Answered {qaQuestionCount} clarifying {qaQuestionCount === 1 ? 'question' : 'questions'}
+                                  <ChevronDown className="w-3.5 h-3.5 ml-auto" style={{ color: "rgba(255,255,255,0.20)" }} />
+                                </button>
+                              </div>
                             )
                           }
                           return null
@@ -647,30 +658,9 @@ function App({ projectId }: { projectId: string }) {
                           const answeredValue = qaAnswers.find(a => a.questionId === message.data.id)?.answer
                           const isFirst = qIdx === 0
 
-                          return (
-                            <div key={message.id}>
-                              {isFirst && !isInQAPhase && (
-                                <button
-                                  onClick={() => setQaCollapsed(true)}
-                                  className="flex items-center gap-3 hover:opacity-80 transition-opacity mb-3"
-                                >
-                                  <Check className="w-4 h-4 text-gold-500/50 flex-shrink-0" />
-                                  <span className="text-sm text-white/45 flex items-center gap-1">
-                                    {qaQuestionCount} {qaQuestionCount === 1 ? 'question' : 'questions'} answered
-                                    <ChevronRight className="w-3 h-3 chevron-rotate open" />
-                                  </span>
-                                </button>
-                              )}
-                              <ClarifyingQuestion
-                                question={message.data.question}
-                                options={message.data.options}
-                                questionNumber={qIdx + 1}
-                                totalQuestions={questions.length}
-                                onAnswer={handleQuestionAnswer}
-                                answered={isCurrentQuestion ? undefined : answeredValue}
-                              />
-                            </div>
-                          )
+                          // Q&A questions are handled by the collapsed accordion or qa_summary
+                          // Don't render individual qa_question messages in the chat
+                          return null
                         }
 
                         if (message.type === 'qa_answer') {
@@ -685,28 +675,35 @@ function App({ projectId }: { projectId: string }) {
                         const answers = qaData?.answers || [];
                         const questions = qaData?.questions || [];
                         return (
-                          <div key={message.id} className="animate-spring-in">
+                          <div key={message.id} className="animate-spring-in w-full">
                             <button
                               onClick={() => setQaSummaryExpanded(e => !e)}
-                              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                              className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 cursor-pointer"
+                              style={{
+                                borderRadius: "8px",
+                                border: qaSummaryExpanded ? "1px solid rgba(255,255,255,0.10)" : "1px solid transparent",
+                                backgroundColor: qaSummaryExpanded ? "rgba(255,255,255,0.05)" : "transparent",
+                                color: qaSummaryExpanded ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.45)",
+                              }}
                             >
                               <Check className="w-4 h-4 text-gold-500/50 flex-shrink-0" />
-                              <span className="text-sm text-white/45 flex items-center gap-1">
-                                {message.content}
-                                <ChevronRight className={`w-3 h-3 chevron-rotate ${qaSummaryExpanded ? "open" : ""}`} />
-                              </span>
+                              {message.content}
+                              <ChevronDown className="w-3.5 h-3.5 ml-auto" style={{ color: "rgba(255,255,255,0.20)", transform: qaSummaryExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
                             </button>
                             <Collapse open={qaSummaryExpanded}>
-                              <div className="ml-7 mt-2 space-y-1.5 max-w-xl">
-                                {answers.map((a, i) => {
-                                  const q = questions.find(q => q.id === a.questionId);
-                                  return (
-                                    <div key={i} className="rounded-[6px] bg-[var(--surface-raised)] border border-white/[0.06] px-3 py-2">
-                                      <p className="text-[11px] text-white/40 mb-0.5">{q?.question || a.questionId}</p>
-                                      <p className="text-[13px] text-white/80 font-medium">{a.answer}</p>
-                                    </div>
-                                  );
-                                })}
+                              <div className="mt-1 ml-5">
+                                <div className="w-px h-3 ml-2" style={{ backgroundColor: "rgba(255,255,255,0.10)" }} />
+                                <div className="space-y-1.5" style={{ borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)", padding: "12px" }}>
+                                  {answers.map((a, i) => {
+                                    const q = questions.find(q => q.id === a.questionId);
+                                    return (
+                                      <div key={i} className="px-3 py-2" style={i > 0 ? { borderTop: "1px solid rgba(255,255,255,0.05)" } : undefined}>
+                                        <p className="text-[11px] text-white/35 mb-0.5">{q?.question || a.questionId}</p>
+                                        <p className="text-[13px] text-white/70 font-medium">{a.answer}</p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             </Collapse>
                           </div>
@@ -751,47 +748,56 @@ function App({ projectId }: { projectId: string }) {
                         // If build already happened, show as collapsible stepper
                         if (hasSubsequent) {
                           return (
-                            <div key={message.id} className="animate-spring-in flex gap-3">
-                              <div className="flex flex-col items-center flex-shrink-0">
-                                <Check className="w-4 h-4 text-gold-500/50" />
-                                <div className="w-px flex-1 bg-white/[0.06]" />
-                              </div>
-                              <div className="flex-1 min-w-0 -mt-0.5">
-                                <button
-                                  onClick={() => setPlanExpanded(e => !e)}
-                                  className="flex items-center gap-1 hover:opacity-80 transition-opacity text-sm text-white/45"
-                                >
-                                  Plan reviewed
-                                  <ChevronRight className={`w-3 h-3 chevron-rotate ${planExpanded ? "open" : ""}`} />
-                                </button>
-                                <Collapse open={planExpanded}>
-                                  <div className="mt-2 mb-1">
-                                    <FeatureReviewCard
-                                      data={message.data}
-                                      onProceed={() => {}}
-                                      onStop={() => {}}
-                                      onClarify={() => {}}
-                                      readOnly
-                                    />
-                                  </div>
-                                </Collapse>
-                              </div>
+                            <div key={message.id} className="animate-spring-in w-full">
+                              <button
+                                onClick={() => setPlanExpanded(e => !e)}
+                                className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 cursor-pointer"
+                                style={{
+                                  borderRadius: "8px",
+                                  border: planExpanded ? "1px solid rgba(255,255,255,0.10)" : "1px solid transparent",
+                                  backgroundColor: planExpanded ? "rgba(255,255,255,0.05)" : "transparent",
+                                  color: planExpanded ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.45)",
+                                }}
+                              >
+                                <Check className="w-4 h-4 text-gold-500/50 flex-shrink-0" />
+                                Plan reviewed
+                                <ChevronDown className="w-3.5 h-3.5 ml-auto" style={{ color: "rgba(255,255,255,0.20)", transform: planExpanded ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }} />
+                              </button>
+                              <Collapse open={planExpanded}>
+                                <div className="mt-1 ml-5">
+                                  <div className="w-px h-3 ml-2" style={{ backgroundColor: "rgba(255,255,255,0.10)" }} />
+                                  <FeatureReviewCard
+                                    data={message.data}
+                                    onProceed={() => {}}
+                                    onStop={() => {}}
+                                    onClarify={() => {}}
+                                    readOnly
+                                  />
+                                </div>
+                              </Collapse>
                             </div>
                           )
                         }
                         return (
-                          <FeatureReviewCard
-                            key={message.id}
-                            data={message.data}
-                            onProceed={() => sendProceed(true)}
-                            onStop={() => sendProceed(false)}
-                            onClarify={() => {}}
-                          />
+                          <div key={message.id} className="w-full">
+                            <div className="flex-1 min-w-0">
+                              <FeatureReviewCard
+                                data={message.data}
+                                onProceed={() => sendProceed(true)}
+                                onStop={() => sendProceed(false)}
+                                onClarify={() => {}}
+                              />
+                            </div>
+                          </div>
                         )
                       }
 
-                      // ── Test results card ────────────────
+                      // ── Test results card (hide if no tests) ──
                       if (message.type === 'test' && message.data) {
+                        const testData = message.data as any
+                        const totalTests = testData?.testSuite?.totalTests
+                          || Object.values(testData?.testSuite?.categories || {}).reduce((sum: number, tests: any) => sum + (tests?.length || 0), 0)
+                        if (totalTests === 0 && !testData?.coverage) return null
                         return (
                           <TestResultsCard
                             key={message.id}
@@ -906,7 +912,7 @@ function App({ projectId }: { projectId: string }) {
                   {wsState.isGenerating && wsState.currentStatus && !wsState.currentAgent
                     && wsState.flowStage !== 'waiting_understanding' && wsState.flowStage !== 'qa'
                     && wsState.flowStage !== 'waiting_plan_review' && (
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#111] border border-white/[0.08] max-w-md animate-bubble-in">
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#1A1A1A] border border-white/[0.08] max-w-md animate-bubble-in">
                       <div className="flex gap-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-white/25 typing-dot" />
                         <div className="w-1.5 h-1.5 rounded-full bg-white/25 typing-dot" />
@@ -933,7 +939,7 @@ function App({ projectId }: { projectId: string }) {
             </div>
 
             {/* ── Pipeline status + Input bar ────────────── */}
-            <div ref={inputBarRef} className="flex flex-col items-center gap-2 px-3 md:px-8 py-2.5 md:py-3 flex-shrink-0 border-t border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl shadow-[0_-8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] transition-transform duration-100" style={{ paddingBottom: "max(0.625rem, var(--safe-bottom))" }}>
+            <div ref={inputBarRef} className="flex flex-col items-center gap-3 px-3 md:px-8 pt-4 flex-shrink-0 border-t border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl shadow-[0_-8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] transition-transform duration-100" style={{ paddingBottom: "max(2.5rem, calc(var(--safe-bottom) + 1.5rem))" }}>
               {showPipeline && (
                 <PipelineStatusBar
                   currentAgent={wsState.currentAgent}
@@ -943,8 +949,22 @@ function App({ projectId }: { projectId: string }) {
                 />
               )}
 
-              <div className="flex items-center gap-2 w-full max-w-3xl">
-                <MessageBox onSendMessage={sendMessage} onStop={cancelPipeline} isGenerating={wsState.isGenerating} hasMessages={messages.length > 0} />
+              <div className="flex items-center gap-2 w-full max-w-3xl mb-4">
+                <MessageBox
+                  onSendMessage={sendMessage}
+                  onStop={cancelPipeline}
+                  isGenerating={wsState.isGenerating}
+                  hasMessages={messages.length > 0}
+                  qaQuestion={isInQAPhase && questions[currentQuestionIndex] ? questions[currentQuestionIndex].question : undefined}
+                  qaOptions={isInQAPhase && questions[currentQuestionIndex] ? questions[currentQuestionIndex].options : undefined}
+                  qaQuestionNumber={isInQAPhase ? currentQuestionIndex + 1 : undefined}
+                  qaTotalQuestions={isInQAPhase ? questions.length : undefined}
+                  onQAAnswer={isInQAPhase ? handleQuestionAnswer : undefined}
+                  onQAPrev={isInQAPhase && currentQuestionIndex > 0 ? () => setCurrentQuestionIndex(i => i - 1) : undefined}
+                  onQANext={isInQAPhase && currentQuestionIndex < qaAnswers.length && currentQuestionIndex + 1 < questions.length ? () => setCurrentQuestionIndex(i => i + 1) : undefined}
+                  canQAPrev={isInQAPhase && currentQuestionIndex > 0}
+                  canQANext={isInQAPhase && currentQuestionIndex < qaAnswers.length && currentQuestionIndex + 1 < questions.length}
+                />
               </div>
             </div>
           </div>

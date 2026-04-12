@@ -84,13 +84,13 @@ export function FeaturesSection() {
   return (
     <section id="features" className="relative py-16 md:py-24 px-4 md:px-8">
       {/* Centered gold atmosphere behind cards */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[700px] pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(212,175,55,0.05) 0%, rgba(212,175,55,0.02) 40%, transparent 65%)" }} />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[700px] pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(230,179,62,0.05) 0%, rgba(230,179,62,0.02) 40%, transparent 65%)" }} />
       <div className="relative mx-auto max-w-6xl">
         <div className="mb-10 md:mb-14">
-          <p className="text-[11px] font-mono text-gold-500/60 mb-3 tracking-[0.15em] uppercase font-bold">
+          <p className="text-[11px] font-label text-gold-500 mb-3 tracking-[0.15em] uppercase font-bold">
             Research-Driven Features
           </p>
-          <h2 className="text-[clamp(1.4rem,3vw,2.2rem)] font-black text-white tracking-[-0.03em] leading-[1.05] mb-3">
+          <h2 className="text-[clamp(1.4rem,3vw,2.2rem)] font-display font-extrabold text-white tracking-[-0.03em] leading-[1.05] mb-3">
             Built on 19 papers from{" "}
             <span className="text-white/45">ICLR, NeurIPS, ACL & more</span>
           </h2>
@@ -105,8 +105,8 @@ export function FeaturesSection() {
             return (
               <div
                 key={i}
-                className="feature-card group relative rounded-xl glass-shine border border-white/[0.07] hover:border-gold-500/25 hover:shadow-elevation-2 transition-[border-color,box-shadow] duration-200 overflow-hidden p-3.5 sm:p-5 md:p-6"
-                style={{ opacity: 0 }}
+                className="feature-card group relative rounded-xl border border-white/[0.08] hover:border-gold-500/25 transition-[border-color,box-shadow] duration-200 overflow-hidden p-3.5 sm:p-5 md:p-6 backdrop-blur-xl"
+                style={{ opacity: 0, background: "rgba(255,255,255,0.04)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}
               >
                 <div className="relative z-10">
                   <div
@@ -115,7 +115,7 @@ export function FeaturesSection() {
                   >
                     <Icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: feature.iconColor }} />
                   </div>
-                  <h3 className="font-bold text-white tracking-[-0.02em] mb-1.5 sm:mb-2 text-[13px] sm:text-[15px]">
+                  <h3 className="font-display font-bold text-white tracking-[-0.02em] mb-1.5 sm:mb-2 text-[13px] sm:text-[15px]">
                     {feature.title}
                   </h3>
                   <p className="text-white/55 leading-relaxed text-[12px] sm:text-[13px]">

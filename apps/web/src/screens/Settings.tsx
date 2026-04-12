@@ -176,14 +176,14 @@ export default function SettingsPage() {
               <button onClick={() => setSidebarOpen(true)} className="md:hidden p-1.5 rounded-lg text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-colors">
                 <Menu className="w-5 h-5" />
               </button>
-              <div className="w-10 h-10 rounded-xl bg-[#111] border border-white/[0.12] flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-[#1A1A1A] border border-white/[0.12] flex items-center justify-center">
                 <SettingsIcon className="w-5 h-5 text-white/40" />
               </div>
               <h1 className="text-[18px] font-semibold text-white/90 tracking-[-0.03em]">Settings</h1>
             </div>
 
             {/* Nav */}
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-[#111] border border-white/[0.08] w-fit">
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-[#1A1A1A] border border-white/[0.08] w-fit">
               <Link
                 href="/settings"
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12px] font-semibold tracking-[-0.02em] bg-white/[0.08] text-white/80"
@@ -231,7 +231,7 @@ export default function SettingsPage() {
                             value={apiKeys[p.id] || ""}
                             onChange={e => setApiKeys(prev => ({ ...prev, [p.id]: e.target.value }))}
                             placeholder={apiKeysSet[p.id] ? "Key saved (enter new to replace)" : p.placeholder}
-                            className="w-full bg-[#111] border border-white/[0.12] rounded-lg px-3 py-1.5 pr-16 text-[12px] font-mono text-white/60 placeholder:text-white/15 outline-none focus:border-[#404040] transition-colors"
+                            className="w-full bg-[#1A1A1A] border border-white/[0.12] rounded-lg px-3 py-1.5 pr-16 text-[12px] font-mono text-white/60 placeholder:text-white/15 outline-none focus:border-[#404040] transition-colors"
                           />
                           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                             <button
@@ -297,7 +297,7 @@ export default function SettingsPage() {
                               setAgentModels(prev => ({ ...prev, [agent.id]: { provider, model } }))
                             }
                           }}
-                          className="w-full bg-[#111] border border-white/[0.12] rounded-lg px-3 py-2 pr-8 text-[13px] text-white/60 outline-none focus:border-[#404040] transition-colors appearance-none cursor-pointer"
+                          className="w-full bg-[#1A1A1A] border border-white/[0.12] rounded-lg px-3 py-2 pr-8 text-[13px] text-white/60 outline-none focus:border-[#404040] transition-colors appearance-none cursor-pointer"
                         >
                           <option value="">Default ({agent.id === "orchestrator" || agent.id === "review" || agent.id === "test" ? "Gemini 2.5 Flash" : "Claude Sonnet 4.6"})</option>
                           <optgroup label="OpenAI">

@@ -39,7 +39,7 @@ const PIPELINE_RESULTS = [
   { label: "Iterate: Add Reviews", grade: "B", score: 87, tests: 100, time: "241s", complexity: 4 },
 ]
 
-const GRADE_COLORS: Record<string, string> = { A: "#D4AF37", B: "#AA8C2C", C: "#8B7023" }
+const GRADE_COLORS: Record<string, string> = { A: "#E6B33E", B: "#BF9530", C: "#8B7023" }
 
 export function ProofSection() {
   const ref = useRef<HTMLElement>(null)
@@ -65,28 +65,16 @@ export function ProofSection() {
   }, { scope: ref })
 
   return (
-    <section ref={ref} className="relative pt-4 md:pt-6 pb-16 md:pb-24 px-4 md:px-8" style={{ backgroundColor: "#0c0a06" }}>
+    <section ref={ref} className="relative pt-4 md:pt-6 pb-16 md:pb-24 px-4 md:px-8">
       {/* Gold radial glow — top center */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(212,175,55,0.07) 0%, rgba(212,175,55,0.03) 40%, transparent 70%)" }} />
-      {/* Edge blends into adjacent black sections */}
-      <div className="absolute top-0 left-0 right-0 h-24 pointer-events-none bg-gradient-to-b from-black to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none bg-gradient-to-t from-black to-transparent" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] pointer-events-none" style={{ background: "radial-gradient(ellipse at center, rgba(230,179,62,0.07) 0%, rgba(230,179,62,0.03) 40%, transparent 70%)" }} />
       <div className="relative mx-auto max-w-5xl">
 
-        <div className="flex items-center justify-center gap-3 sm:gap-8 md:gap-12 mb-8 md:mb-10 flex-wrap">
-          <span className="text-[10px] sm:text-[11px] text-white/35 uppercase tracking-[0.15em] font-mono hidden sm:inline">Powered by</span>
-          {["OpenAI", "Anthropic", "Google", "OpenRouter", "GLM"].map((name) => (
-            <span key={name} className="text-[12px] sm:text-sm font-bold text-white/35 tracking-wide">{name}</span>
-          ))}
-        </div>
-
-        <div className="h-px bg-white/[0.04] mb-10 md:mb-12" />
-
         <div className="text-center mb-10 md:mb-14">
-          <p className="text-[11px] font-mono text-gold-500/60 mb-3 tracking-[0.15em] uppercase font-bold">
+          <p className="text-[11px] font-label text-gold-500 mb-3 tracking-[0.15em] uppercase font-bold">
             Proof, Not Promises
           </p>
-          <h2 className="text-[clamp(1.4rem,3vw,2.2rem)] font-black text-white tracking-[-0.03em] mb-3">
+          <h2 className="text-[clamp(1.4rem,3vw,2.2rem)] font-display font-extrabold text-white tracking-[-0.03em] mb-3">
             Real benchmarks from real tests
           </h2>
           <p className="text-[14px] text-white/55 max-w-lg mx-auto leading-relaxed">
@@ -100,11 +88,11 @@ export function ProofSection() {
             return (
               <div
                 key={i}
-                className="proof-item rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 md:p-5 hover:bg-white/[0.05] hover:border-white/[0.12] transition-[background,border-color] duration-150 group"
-                style={{ opacity: 0 }}
+                className="proof-item rounded-xl border border-white/[0.08] p-4 md:p-5 hover:border-gold-500/25 transition-all duration-200 group backdrop-blur-xl"
+                style={{ opacity: 0, background: "rgba(255,255,255,0.04)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}
               >
                 <Icon className="w-4 h-4 mb-3 text-gold-500" />
-                <div className="text-[clamp(1.5rem,3vw,2.2rem)] font-black text-gold-500 mb-0.5">
+                <div className="text-[clamp(1.5rem,3vw,2.2rem)] font-extrabold text-gold-500 mb-0.5 font-display">
                   {card.stat}
                 </div>
                 <div className="text-[13px] font-semibold text-white/80 mb-2">{card.label}</div>
@@ -114,8 +102,8 @@ export function ProofSection() {
           })}
         </div>
 
-        <div className="proof-item relative z-[1] rounded-xl border border-white/[0.07] bg-[var(--surface-base)] overflow-hidden" style={{ opacity: 0 }}>
-          <div className="px-5 py-3 border-b border-white/[0.05] flex items-center justify-between">
+        <div className="proof-item relative z-[1] rounded-xl border border-white/[0.08] overflow-hidden backdrop-blur-xl" style={{ opacity: 0, background: "rgba(255,255,255,0.04)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}>
+          <div className="px-5 py-3 border-b border-white/[0.06] flex items-center justify-between" style={{ background: "rgba(255,255,255,0.02)" }}>
             <span className="text-[12px] font-mono text-white/50 uppercase tracking-wider">E2E Pipeline Results</span>
             <span className="text-[10px] font-mono text-gold-500/80 bg-gold-500/10 px-2 py-0.5 rounded border border-gold-500/20">8/8 PASSED</span>
           </div>

@@ -58,7 +58,7 @@ function getFileIcon(filename: string) {
 
 /**
  * Activity colors reduced to 4 (from 14) following the 60-30-10 rule:
- *   - Gold (#D4AF37): thinking, planning, orchestration (primary AI work)
+ *   - Gold (#E6B33E): thinking, planning, orchestration (primary AI work)
  *   - Emerald (#10b981): file creation, validation, completion (success)
  *   - Blue (#3b82f6): external calls — tools, plugins, MCP, search, API
  *   - Red (#ef4444): security checks, errors
@@ -69,10 +69,10 @@ const ACTIVITY_CONFIG: Record<ActivityEvent['type'], {
   glow: string;
   label: string;
 }> = {
-  thinking:       { icon: Brain,        color: '#D4AF37', glow: 'rgba(212,175,55,0.12)',  label: 'Thinking' },
-  planning:       { icon: GitBranch,    color: '#D4AF37', glow: 'rgba(212,175,55,0.12)',  label: 'Planning' },
-  reviewing:      { icon: Search,       color: '#D4AF37', glow: 'rgba(212,175,55,0.12)',  label: 'Reviewing' },
-  testing:        { icon: Sparkles,     color: '#D4AF37', glow: 'rgba(212,175,55,0.12)',  label: 'Testing' },
+  thinking:       { icon: Brain,        color: '#E6B33E', glow: 'rgba(230,179,62,0.12)',  label: 'Thinking' },
+  planning:       { icon: GitBranch,    color: '#E6B33E', glow: 'rgba(230,179,62,0.12)',  label: 'Planning' },
+  reviewing:      { icon: Search,       color: '#E6B33E', glow: 'rgba(230,179,62,0.12)',  label: 'Reviewing' },
+  testing:        { icon: Sparkles,     color: '#E6B33E', glow: 'rgba(230,179,62,0.12)',  label: 'Testing' },
   file_create:    { icon: FileCode2,    color: '#10b981', glow: 'rgba(16,185,129,0.12)',  label: 'Creating' },
   file_update:    { icon: FileCode2,    color: '#10b981', glow: 'rgba(16,185,129,0.12)',  label: 'Updating' },
   validation:     { icon: Shield,       color: '#10b981', glow: 'rgba(16,185,129,0.12)',  label: 'Validating' },
@@ -145,11 +145,11 @@ export default function AgentActivityPanel({
             <div className="relative flex items-center justify-center w-4 h-4">
               <div
                 className="absolute inset-0 rounded-full animate-agent-pulse"
-                style={{ background: 'rgba(212,175,55,0.3)' }}
+                style={{ background: 'rgba(230,179,62,0.3)' }}
               />
               <div
                 className="w-2 h-2 rounded-full"
-                style={{ background: '#D4AF37' }}
+                style={{ background: '#E6B33E' }}
               />
             </div>
           )}
@@ -166,8 +166,8 @@ export default function AgentActivityPanel({
           {activeEvents.length > 0 && (
             <span className="px-1.5 py-0.5 rounded text-xs font-mono"
                   style={{
-                    background: 'rgba(212,175,55,0.1)',
-                    color: '#D4AF37',
+                    background: 'rgba(230,179,62,0.1)',
+                    color: '#E6B33E',
                   }}>
               {activeEvents.length} active
             </span>
@@ -221,10 +221,10 @@ export default function AgentActivityPanel({
           {wsState.currentAgent && wsState.isGenerating && (
             <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-lg"
                  style={{
-                   background: 'rgba(212,175,55,0.04)',
-                   border: '1px solid rgba(212,175,55,0.08)',
+                   background: 'rgba(230,179,62,0.04)',
+                   border: '1px solid rgba(230,179,62,0.08)',
                  }}>
-              <Loader2 size={13} className="animate-spin" style={{ color: '#D4AF37' }} />
+              <Loader2 size={13} className="animate-spin" style={{ color: '#E6B33E' }} />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.65)' }}>
                   {wsState.currentAgent}

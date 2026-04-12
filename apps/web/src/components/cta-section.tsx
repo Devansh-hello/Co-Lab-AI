@@ -44,11 +44,11 @@ export function CTASection() {
       <div className="absolute pointer-events-none" style={{
         top: "50%", left: "50%", transform: "translate(-50%, -50%)",
         width: "900px", height: "700px",
-        background: "radial-gradient(ellipse at center, rgba(212,175,55,0.10) 0%, transparent 60%)",
+        background: "radial-gradient(ellipse at center, rgba(230,179,62,0.10) 0%, transparent 60%)",
       }} />
 
       <div className="mx-auto max-w-5xl text-center relative z-10">
-        <h2 className="cta-reveal text-[clamp(1.75rem,4.5vw,3.5rem)] font-black text-white tracking-[-0.04em] leading-[0.95] mb-5" style={{ opacity: 0 }}>
+        <h2 className="cta-reveal text-[clamp(1.75rem,4.5vw,3.5rem)] font-display font-extrabold text-white tracking-[-0.04em] leading-[0.95] mb-5" style={{ opacity: 0 }}>
           Stop prompting.
           <br />
           <span className="text-gold-500">Start shipping.</span>

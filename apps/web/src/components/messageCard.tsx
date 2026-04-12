@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef, memo, type FC, type ReactNode } from "react"
 import {
   ChevronRight,
+  ChevronDown,
   Copy,
   Check,
-  Loader2,
   XCircle,
   CheckCircle2,
   Download,
@@ -19,6 +19,7 @@ import {
   RotateCcw,
 } from "lucide-react"
 import { Collapse } from "./Collapse"
+import { LogoMarkAnimated } from "./Logo"
 import { Highlight, themes } from "prism-react-renderer"
 import type { Message, TokenUsage } from "../hooks/useWebSocket"
 
@@ -705,8 +706,8 @@ export const CombinedCodeCard: FC<{
   const prevBackend = allMessages?.filter(m => m.type === "backend").slice(-2, -1)[0]?.data
 
   return (
-    <div className="w-full max-w-3xl animate-bubble-in px-2 md:px-0">
-      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden shadow-elevation-1">
+    <div className="w-full animate-bubble-in px-2 md:px-0">
+      <div className="overflow-hidden border border-white/[0.08]" style={{ backgroundColor: "#1A1A1A", borderRadius: "6px" }}>
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-white/[0.06] flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -938,14 +939,12 @@ export const StreamingDropdown: FC<{
             onClick={() => setIsOpen(o => !o)}
             className="flex items-center gap-2.5 group"
           >
-            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-              isActive ? "animate-agent-pulse" : ""
-            } ${ac.borderColor.replace("border-l-", "bg-")}`} />
-            <span className={`text-[13px] font-semibold tracking-[-0.02em] ${ac.textColor} opacity-80 group-hover:opacity-100 transition-opacity`}>
+            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: isActive ? "#E6B33E" : "rgba(255,255,255,0.20)" }} />
+            <span className={`text-[13px] font-semibold tracking-[-0.02em] ${isActive ? "text-white/70" : "text-white/40"} group-hover:text-white/80 transition-colors`}>
               {ac.label}
             </span>
-            {isActive && <Loader2 className="w-3 h-3 animate-spin text-white/20" />}
-            <ChevronRight className={`w-3.5 h-3.5 text-white/15 chevron-rotate ${isOpen ? "open" : ""}`} />
+            {isActive && <LogoMarkAnimated size={14} />}
+            <ChevronDown className={`w-3.5 h-3.5 text-white/15 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
           </button>
 
           <div className="ml-auto flex items-center gap-2">
@@ -967,7 +966,7 @@ export const StreamingDropdown: FC<{
 
         {/* Body */}
         <Collapse open={isOpen}>
-          <div className="rounded-2xl border border-white/[0.10] overflow-hidden bg-[var(--surface-raised)] shadow-elevation-1">
+          <div className="overflow-hidden border border-white/[0.08]" style={{ backgroundColor: "#1A1A1A", borderRadius: "6px" }}>
             {parsedFiles && parsedFiles.length > 0 ? (
               <>
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--surface-base)] border-b border-white/[0.08]">
@@ -1003,12 +1002,8 @@ export const StreamingDropdown: FC<{
               <div className="px-4 py-3.5">
                 {isActive ? (
                   <div className="flex items-center gap-3">
-                    <div className="flex gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/25 typing-dot" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/25 typing-dot" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-white/25 typing-dot" />
-                    </div>
-                    <span className="text-[12px] font-medium text-white/25">Generating... ({Math.ceil(content.length / 4).toLocaleString()} tokens)</span>
+                    <LogoMarkAnimated size={16} />
+                    <span className="text-[12px] font-medium text-white/30">Generating... ({Math.ceil(content.length / 4).toLocaleString()} tokens)</span>
                   </div>
                 ) : (
                   <span className="text-[12px] font-medium text-white/35">Processing output...</span>
@@ -1085,8 +1080,8 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
     return (
       <div className={`w-full flex justify-end animate-bubble-in-right px-2 md:px-0 ${tightenGap ? "-mt-2" : ""}`}>
         <div className="max-w-[80%] md:max-w-[65%]">
-          <div className={`bg-gradient-to-br from-[#ede4cc] to-[#e5e0d0] shadow-elevation-1 ${userRadius} px-4 py-3`}>
-            <p className="text-[16px] font-medium text-[#1a1814] leading-[1.4] tracking-[-0.16px] break-words whitespace-pre-wrap">{formatText(message.content)}</p>
+          <div className={`bg-gradient-to-br from-[#2a2518] to-[#1f1c14] border border-gold-500/15 shadow-elevation-1 ${userRadius} px-4 py-3`}>
+            <p className="text-[16px] font-medium text-white/90 leading-[1.4] tracking-[-0.16px] break-words whitespace-pre-wrap">{formatText(message.content)}</p>
           </div>
           {showTimestamp && (
             <div className="flex justify-end mt-1 pr-1">
@@ -1116,7 +1111,7 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
         {onRetry && (
           <button
             onClick={onRetry}
-            className="group flex items-center gap-0 h-8 rounded-lg bg-[#111] hover:bg-[#181818] border border-white/[0.12] hover:border-[#333] text-white/25 hover:text-white/50 transition-all flex-shrink-0 px-2 hover:px-3 hover:gap-1.5 overflow-hidden"
+            className="group flex items-center gap-0 h-8 rounded-lg bg-[#1A1A1A] hover:bg-[#181818] border border-white/[0.12] hover:border-[#333] text-white/25 hover:text-white/50 transition-all flex-shrink-0 px-2 hover:px-3 hover:gap-1.5 overflow-hidden"
           >
             <RotateCcw className="w-3.5 h-3.5 flex-shrink-0" />
             <span className="text-[13px] font-semibold tracking-[-0.02em] max-w-0 group-hover:max-w-[60px] overflow-hidden whitespace-nowrap transition-all duration-200">
@@ -1132,7 +1127,7 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
   if (message.type === "status") {
     return (
       <div className="flex justify-start w-full animate-bubble-in px-2 md:px-0">
-        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#111] border border-white/[0.08]">
+        <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#1A1A1A] border border-white/[0.08]">
           <div className="flex gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-white/30 typing-dot" />
             <div className="w-1.5 h-1.5 rounded-full bg-white/30 typing-dot" />
@@ -1186,8 +1181,8 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
 
   // Structured agent output — wrapped in a card
   return (
-    <div className="w-full max-w-3xl animate-bubble-in px-2 md:px-0">
-      <div className="rounded-2xl border border-white/[0.10] bg-[var(--surface-raised)] overflow-hidden shadow-elevation-1">
+    <div className="w-full animate-bubble-in px-2 md:px-0">
+      <div className="overflow-hidden border border-white/[0.08]" style={{ backgroundColor: "#1A1A1A", borderRadius: "6px" }}>
         {/* Card header */}
         <div className="px-5 py-3.5 border-b border-white/[0.06] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
