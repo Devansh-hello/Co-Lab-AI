@@ -15,9 +15,8 @@ import { EnvSetupCard, EnvButton } from "../components/EnvSetupCard"
 import { Collapse } from "../components/Collapse"
 import { BGPattern } from "../components/ui/bg-pattern"
 import { useWebSocket } from "../hooks/useWebSocket"
-import { TestResultsCard } from "../components/TestResultsCard"
 import { QAPromptBox } from "../components/QAPromptBox"
-import { QualityScoreCard } from "../components/QualityScoreCard"
+import { PipelineReportCard } from "../components/PipelineReportCard"
 import { FeatureTrackerCard } from "../components/FeatureTrackerCard"
 import { GuardrailReportCard } from "../components/GuardrailReportCard"
 import { CheckpointBar } from "../components/CheckpointBar"
@@ -316,12 +315,28 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
     }
   }, [searchParams, isLoading, wsState.isConnected, messages.length, projectId, sendMessage, router, pathname])
 
-  // Auto-scroll on new messages and initial load
+  // Auto-scroll on new messages — smooth scroll only if near bottom
+  const prevMessageCount = useRef(0)
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    const el = scrollRef.current
+    if (!el) return
+
+    const count = messages.length
+    const isNewMessage = count > prevMessageCount.current
+    prevMessageCount.current = count
+
+    // On initial load, snap instantly
+    if (isLoading || !isNewMessage) {
+      el.scrollTop = el.scrollHeight
+      return
     }
-  }, [messages, isLoading])
+
+    // Only auto-scroll if user is near the bottom (within 200px)
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceFromBottom < 200) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" })
+    }
+  }, [messages.length, isLoading])
 
   // Page entrance animation — sidebar + chat area in sync
   useEffect(() => {
@@ -797,29 +812,29 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                         )
                       }
 
-                      // ── Test results card (hide if no tests) ──
+                      // ── Review & Test — skip individual render, shown in PipelineReportCard ──
+                      if (message.type === 'review' && message.data) {
+                        return null
+                      }
                       if (message.type === 'test' && message.data) {
-                        const testData = message.data as any
-                        const totalTests = testData?.testSuite?.totalTests
-                          || Object.values(testData?.testSuite?.categories || {}).reduce((sum: number, tests: any) => sum + (tests?.length || 0), 0)
-                        if (totalTests === 0 && !testData?.coverage) return null
-                        return (
-                          <TestResultsCard
-                            key={message.id}
-                            data={message.data}
-                          />
-                        )
+                        return null
                       }
 
-                      // ── Quality score card ────────────────
+                      // ── Quality score — render combined PipelineReportCard ──
                       if (message.type === 'quality_score' && message.data) {
+                        const reviewMsg = messages.find(m => m.type === 'review' && m.data)
+                        const testMsg = messages.find(m => m.type === 'test' && m.data)
                         return (
-                          <QualityScoreCard
+                          <PipelineReportCard
                             key={message.id}
-                            grade={message.data.grade}
-                            metrics={message.data.metrics}
-                            overall={message.data.overall}
-                            needsFeedback={message.data.needsFeedback}
+                            reviewData={reviewMsg?.data}
+                            testData={testMsg?.data}
+                            qualityData={{
+                              grade: message.data.grade,
+                              metrics: message.data.metrics,
+                              overall: message.data.overall,
+                              needsFeedback: message.data.needsFeedback,
+                            }}
                           />
                         )
                       }

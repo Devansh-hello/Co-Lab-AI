@@ -71,14 +71,21 @@
     --gold: 43 79% 57%;
     --radius: 2rem;
 
-    /* ─── Motion Tokens ─── */
-    --duration-instant: 100ms;
-    --duration-fast: 150ms;
-    --duration-normal: 200ms;
-    --duration-slow: 300ms;
+    /* ─── Motion Tokens ───
+       Single source of truth for all animation timing.
+       GSAP equivalents: fast≈0.15, normal≈0.22, slow≈0.3, ease-spring≈power2.out
+    */
+    --duration-instant: 120ms;
+    --duration-fast: 180ms;
+    --duration-normal: 280ms;
+    --duration-slow: 380ms;
+    --duration-stagger: 50ms;
     --ease-default: cubic-bezier(0.25, 0.1, 0.25, 1);
     --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
     --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+    --breathe-cycle: 3s;
 
     /* ─── Surface Colors ─── */
     --surface-base: #0a0a0a;
@@ -198,8 +205,8 @@
 }
 
 @utility transition-bouncy {
-  transition-property: all;
-  transition-timing-function: var(--ease-default);
+  transition-property: transform, opacity, background-color, border-color, box-shadow;
+  transition-timing-function: var(--ease-spring);
   transition-duration: var(--duration-normal);
 }
 
@@ -303,7 +310,7 @@
 .auth-stagger {
   opacity: 0;
   will-change: transform, opacity;
-  animation: auth-fade-up 0.4s ease-out forwards;
+  animation: auth-fade-up 0.38s var(--ease-spring) forwards;
   animation-delay: calc(var(--i, 0) * 60ms + 80ms);
 }
 
@@ -349,35 +356,35 @@
 }
 
 @utility animate-scale-in {
-  animation: scale-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  animation: scale-in 0.38s var(--ease-spring) forwards;
 }
 
 @utility animate-spring-in {
-  animation: spring-in 0.3s ease-out forwards;
+  animation: spring-in 0.38s var(--ease-spring) forwards;
 }
 
 @utility animate-tab-in {
-  animation: tab-slide 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: tab-slide 0.28s var(--ease-spring) forwards;
 }
 
 @utility animate-pulse-glow-green {
-  animation: pulse-glow-green 2s ease-in-out infinite;
+  animation: pulse-glow-green var(--breathe-cycle) ease-in-out infinite;
 }
 
 @utility animate-shimmer-blue {
   background-image: linear-gradient(90deg, transparent 25%, rgba(59, 130, 246, 0.15) 50%, transparent 75%);
   background-size: 200% 100%;
-  animation: shimmer-blue 2.5s linear infinite;
+  animation: shimmer-blue var(--breathe-cycle) linear infinite;
 }
 
 @utility animate-breathe-orange {
-  animation: breathe-orange 2.5s ease-in-out infinite;
+  animation: breathe-orange var(--breathe-cycle) ease-in-out infinite;
 }
 
 @utility animate-gold-shimmer {
   background-image: linear-gradient(90deg, transparent 25%, rgba(255, 255, 255, 0.08) 50%, transparent 75%);
   background-size: 200% 100%;
-  animation: gold-shimmer 2s linear infinite;
+  animation: gold-shimmer var(--breathe-cycle) linear infinite;
 }
 
 /* ─── Terminal line entrance ─────────────────────────────────── */
@@ -416,7 +423,7 @@
 }
 
 @utility animate-fade-slide-up {
-  animation: fade-slide-up 0.3s var(--ease-out) both;
+  animation: fade-slide-up 0.38s var(--ease-out) both;
 }
 
 /* Float animation for decorative elements */
@@ -516,11 +523,11 @@
 }
 
 @utility animate-bubble-in {
-  animation: bubble-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: bubble-in 0.38s var(--ease-spring) forwards;
 }
 
 @utility animate-bubble-in-right {
-  animation: bubble-in-right 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: bubble-in-right 0.38s var(--ease-spring) forwards;
 }
 
 /* Agent pulse dot */
@@ -530,7 +537,7 @@
 }
 
 @utility animate-agent-pulse {
-  animation: agent-pulse 2s ease-in-out infinite;
+  animation: agent-pulse var(--breathe-cycle) ease-in-out infinite;
 }
 
 /* Typing indicator dots */
@@ -556,12 +563,12 @@
 }
 
 @utility animate-content-reveal {
-  animation: content-reveal 0.4s ease-out forwards;
+  animation: content-reveal 0.5s ease-out forwards;
 }
 
 /* Chevron rotation transition */
 .chevron-rotate {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform var(--duration-normal) var(--ease-spring);
 }
 .chevron-rotate.open {
   transform: rotate(90deg);
@@ -584,17 +591,27 @@
 }
 
 @utility animate-fade-in {
-  animation: fade-in 0.2s ease-out forwards;
+  animation: fade-in 0.28s var(--ease-spring) forwards;
 }
 
 /* Popover scale in */
 @keyframes popover-in {
-  from { opacity: 0; transform: scale(0.95) translateY(4px); }
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @utility animate-popover-in {
-  animation: popover-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: popover-in 0.28s var(--ease-spring) forwards;
+}
+
+/* Popover scale out (exit) */
+@keyframes popover-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.96) translateY(4px); }
+}
+
+@utility animate-popover-out {
+  animation: popover-out 0.2s var(--ease-exit) forwards;
 }
 
 /* Mobile overlay fade */
@@ -604,14 +621,24 @@
 }
 
 @utility animate-overlay-in {
-  animation: overlay-in 0.2s ease-out forwards;
+  animation: overlay-in 0.28s var(--ease-spring) forwards;
+}
+
+/* Overlay fade out (exit) */
+@keyframes overlay-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@utility animate-overlay-out {
+  animation: overlay-out 0.2s var(--ease-exit) forwards;
 }
 
 /* Sidebar label fade for collapse/expand */
 .sidebar-label {
   overflow: hidden;
   white-space: nowrap;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--duration-fast) var(--ease-spring);
 }
 
 /* Slide in from left for mobile sidebar */
@@ -621,7 +648,17 @@
 }
 
 @utility animate-slide-in-left {
-  animation: slide-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slide-in-left 0.38s var(--ease-spring) forwards;
+}
+
+/* Slide out left (exit) */
+@keyframes slide-out-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+
+@utility animate-slide-out-left {
+  animation: slide-out-left 0.25s var(--ease-exit) forwards;
 }
 
 /* ─── New: Quality & Test Component Enhancements ────────────── */
@@ -633,7 +670,7 @@
 }
 
 @utility animate-ring-breathe {
-  animation: ring-breathe 2.5s ease-in-out infinite;
+  animation: ring-breathe var(--breathe-cycle) ease-in-out infinite;
 }
 
 /* Grade letter entrance */
@@ -654,7 +691,7 @@
 }
 
 @utility animate-orbit {
-  animation: orbit-spin 4s linear infinite;
+  animation: orbit-spin 3.6s linear infinite;
 }
 
 /* Coverage arc shimmer */
@@ -664,7 +701,7 @@
 }
 
 @utility animate-arc-shimmer {
-  animation: arc-shimmer 2s ease-in-out infinite;
+  animation: arc-shimmer var(--breathe-cycle) ease-in-out infinite;
 }
 
 /* Metric row slide-in (used as fallback) */
@@ -725,7 +762,7 @@
 }
 
 @utility animate-glow-pulse {
-  animation: glow-pulse-gold 3s ease-in-out infinite;
+  animation: glow-pulse-gold var(--breathe-cycle) ease-in-out infinite;
 }
 
 /* Text glow — for highlighted headings */
@@ -843,15 +880,15 @@
 }
 
 @utility animate-clip-up {
-  animation: clip-reveal-up 0.3s var(--ease-out) forwards;
+  animation: clip-reveal-up 0.38s var(--ease-out) forwards;
 }
 
 @utility animate-clip-left {
-  animation: clip-reveal-left 0.3s var(--ease-out) forwards;
+  animation: clip-reveal-left 0.38s var(--ease-out) forwards;
 }
 
 @utility animate-clip-right {
-  animation: clip-reveal-right 0.3s var(--ease-out) forwards;
+  animation: clip-reveal-right 0.38s var(--ease-out) forwards;
 }
 
 /* ─── WQF-Inspired: Corner Accent Marks ──────────────────────── */
@@ -951,7 +988,12 @@
   transform: translateX(150%);
 }
 
-/* Accordion trigger hover — bg + border reveal */
+/* Accordion trigger — optimized transition (never use transition-all) */
+.accordion-trigger {
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-spring);
+}
 .accordion-trigger:hover {
   background-color: rgba(255, 255, 255, 0.04) !important;
   border-color: rgba(255, 255, 255, 0.08) !important;

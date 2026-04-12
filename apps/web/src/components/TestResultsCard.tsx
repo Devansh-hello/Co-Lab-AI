@@ -122,7 +122,7 @@ export const TestResultsCard: FC<{ data: TestResultsData }> = ({ data }) => {
     if (!cardRef.current) return
     gsap.fromTo(cardRef.current,
       { opacity: 0, y: 12 },
-      { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }
+      { opacity: 1, y: 0, duration: 0.38, ease: "power2.out" }
     )
   }, { scope: cardRef })
 
@@ -133,7 +133,7 @@ export const TestResultsCard: FC<{ data: TestResultsData }> = ({ data }) => {
     if (items.length > 0) {
       gsap.fromTo(items,
         { opacity: 0, y: 6 },
-        { opacity: 1, y: 0, duration: 0.2, stagger: 0.04, ease: "power2.out" }
+        { opacity: 1, y: 0, duration: 0.28, stagger: 0.05, ease: "power2.out" }
       )
     }
   }, { dependencies: [expanded, expandedCategory] })

@@ -577,8 +577,8 @@ const CodeFilesDisplay: FC<{ data: any; label: string; previousData?: any; inten
   const isFrontend = label === "Frontend"
   const accentTabBorder = isFrontend ? "border-b-emerald-500" : "border-b-blue-500"
   const accentText = isFrontend ? "text-emerald-400/70" : "text-blue-400/70"
-  const accentBg = isFrontend ? "bg-emerald-500/[0.04]" : "bg-blue-500/[0.04]"
-  const accentBorder = isFrontend ? "border-emerald-500/10" : "border-blue-500/10"
+  const accentBg = "bg-white/[0.03]"
+  const accentBorder = "border-white/[0.06]"
 
   const handleCopyActive = async () => {
     try { await navigator.clipboard.writeText(files[activeTab]?.[1] ?? ""); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { }
@@ -741,154 +741,6 @@ export const CombinedCodeCard: FC<{
   )
 }
 
-// ─── Review Display ───────────────────────────────────────────
-
-interface ReviewData {
-  completionStatus: { frontendComplete: boolean; backendComplete: boolean; missingItems: string[] }
-  setupGuide: { prerequisites: string[]; steps: string[]; envVariables: string[]; runCommands: { frontend: string; backend: string } }
-  codeReview: { issues: string[]; suggestions: string[] }
-  summary: string
-}
-
-const ReviewDisplay: FC<{ data: ReviewData }> = ({ data }) => {
-  const [tab, setTab] = useState<"status" | "setup" | "review">("status")
-
-  return (
-    <div className="mt-3 space-y-2">
-      {/* Tab bar */}
-      <div className="flex gap-px border-b border-white/[0.06]">
-        {(["status", "setup", "review"] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-3 py-2 text-[11px] font-mono font-bold uppercase tracking-wider transition-colors
-              ${tab === t
-                ? "text-gold-500/80 border-b-2 border-b-gold-500 -mb-px"
-                : "text-white/30 hover:text-white/50"
-              }`}
-          >
-            {t === "status" ? "Status" : t === "setup" ? "Setup Guide" : "Code Review"}
-          </button>
-        ))}
-      </div>
-
-      {tab === "status" && (
-        <div className="space-y-2.5">
-          <div className="flex gap-2">
-            {(["frontendComplete", "backendComplete"] as const)
-              .filter(k => {
-                // Only show Backend badge if there are actual backend run commands
-                if (k === "backendComplete" && !data.setupGuide?.runCommands?.backend) return false
-                return true
-              })
-              .map(k => (
-              <span
-                key={k}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border
-                  ${data.completionStatus?.[k]
-                    ? "bg-gold-500/[0.06] text-gold-500/70 border-gold-500/15"
-                    : "bg-orange-500/[0.06] text-orange-400/70 border-orange-500/15"
-                  }`}
-              >
-                {data.completionStatus?.[k]
-                  ? <CheckCircle2 className="w-3 h-3" />
-                  : <XCircle className="w-3 h-3" />}
-                {k === "frontendComplete" ? "Frontend" : "Backend"}
-              </span>
-            ))}
-          </div>
-          {data.completionStatus?.missingItems?.length > 0 && (
-            <div className="rounded-lg border border-orange-500/10 bg-orange-500/[0.03] p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-orange-400/50 mb-1.5">Missing</p>
-              <ul className="space-y-1">
-                {data.completionStatus.missingItems.map((item, i) => (
-                  <li key={i} className="text-[11px] text-orange-300/60 flex items-start gap-2">
-                    <div className="w-1 h-1 rounded-full bg-orange-400/40 mt-1.5 flex-shrink-0" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === "setup" && (
-        <div className="space-y-2.5">
-          {data.setupGuide?.prerequisites?.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-1.5">Prerequisites</p>
-              <ul className="space-y-1">
-                {data.setupGuide.prerequisites.map((req, i) => (
-                  <li key={i} className="text-[11px] text-white/60 flex items-start gap-2">
-                    <div className="w-1 h-1 rounded-full bg-white/15 mt-1.5 flex-shrink-0" />
-                    {req}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {data.setupGuide?.steps?.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-1.5">Steps</p>
-              <ol className="space-y-1">
-                {data.setupGuide.steps.map((step, i) => (
-                  <li key={i} className="text-[11px] text-white/60 flex items-start gap-2">
-                    <span className="text-[10px] font-bold text-primary/40 bg-primary/[0.06] rounded w-4 h-4 flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                    {step}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
-          {data.setupGuide?.runCommands && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40 mb-1.5">Run Commands</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {(["frontend", "backend"] as const).map(side => (
-                  <div key={side} className="bg-[var(--surface-base)] rounded-lg p-2.5 border border-white/[0.04]">
-                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${side === "frontend" ? "text-emerald-500/50" : "text-blue-500/50"}`}>{side}</p>
-                    <p className="text-[11px] font-mono text-white/70">
-                      <span className={side === "frontend" ? "text-emerald-500/40 mr-1" : "text-blue-500/40 mr-1"}>$</span>
-                      {data.setupGuide.runCommands[side]}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {tab === "review" && (
-        <div className="space-y-2">
-          {data.codeReview?.issues?.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-orange-400/60 mb-1.5">Issues</p>
-              {data.codeReview.issues.map((issue, i) => (
-                <div key={i} className="rounded-lg border border-orange-500/10 bg-orange-500/[0.03] px-3 py-2 mb-1.5 text-[11px] text-orange-300/60">{issue}</div>
-              ))}
-            </div>
-          )}
-          {data.codeReview?.suggestions?.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-400/60 mb-1.5">Suggestions</p>
-              {data.codeReview.suggestions.map((sug, i) => (
-                <div key={i} className="rounded-lg border border-blue-500/10 bg-blue-500/[0.03] px-3 py-2 mb-1.5 text-[11px] text-blue-300/60">{sug}</div>
-              ))}
-            </div>
-          )}
-          {!data.codeReview?.issues?.length && !data.codeReview?.suggestions?.length && (
-            <p className="text-[11px] text-emerald-400/60 flex items-center gap-2">
-              <CheckCircle2 className="w-3.5 h-3.5" /> No issues found.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Streaming Dropdown ───────────────────────────────────────
 
 export const StreamingDropdown: FC<{
@@ -943,7 +795,6 @@ export const StreamingDropdown: FC<{
             <span className={`text-[13px] font-semibold tracking-[-0.02em] ${isActive ? "text-white/70" : "text-white/40"} group-hover:text-white/80 transition-colors`}>
               {ac.label}
             </span>
-            {isActive && <LogoMarkAnimated size={14} />}
             <ChevronDown className={`w-3.5 h-3.5 text-white/15 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
           </button>
 
@@ -1141,7 +992,7 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
 
   // ── Agent message ──────────────────────────────────────────
   const labelColor = ac?.textColor ?? "text-white/40"
-  const hasStructuredData = message.data && (message.type === "frontend" || message.type === "backend" || message.type === "review")
+  const hasStructuredData = message.data && (message.type === "frontend" || message.type === "backend")
 
   // Simple text-only agent messages (system, completion, etc.)
   if (!hasStructuredData) {
@@ -1209,7 +1060,6 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
 
           {message.data && message.type === "frontend" && <CodeFilesDisplay data={message.data} label="Frontend" intent={message.intent} previousData={allMessages?.filter(m => m.type === "frontend" && m.id !== message.id).pop()?.data} />}
           {message.data && message.type === "backend" && <CodeFilesDisplay data={message.data} label="Backend" intent={message.intent} previousData={allMessages?.filter(m => m.type === "backend" && m.id !== message.id).pop()?.data} />}
-          {message.data && message.type === "review" && <ReviewDisplay data={message.data} />}
         </div>
       </div>
     </div>

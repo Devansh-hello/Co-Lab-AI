@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { api } from "../functions/send"
 import { Sidebar } from "../components/sidebar"
+import { MobileSidebar } from "../components/MobileSidebar"
 import toast from "react-hot-toast"
 import {
   Settings as SettingsIcon, Plug, Eye, EyeOff, Check, Loader2,
@@ -160,13 +161,7 @@ export default function SettingsPage() {
   return (
     <div className="flex flex-row h-screen w-screen bg-background overflow-hidden">
       <div className="hidden md:block"><Sidebar /></div>
-
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/60 animate-overlay-in" onClick={() => setSidebarOpen(false)} />
-          <div className="relative z-10 h-full w-[280px] animate-slide-in-left"><Sidebar /></div>
-        </div>
-      )}
+      <MobileSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 overflow-y-auto chat-scroll">
         {/* Header */}

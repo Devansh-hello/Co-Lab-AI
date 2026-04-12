@@ -104,12 +104,12 @@ export default function AgentActivityPanel({
     }
   }, [activities, collapsed]);
 
-  // Entrance animation
+  // Entrance animation — matches --duration-slow (0.3s)
   useGSAP(() => {
     if (!panelRef.current) return;
     gsap.fromTo(panelRef.current,
       { opacity: 0, y: 8 },
-      { opacity: 1, y: 0, duration: 0.35, ease: 'power2.out' }
+      { opacity: 1, y: 0, duration: 0.38, ease: 'power2.out' }
     );
   }, []);
 
@@ -293,7 +293,7 @@ function ActivityEventRow({
     if (!rowRef.current) return;
     gsap.fromTo(rowRef.current,
       { opacity: 0, x: -8 },
-      { opacity: 1, x: 0, duration: 0.25, delay: Math.min(index * 0.04, 0.3), ease: 'power2.out' }
+      { opacity: 1, x: 0, duration: 0.38, delay: Math.min(index * 0.05, 0.35), ease: 'power2.out' }
     );
   }, []);
 
@@ -373,7 +373,7 @@ function FileTracker({ files }: { files: ActivityEvent[] }) {
     if (!containerRef.current) return;
     gsap.fromTo(containerRef.current,
       { opacity: 0, y: 6 },
-      { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
+      { opacity: 1, y: 0, duration: 0.38, ease: 'power2.out' }
     );
   }, []);
 

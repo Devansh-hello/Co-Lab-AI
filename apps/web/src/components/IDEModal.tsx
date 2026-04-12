@@ -394,7 +394,7 @@ export const IDEModal: React.FC<{
             <div className="flex items-center gap-0.5 p-0.5 rounded-lg bg-white/[0.04]">
               <button
                 onClick={() => setPreviewTab("app")}
-                className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-all ${
+                className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-[color,background-color] duration-[180ms] ${
                   previewTab === "app" ? "bg-white/[0.08] text-white/70" : "text-white/35 hover:text-white/50"
                 }`}
               >
@@ -402,7 +402,7 @@ export const IDEModal: React.FC<{
               </button>
               <button
                 onClick={() => setPreviewTab("api")}
-                className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-all ${
+                className={`px-2.5 py-1 rounded-md text-[12px] font-semibold transition-[color,background-color] duration-[180ms] ${
                   previewTab === "api" ? "bg-white/[0.08] text-white/70" : "text-white/35 hover:text-white/50"
                 }`}
               >
@@ -413,7 +413,7 @@ export const IDEModal: React.FC<{
           {hasBackend && (
             <button
               onClick={() => setFullStackMode(m => !m)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-[color,background-color,border-color] duration-[180ms] ${
                 fullStackMode
                   ? "text-blue-400/70 bg-blue-500/[0.08] border border-blue-500/15"
                   : "text-white/25 hover:text-white/40 border border-transparent"
@@ -548,7 +548,7 @@ export const IDEModal: React.FC<{
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
-        className="w-full h-full md:w-[96vw] md:h-[94vh] md:rounded-2xl overflow-hidden flex flex-col animate-popover-in"
+        className="w-full h-full md:w-[96vw] md:h-[94vh] md:rounded-2xl overflow-hidden flex flex-col animate-spring-in"
         style={{ background: "var(--surface-base)", border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 40px 120px rgba(0,0,0,0.8), 0 0 1px rgba(255,255,255,0.05)" }}
       >
 
@@ -577,7 +577,7 @@ export const IDEModal: React.FC<{
                 key={id}
                 onClick={() => setView(id)}
                 title={label}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-[-0.02em] transition-all duration-200 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold tracking-[-0.02em] transition-[color,background-color,box-shadow] duration-[180ms] ${
                   view === id
                     ? "bg-white/[0.08] text-white/90 shadow-[0_0_10px_rgba(255,255,255,0.02)]"
                     : "text-white/25 hover:text-white/50 hover:bg-white/[0.03]"
@@ -596,7 +596,7 @@ export const IDEModal: React.FC<{
                 onClick={handleFullStackRun}
                 disabled={wc.status === "booting" || wc.status === "installing" || wc.status === "starting"}
                 title="Run full-stack (WebContainers)"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/[0.06] border border-transparent hover:border-blue-500/15 transition-all disabled:opacity-40"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-blue-400/50 hover:text-blue-400 hover:bg-blue-500/[0.06] border border-transparent hover:border-blue-500/15 transition-[color,background-color,border-color,opacity] duration-[180ms] disabled:opacity-40"
               >
                 {wc.status !== "idle" && wc.status !== "running" && wc.status !== "error" ? (
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -609,7 +609,7 @@ export const IDEModal: React.FC<{
               <button
                 onClick={refresh}
                 title="Run preview (Ctrl+S)"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-400/50 hover:text-emerald-400 hover:bg-emerald-500/[0.06] border border-transparent hover:border-emerald-500/15 transition-all"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-400/50 hover:text-emerald-400 hover:bg-emerald-500/[0.06] border border-transparent hover:border-emerald-500/15 transition-[color,background-color,border-color] duration-[180ms]"
               >
                 <Play className="w-3 h-3" />
                 <span className="hidden sm:inline">Run</span>
@@ -629,14 +629,14 @@ export const IDEModal: React.FC<{
             <button
               onClick={openInNewTab}
               title="Open in new tab"
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-white/20 hover:text-white/50 hover:bg-white/[0.04] transition-all"
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-white/20 hover:text-white/50 hover:bg-white/[0.04] transition-[color,background-color] duration-[180ms]"
             >
               <Maximize2 className="w-3.5 h-3.5" />
             </button>
             <div className="w-px h-5 bg-white/[0.06] mx-1" />
             <button
               onClick={onClose}
-              className="flex items-center justify-center w-7 h-7 rounded-lg text-white/20 hover:text-white/50 hover:bg-white/[0.04] transition-all"
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-white/20 hover:text-white/50 hover:bg-white/[0.04] transition-[color,background-color] duration-[180ms]"
             >
               <X className="w-4 h-4" />
             </button>

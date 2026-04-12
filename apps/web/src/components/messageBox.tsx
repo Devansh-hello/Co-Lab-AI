@@ -35,10 +35,18 @@ export const MessageBox: React.FC<MessageBoxProps> = ({
   const isQAMode = !!qaQuestion && !!onQAAnswer
 
   useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto"
-      inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + "px"
-    }
+    const el = inputRef.current
+    if (!el) return
+    // Save current height, measure natural, then animate to target
+    const current = el.offsetHeight
+    el.style.transition = "none"
+    el.style.height = "auto"
+    const target = Math.min(el.scrollHeight, 120)
+    el.style.height = current + "px"
+    // Force reflow so browser registers the starting height
+    void el.offsetHeight
+    el.style.transition = "height 180ms cubic-bezier(0.22, 1, 0.36, 1)"
+    el.style.height = target + "px"
   }, [message])
 
   // Reset when question changes
@@ -91,7 +99,7 @@ export const MessageBox: React.FC<MessageBoxProps> = ({
   return (
     <div className="w-full max-w-3xl relative">
       <div className={`
-        rounded-[20px] border transition-all duration-300
+        rounded-[20px] border transition-[border-color,background-color,box-shadow] duration-[280ms]
         ${isFocused || hasContent || isQAMode
           ? "bg-white/[0.06] backdrop-blur-2xl border-[#3a3420]/60 shadow-[0_0_0_1px_rgba(230,179,62,0.06),0_4px_24px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)]"
           : "bg-white/[0.04] backdrop-blur-2xl border-white/[0.08] shadow-[0_4px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)]"
@@ -177,7 +185,7 @@ export const MessageBox: React.FC<MessageBoxProps> = ({
         <form
           onSubmit={handleSubmit}
           className={`
-            flex ${hasContent ? "items-end" : "items-center"} gap-2 w-full px-4 py-3 rounded-2xl border transition-all duration-200
+            flex ${hasContent ? "items-end" : "items-center"} gap-2 w-full px-4 py-3 rounded-2xl border transition-[border-color,background-color] duration-[180ms]
             ${isFocused
               ? "bg-white/[0.04] border-white/[0.06]"
               : "bg-white/[0.02] border-transparent"
@@ -205,7 +213,7 @@ export const MessageBox: React.FC<MessageBoxProps> = ({
               flex-1 bg-transparent border-0 resize-none
               text-[15px] font-medium leading-relaxed tracking-[-0.01em]
               placeholder:text-white/25 disabled:text-white/20
-              min-h-[24px] max-h-[120px] py-0.5
+              min-h-[24px] max-h-[120px] py-2
               ${isGenerating && !isQAMode ? "text-white/30" : "text-white/90"}
             `}
           />
@@ -214,7 +222,7 @@ export const MessageBox: React.FC<MessageBoxProps> = ({
             <button
               type="button"
               onClick={onStop}
-              className="flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0 transition-all duration-200
+              className="flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0 transition-[background-color,color,border-color] duration-[180ms]
                 bg-white/[0.08] text-white/60 hover:bg-red-500/20 hover:text-red-400 border border-white/[0.1]"
             >
               <Square className="w-3.5 h-3.5 fill-current" />
@@ -224,7 +232,7 @@ export const MessageBox: React.FC<MessageBoxProps> = ({
               type="submit"
               disabled={!canSubmit}
               className={`
-                flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0 transition-all duration-200
+                flex items-center justify-center w-10 h-10 rounded-xl flex-shrink-0 transition-[background-color,color,box-shadow] duration-[180ms]
                 ${canSubmit
                   ? "bg-gold-500 text-black hover:bg-gold-400 shadow-[0_0_16px_rgba(230,179,62,0.2)]"
                   : "bg-transparent text-white/15 border border-white/[0.12]"

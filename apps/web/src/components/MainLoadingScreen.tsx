@@ -56,10 +56,10 @@ export default function MainLoadingScreen({ label = "Initializing" }: { label?: 
       })
     })
 
-    // Continuous pulse
+    // Continuous pulse — matches breathe-cycle (2.4s / 2 = 1.2s per half)
     gsap.to(svgRef.current, {
       opacity: 0.5,
-      scale: 0.95,
+      scale: 0.96,
       duration: 1.2,
       ease: "sine.inOut",
       repeat: -1,

@@ -78,7 +78,7 @@ export function EnvSetupCard({ envVariables, onSave }: EnvSetupCardProps) {
         {/* Header — accordion trigger style */}
         <button
           onClick={() => setExpanded(e => !e)}
-          className="accordion-trigger w-full px-5 py-3 flex items-center gap-2.5 transition-all duration-150 cursor-pointer"
+          className="accordion-trigger w-full px-5 py-3 flex items-center gap-2.5 cursor-pointer"
           style={{
             borderBottom: expanded ? "1px solid rgba(255,255,255,0.06)" : "none",
           }}

@@ -148,14 +148,14 @@ export const QualityScoreCard: FC<QualityScoreProps> = ({ grade, metrics, overal
 
     gsap.fromTo(cardRef.current,
       { opacity: 0, y: 12 },
-      { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }
+      { opacity: 1, y: 0, duration: 0.38, ease: "power2.out" }
     )
 
     const rows = cardRef.current.querySelectorAll(".metric-row")
     if (rows.length > 0) {
       gsap.fromTo(rows,
         { opacity: 0, x: -6 },
-        { opacity: 1, x: 0, duration: 0.25, stagger: 0.06, delay: 0.15, ease: "power2.out" }
+        { opacity: 1, x: 0, duration: 0.38, stagger: 0.05, delay: 0.12, ease: "power2.out" }
       )
     }
 
@@ -163,9 +163,9 @@ export const QualityScoreCard: FC<QualityScoreProps> = ({ grade, metrics, overal
       const tl = gsap.timeline()
       tl.fromTo(gradeRef.current,
         { scale: 0, opacity: 0 },
-        { scale: 1.1, opacity: 1, duration: 0.25, delay: 0.1, ease: "power2.out" }
+        { scale: 1.04, opacity: 1, duration: 0.38, delay: 0.12, ease: "power2.out" }
       ).to(gradeRef.current,
-        { scale: 1, duration: 0.15, ease: "power1.inOut" }
+        { scale: 1, duration: 0.15, ease: "power2.inOut" }
       )
     }
   }, { scope: cardRef })

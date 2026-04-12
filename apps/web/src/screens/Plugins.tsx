@@ -372,30 +372,33 @@ function CustomMCPCard({ server, onDelete, onDiscover, onToggle }: {
     : server.healthStatus === 'unhealthy' ? '#EF4444' : 'rgba(255,255,255,0.25)'
 
   return (
-    <div className={`rounded-xl border transition-all duration-200 ${
-      server.enabled
-        ? "bg-[var(--surface-raised)] border-white/[0.12] shadow-[0_0_16px_rgba(0,0,0,0.3)]"
-        : "bg-[#0e0e0e] border-[#1a1a1a] hover:border-white/[0.12]"
-    }`}>
+    <div
+      className={`rounded-xl border transition-[background-color,border-color,box-shadow] duration-[180ms] ${
+        server.enabled
+          ? "border-white/[0.08] shadow-[0_0_16px_rgba(0,0,0,0.3)]"
+          : "border-white/[0.06] hover:border-white/[0.10]"
+      }`}
+      style={{ backgroundColor: "#1A1A1A", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)" }}
+    >
       <div className="flex items-center gap-3 p-3.5">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-bold flex-shrink-0 border bg-purple-500/10 text-purple-400 border-purple-500/20">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border bg-gold-500/[0.06] text-gold-500/60 border-gold-500/10">
           <Terminal className="w-4 h-4" />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold text-white/85 tracking-[-0.02em]">{server.name}</span>
+            <span className="text-[13px] font-semibold text-white/80 tracking-[-0.02em]">{server.name}</span>
             <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusColor }} />
             <span className="text-[9px] font-medium text-white/20 uppercase tracking-wider">
               {server.transport}
             </span>
             {toolCount > 0 && (
-              <span className="text-[9px] font-mono text-purple-400/60 bg-purple-500/[0.08] px-1.5 py-0.5 rounded border border-purple-500/15">
+              <span className="text-[9px] font-mono text-gold-500/60 bg-gold-500/[0.06] px-1.5 py-0.5 rounded border border-gold-500/10">
                 {toolCount} tools
               </span>
             )}
           </div>
-          <p className="text-[11px] text-white/30 mt-0.5 truncate font-mono">
+          <p className="text-[11px] text-white/25 mt-0.5 truncate font-mono">
             {server.transport === 'stdio'
               ? `${server.command} ${(server.args || []).join(' ')}`
               : server.url || ''}
@@ -406,7 +409,7 @@ function CustomMCPCard({ server, onDelete, onDiscover, onToggle }: {
           <button
             onClick={handleDiscover}
             disabled={discovering}
-            className="p-1.5 rounded-md text-white/20 hover:text-purple-400 hover:bg-purple-500/[0.08] transition-all"
+            className="p-1.5 rounded-md text-white/20 hover:text-gold-500/70 hover:bg-gold-500/[0.06] transition-[color,background-color] duration-[180ms]"
             title="Discover tools"
           >
             {discovering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
@@ -414,18 +417,18 @@ function CustomMCPCard({ server, onDelete, onDiscover, onToggle }: {
 
           <button
             onClick={() => onToggle(server._id, !server.enabled)}
-            className={`relative w-10 h-[22px] rounded-full transition-all duration-200 flex-shrink-0 ${
-              server.enabled ? "bg-purple-500/25" : "bg-white/[0.06]"
+            className={`relative w-10 h-[22px] rounded-full transition-[background-color] duration-[180ms] flex-shrink-0 ${
+              server.enabled ? "bg-gold-500/25" : "bg-white/[0.06]"
             }`}
           >
-            <div className={`absolute top-[2px] w-[18px] h-[18px] rounded-full transition-all duration-200 shadow-sm ${
-              server.enabled ? "left-[20px] bg-purple-400" : "left-[2px] bg-white/25"
+            <div className={`absolute top-[2px] w-[18px] h-[18px] rounded-full transition-[left,background-color] duration-[180ms] shadow-sm ${
+              server.enabled ? "left-[20px] bg-gold-500" : "left-[2px] bg-white/25"
             }`} />
           </button>
 
           <button
             onClick={() => setExpanded(e => !e)}
-            className="p-1 rounded-md text-white/15 hover:text-white/40 hover:bg-white/[0.04] transition-all"
+            className="p-1 rounded-md text-white/15 hover:text-white/40 hover:bg-white/[0.03] transition-[color,background-color] duration-[180ms]"
           >
             <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
           </button>
@@ -433,8 +436,7 @@ function CustomMCPCard({ server, onDelete, onDiscover, onToggle }: {
       </div>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-white/[0.06]">
-          {/* Discovered tools */}
+        <div className="px-4 pb-4 border-t border-white/[0.05]">
           {toolCount > 0 && (
             <div className="mt-3">
               <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/20 block mb-1.5">
@@ -443,10 +445,10 @@ function CustomMCPCard({ server, onDelete, onDiscover, onToggle }: {
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {server.discoveredTools!.map(tool => (
-                  <span key={tool.name} className="group relative px-2 py-0.5 rounded-md text-[10px] font-medium text-purple-300/50 bg-purple-500/[0.06] border border-purple-500/10">
+                  <span key={tool.name} className="group relative px-2 py-0.5 rounded-md text-[10px] font-medium text-gold-500/50 bg-gold-500/[0.04] border border-gold-500/10">
                     {tool.name}
                     {tool.description && (
-                      <span className="hidden group-hover:block absolute bottom-full left-0 mb-1 px-2 py-1 rounded bg-[#1a1a1a] border border-white/10 text-[9px] text-white/50 whitespace-nowrap z-10 max-w-[250px] truncate">
+                      <span className="hidden group-hover:block absolute bottom-full left-0 mb-1 px-2 py-1 rounded-lg bg-[#141414] border border-white/[0.08] text-[9px] text-white/50 whitespace-nowrap z-10 max-w-[250px] truncate shadow-elevation-2">
                         {tool.description}
                       </span>
                     )}
@@ -459,7 +461,7 @@ function CustomMCPCard({ server, onDelete, onDiscover, onToggle }: {
           <div className="mt-3 flex justify-end">
             <button
               onClick={() => onDelete(server._id)}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-red-400/60 hover:text-red-400 hover:bg-red-500/[0.08] transition-all"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-red-400/50 hover:text-red-400 hover:bg-red-500/[0.06] transition-[color,background-color] duration-[180ms]"
             >
               <Trash2 className="w-3 h-3" />
               Remove
@@ -525,7 +527,7 @@ function AddMCPServerForm({ onAdd }: { onAdd: (server: MCPServerData) => void })
     return (
       <button
         onClick={() => setOpen(true)}
-        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-white/[0.08] text-white/25 hover:text-white/50 hover:border-white/[0.15] hover:bg-white/[0.02] transition-all"
+        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl border border-dashed border-white/[0.08] text-white/25 hover:text-gold-500/60 hover:border-gold-500/20 hover:bg-gold-500/[0.02] transition-[color,border-color,background-color] duration-[180ms]"
       >
         <Plus className="w-4 h-4" />
         <span className="text-[13px] font-medium">Add Custom MCP Server</span>
@@ -534,7 +536,7 @@ function AddMCPServerForm({ onAdd }: { onAdd: (server: MCPServerData) => void })
   }
 
   return (
-    <div className="rounded-xl border border-purple-500/20 bg-[#0e0e0e] p-4 space-y-3">
+    <div className="rounded-xl border border-white/[0.08] p-4 space-y-3" style={{ backgroundColor: "#1A1A1A", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.03)" }}>
       <div className="flex items-center justify-between">
         <span className="text-[13px] font-semibold text-white/70">Add MCP Server</span>
         <button onClick={() => setOpen(false)} className="text-white/20 hover:text-white/40">
@@ -547,7 +549,7 @@ function AddMCPServerForm({ onAdd }: { onAdd: (server: MCPServerData) => void })
         <label className="text-[11px] text-white/30 font-medium block mb-1">Server Name <span className="text-red-400/50">*</span></label>
         <input
           value={name} onChange={e => setName(e.target.value)} placeholder="My MCP Server"
-          className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors"
+          className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-gold-500/30 transition-colors"
         />
       </div>
 
@@ -558,10 +560,10 @@ function AddMCPServerForm({ onAdd }: { onAdd: (server: MCPServerData) => void })
           {(["stdio", "http-sse", "streamable-http"] as const).map(t => (
             <button
               key={t} onClick={() => setTransport(t)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-[color,background-color,border-color] duration-[180ms] ${
                 transport === t
-                  ? "bg-purple-500/15 text-purple-300 border border-purple-500/25"
-                  : "text-white/25 border border-white/[0.08] hover:border-white/[0.15]"
+                  ? "bg-gold-500/[0.08] text-gold-500/80 border border-gold-500/20"
+                  : "text-white/25 border border-white/[0.06] hover:border-white/[0.12]"
               }`}
             >
               {t === 'stdio' ? 'stdio' : t === 'http-sse' ? 'HTTP+SSE' : 'Streamable HTTP'}
@@ -577,14 +579,14 @@ function AddMCPServerForm({ onAdd }: { onAdd: (server: MCPServerData) => void })
             <label className="text-[11px] text-white/30 font-medium block mb-1">Command <span className="text-red-400/50">*</span></label>
             <input
               value={command} onChange={e => setCommand(e.target.value)} placeholder="npx"
-              className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors font-mono"
+              className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-gold-500/30 transition-colors font-mono"
             />
           </div>
           <div>
             <label className="text-[11px] text-white/30 font-medium block mb-1">Arguments <span className="text-white/15">(space-separated)</span></label>
             <input
               value={args} onChange={e => setArgs(e.target.value)} placeholder="-y @modelcontextprotocol/server-github"
-              className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors font-mono"
+              className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-gold-500/30 transition-colors font-mono"
             />
           </div>
         </>
@@ -596,7 +598,7 @@ function AddMCPServerForm({ onAdd }: { onAdd: (server: MCPServerData) => void })
           <label className="text-[11px] text-white/30 font-medium block mb-1">Server URL <span className="text-red-400/50">*</span></label>
           <input
             value={url} onChange={e => setUrl(e.target.value)} placeholder="https://mcp.example.com/api"
-            className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors font-mono"
+            className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-gold-500/30 transition-colors font-mono"
           />
         </div>
       )}
@@ -610,7 +612,7 @@ function AddMCPServerForm({ onAdd }: { onAdd: (server: MCPServerData) => void })
           value={envVars} onChange={e => setEnvVars(e.target.value)}
           placeholder={"GITHUB_TOKEN=ghp_...\nAPI_KEY=sk-..."}
           rows={3}
-          className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[12px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors font-mono resize-none"
+          className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[12px] text-white/70 placeholder:text-white/15 outline-none focus:border-gold-500/30 transition-colors font-mono resize-none"
         />
       </div>
 
@@ -625,7 +627,7 @@ function AddMCPServerForm({ onAdd }: { onAdd: (server: MCPServerData) => void })
         </button>
         <button
           onClick={handleSubmit} disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[12px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/25 hover:bg-purple-500/25 disabled:opacity-40 transition-all"
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[12px] font-semibold bg-gold-500/[0.08] text-gold-500 border border-gold-500/20 hover:bg-gold-500/[0.15] disabled:opacity-40 transition-[background-color,opacity] duration-[180ms]"
         >
           {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
           Add Server
@@ -842,8 +844,8 @@ export default function PluginsPage() {
           {!loading && (!activeCategory || activeCategory === 'Custom') && (
             <div className="max-w-2xl mx-auto mt-10">
               <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-                  <Terminal className="w-4 h-4 text-purple-400/70" />
+                <div className="w-8 h-8 rounded-lg bg-gold-500/[0.06] border border-gold-500/10 flex items-center justify-center">
+                  <Terminal className="w-4 h-4 text-gold-500/60" />
                 </div>
                 <div>
                   <h2 className="text-[15px] font-semibold text-white/80 tracking-[-0.02em]">Custom MCP Servers</h2>

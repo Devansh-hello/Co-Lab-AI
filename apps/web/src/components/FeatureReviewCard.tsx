@@ -49,7 +49,7 @@ export function FeatureReviewCard({ data, onProceed, onStop, readOnly }: Feature
     if (items.length > 0) {
       gsap.fromTo(items,
         { opacity: 0, y: 8 },
-        { opacity: 1, y: 0, duration: 0.3, stagger: 0.04, delay: 0.08, ease: "power2.out" }
+        { opacity: 1, y: 0, duration: 0.38, stagger: 0.05, delay: 0.12, ease: "power2.out" }
       )
     }
   }, { scope: cardRef })
@@ -119,7 +119,7 @@ export function FeatureReviewCard({ data, onProceed, onStop, readOnly }: Feature
                       {/* Header: dot + button in one row */}
                       <button
                         onClick={group.toggle}
-                        className="accordion-trigger w-full flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-all duration-150"
+                        className="accordion-trigger w-full flex items-center gap-3 px-3 py-2.5 cursor-pointer"
                         style={{
                           borderRadius: "8px",
                           border: group.expanded ? "1px solid rgba(255,255,255,0.10)" : "1px solid transparent",

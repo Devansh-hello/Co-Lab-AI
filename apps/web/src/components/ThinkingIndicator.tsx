@@ -29,15 +29,15 @@ export default function ThinkingIndicator({ agent, message, compact = false }: T
 
   useGSAP(() => {
     if (orbit1.current) {
-      gsap.to(orbit1.current, { rotation: 360, duration: 3, repeat: -1, ease: 'none' });
+      gsap.to(orbit1.current, { rotation: 360, duration: 4.5, repeat: -1, ease: 'none' });
     }
     if (orbit2.current) {
-      gsap.to(orbit2.current, { rotation: -360, duration: 5, repeat: -1, ease: 'none' });
+      gsap.to(orbit2.current, { rotation: -360, duration: 6, repeat: -1, ease: 'none' });
     }
     if (containerRef.current) {
       gsap.fromTo(containerRef.current,
         { opacity: 0, y: 6 },
-        { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
+        { opacity: 1, y: 0, duration: 0.38, ease: 'power2.out' }
       );
     }
   }, []);

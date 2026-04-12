@@ -81,9 +81,9 @@ export function CreateProjectModal({ open, onclose }: ProjectModalProps) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onclose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-overlay-in" onClick={onclose}>
       <div
-        className="w-[92%] max-w-md bg-[#0c0c0c] border border-white/[0.08] rounded-xl p-5 md:p-6 flex flex-col gap-5 animate-spring-in shadow-elevation-3"
+        className="w-[92%] max-w-md bg-[#0c0c0c] border border-white/[0.08] rounded-xl p-5 md:p-6 flex flex-col gap-5 animate-popover-in shadow-elevation-3"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -143,14 +143,14 @@ export function CreateProjectModal({ open, onclose }: ProjectModalProps) {
           <button
             onClick={onclose}
             disabled={loading}
-            className="flex-1 h-10 rounded-lg border border-white/[0.1] text-white/50 hover:text-white hover:border-white/20 hover:bg-white/[0.04] font-semibold text-sm transition-all disabled:opacity-50 cursor-pointer"
+            className="flex-1 h-10 rounded-lg border border-white/[0.1] text-white/50 hover:text-white hover:border-white/20 hover:bg-white/[0.04] font-semibold text-sm transition-[color,border-color,background-color] duration-[180ms] disabled:opacity-50 cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleCreate}
             disabled={loading}
-            className="flex-1 h-10 rounded-lg bg-gold-500 hover:bg-gold-400 text-black font-bold text-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            className="flex-1 h-10 rounded-lg bg-gold-500 hover:bg-gold-400 text-black font-bold text-sm transition-[background-color,opacity] duration-[180ms] disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <>
