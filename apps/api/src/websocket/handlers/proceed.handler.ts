@@ -3,8 +3,13 @@
  *
  * The main build/review/test/feedback pipeline. Invoked when the user
  * confirms the plan and triggers code generation. This is the largest
- * handler — it orchestrates parallel agent invocations, quality scoring,
+ * handler -- it orchestrates parallel agent invocations, quality scoring,
  * and the feedback loop.
+ *
+ * Integrations:
+ *   - Feature Tracking: syncs features from plan, advances lifecycle status
+ *   - Guardrails: validates agent output for security/format/compatibility
+ *   - Checkpoints: saves pipeline state at each phase for resume/rewind
  */
 
 import type { ConnectionContext } from "../types.js";
@@ -18,6 +23,9 @@ import { ReviewAgent } from "../../agents/review.agent.js";
 import { TestAgent } from "../../agents/test.agent.js";
 import { FeedbackFixAgent } from "../../agents/feedback.agent.js";
 import { computeQualityScore } from "../../agents/quality-scorer.js";
+import { runCodeGuardrails } from "../../services/guardrails.js";
+import { saveCheckpoint } from "../../services/checkpoint.js";
+import { syncFeaturesFromPlan, advanceFeatures, updateFeatureQuality, getFeatureSummary } from "../../services/feature-tracker.js";
 import type { CodeMap } from "../../agents/types.js";
 
 export async function handleProceed(
@@ -56,7 +64,7 @@ export async function handleProceed(
         return;
     }
 
-    // ── Send complexity score ───────────────────────────────
+    // -- Send complexity score --
     const complexity = taskFile.complexity || { overall: 3 };
     messageDoc.complexityScore = complexity.overall;
     emitEvent(ctx, {
@@ -67,7 +75,27 @@ export async function handleProceed(
 
     const isDirect = taskFile.intent === 'debug' && complexity.overall <= 2;
 
-    // ── Code Agents (parallel) ──────────────────────────────
+    // -- Feature Tracking: sync features from plan --
+    try {
+        const featureIds = await syncFeaturesFromPlan(projectId, pipeline.userId, taskFile, messageDoc._id.toString());
+        if (featureIds.length > 0) {
+            await advanceFeatures(projectId, 'in_progress', 'Code generation started');
+            const summary = await getFeatureSummary(projectId);
+            const { Feature } = await import("../../models/index.js");
+            const features = await Feature.find({ projectId }).lean();
+            emitEvent(ctx, { type: 'feature_update', features, summary });
+        }
+    } catch (err: any) {
+        console.error("[proceed] Feature sync failed (non-blocking):", err.message);
+    }
+
+    // -- Checkpoint: save after planning --
+    try {
+        const cpId = await saveCheckpoint(ctx, 'planning', { label: 'After planning' });
+        emitEvent(ctx, { type: 'checkpoint_saved', checkpointId: cpId, phase: 'planning', label: 'After planning' });
+    } catch { /* non-critical */ }
+
+    // -- Code Agents (parallel) --
     let frontendResult: CodeMap | null = pipeline.frontendResult || null;
     let backendResult: CodeMap | null = pipeline.backendResult || null;
 
@@ -127,7 +155,35 @@ export async function handleProceed(
     pipeline.backendResult = backendResult;
     await messageDoc.save();
 
-    // ── Review Agent ────────────────────────────────────────
+    // -- Guardrails: validate agent output --
+    if (frontendResult) {
+        const feReport = runCodeGuardrails(frontendResult, 'frontend', taskFile, backendResult);
+        emitEvent(ctx, { type: 'guardrail_report', side: 'frontend', report: feReport });
+        if (!feReport.passed) {
+            emitEvent(ctx, {
+                type: 'status', agent: 'Guardrails',
+                message: `Frontend: ${feReport.criticalFailures.length} critical issue(s) detected`,
+            });
+        }
+    }
+    if (backendResult) {
+        const beReport = runCodeGuardrails(backendResult, 'backend', taskFile, frontendResult);
+        emitEvent(ctx, { type: 'guardrail_report', side: 'backend', report: beReport });
+        if (!beReport.passed) {
+            emitEvent(ctx, {
+                type: 'status', agent: 'Guardrails',
+                message: `Backend: ${beReport.criticalFailures.length} critical issue(s) detected`,
+            });
+        }
+    }
+
+    // -- Checkpoint: save after building --
+    try {
+        const cpId = await saveCheckpoint(ctx, 'building', { label: 'After code generation' });
+        emitEvent(ctx, { type: 'checkpoint_saved', checkpointId: cpId, phase: 'building', label: 'After code generation' });
+    } catch { /* non-critical */ }
+
+    // -- Review Agent --
     emitEvent(ctx, {
         type: 'status', agent: 'Review Agent',
         message: 'Reviewing code and checking API compatibility...',
@@ -140,7 +196,18 @@ export async function handleProceed(
     await messageDoc.save();
     emitEvent(ctx, { type: 'review_complete', content: reviewResult });
 
-    // ── Test Agent ──────────────────────────────────────────
+    // -- Feature Tracking: advance to in_review --
+    try {
+        await advanceFeatures(projectId, 'in_review', 'Code review completed');
+    } catch { /* non-critical */ }
+
+    // -- Checkpoint: save after review --
+    try {
+        const cpId = await saveCheckpoint(ctx, 'reviewing', { reviewResult, label: 'After review' });
+        emitEvent(ctx, { type: 'checkpoint_saved', checkpointId: cpId, phase: 'reviewing', label: 'After review' });
+    } catch { /* non-critical */ }
+
+    // -- Test Agent --
     pipeline.phase = 'testing';
     emitEvent(ctx, {
         type: 'status', agent: 'Test Agent',
@@ -154,7 +221,13 @@ export async function handleProceed(
     await messageDoc.save();
     emitEvent(ctx, { type: 'test_complete', content: testResult });
 
-    // ── Quality Scoring ─────────────────────────────────────
+    // -- Checkpoint: save after testing --
+    try {
+        const cpId = await saveCheckpoint(ctx, 'testing', { testResult, reviewResult, label: 'After testing' });
+        emitEvent(ctx, { type: 'checkpoint_saved', checkpointId: cpId, phase: 'testing', label: 'After testing' });
+    } catch { /* non-critical */ }
+
+    // -- Quality Scoring --
     const quality = computeQualityScore(reviewResult, testResult, taskFile);
     messageDoc.qualityScore = { grade: quality.grade, metrics: quality.metrics, timestamp: new Date() };
     await messageDoc.save();
@@ -167,7 +240,12 @@ export async function handleProceed(
         needsFeedback: quality.needsFeedback,
     });
 
-    // ── Feedback Loop (max 1 iteration) ─────────────────────
+    // -- Feature Tracking: update quality scores --
+    try {
+        await updateFeatureQuality(projectId, quality.grade, quality.overall);
+    } catch { /* non-critical */ }
+
+    // -- Feedback Loop (max 1 iteration) --
     if (quality.needsFeedback && pipeline.feedbackIteration < 1 && !isDirect) {
         pipeline.phase = 'feedback';
         pipeline.feedbackIteration++;
@@ -193,7 +271,7 @@ export async function handleProceed(
             type: 'feedback_iteration',
             iteration: pipeline.feedbackIteration,
             issues: allIssues.slice(0, 5),
-            message: `Quality grade ${quality.grade} — fixing ${allIssues.length} issues${skippedFrontend ? ' (frontend OK, skipping)' : ''}${skippedBackend ? ' (backend OK, skipping)' : ''}...`,
+            message: `Quality grade ${quality.grade} -- fixing ${allIssues.length} issues${skippedFrontend ? ' (frontend OK, skipping)' : ''}${skippedBackend ? ' (backend OK, skipping)' : ''}...`,
         });
 
         const fixPromises: Promise<void>[] = [];
@@ -256,7 +334,7 @@ export async function handleProceed(
         }
     }
 
-    // ── Record Quality Trend ─────────────────────────────
+    // -- Record Quality Trend --
     const durationMs = Date.now() - pipelineStartTime;
     recordQualityTrend({
         projectId,
@@ -283,8 +361,7 @@ export async function handleProceed(
         }
     }).catch(() => {});
 
-    // ── Save Snapshot + Project Memory ────────────────────
-    // Accumulate quality feedback into project memory with timestamps for staleness tracking
+    // -- Save Snapshot + Project Memory --
     const feedbackItems: Array<{ value: string; createdAt: Date; reinforcements: number }> = [];
     const criticalIssues = reviewResult?.codeReview?.criticalIssues || [];
     const mismatches = reviewResult?.apiCompatibility?.mismatches || [];
@@ -303,8 +380,6 @@ export async function handleProceed(
         })));
     }
 
-    /* For iterate/debug: merge new files with existing snapshot (preserves unchanged files).
-     * For build: use agent output as-is (complete fresh code). */
     const isPartialUpdate = taskFile.intent === 'iterate' || taskFile.intent === 'debug';
     const mergedFrontend = isPartialUpdate && snapshot?.frontendCode && frontendResult
         ? { ...snapshot.frontendCode, ...frontendResult }
@@ -330,6 +405,25 @@ export async function handleProceed(
 
     await Project.findByIdAndUpdate(projectId, { updatedAt: new Date() });
 
+    // -- Feature Tracking: advance to approved --
+    try {
+        await advanceFeatures(projectId, 'approved', 'Pipeline completed successfully');
+        const summary = await getFeatureSummary(projectId);
+        const { Feature } = await import("../../models/index.js");
+        const features = await Feature.find({ projectId }).lean();
+        emitEvent(ctx, { type: 'feature_update', features, summary });
+    } catch { /* non-critical */ }
+
+    // -- Final Checkpoint: save completed state --
+    try {
+        const cpId = await saveCheckpoint(ctx, 'done', {
+            reviewResult, testResult,
+            qualityScore: quality,
+            label: `Completed (Grade ${quality.grade})`,
+        });
+        emitEvent(ctx, { type: 'checkpoint_saved', checkpointId: cpId, phase: 'done', label: `Completed (Grade ${quality.grade})` });
+    } catch { /* non-critical */ }
+
     messageDoc.status = 'completed';
     await messageDoc.save();
 
@@ -353,4 +447,3 @@ export async function handleProceed(
     ctx.pipelineAbort = null;
     ctx.pipelineRunId = null;
 }
-

@@ -22,6 +22,8 @@ import { tursoRouter } from "./turso.routes.js";
 import { permissionRouter } from "./permission.routes.js";
 import { mcpRouter } from "./mcp.routes.js";
 import { qualityTrendRouter } from "./quality-trend.routes.js";
+import { featureRouter } from "./feature.routes.js";
+import { checkpointRouter } from "./checkpoint.routes.js";
 
 /* Strict limiter for auth endpoints (brute-force protection) */
 const authLimiter = rateLimit({
@@ -59,3 +61,5 @@ apiRouter.use(tursoRouter);
 apiRouter.use(permissionRouter);
 apiRouter.use(mcpRouter);
 apiRouter.use(qualityTrendRouter);
+apiRouter.use(featureRouter);
+apiRouter.use(checkpointRouter);

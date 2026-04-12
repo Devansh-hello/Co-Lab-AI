@@ -73,6 +73,53 @@ export interface PendingPermission {
   options: string[];
 }
 
+export interface PRDData {
+  projectName: string;
+  vision: string;
+  targetUsers: string;
+  features: Array<{
+    name: string;
+    description: string;
+    priority: 'P0' | 'P1' | 'P2';
+    userStories: string[];
+    acceptanceCriteria: string[];
+  }>;
+  technicalConstraints: string[];
+  successMetrics: string[];
+  outOfScope: string[];
+  mvpDefinition: string;
+}
+
+export interface FeatureData {
+  _id: string;
+  name: string;
+  description?: string;
+  status: string;
+  priority: string;
+  qualityScore?: { grade: string; overall: number };
+  acceptanceCriteria?: string[];
+  statusHistory?: Array<{ from: string; to: string; changedAt: string; reason: string }>;
+}
+
+export interface GuardrailReportData {
+  passed: boolean;
+  results: Array<{
+    name: string;
+    pass: boolean;
+    score: number;
+    reason: string;
+    severity: string;
+  }>;
+  overallScore: number;
+  criticalFailures: string[];
+}
+
+export interface CheckpointData {
+  checkpointId: string;
+  phase: string;
+  label: string;
+}
+
 export interface WebSocketState {
   isConnected: boolean;
   isGenerating: boolean;
@@ -93,6 +140,11 @@ export interface WebSocketState {
   feedbackIteration: number;
   pendingPermission?: PendingPermission;
   transportMode: 'websocket' | 'sse';
+  prdData?: PRDData;
+  features?: FeatureData[];
+  featureSummary?: Record<string, number>;
+  checkpoints?: CheckpointData[];
+  guardrailReports?: { frontend?: GuardrailReportData; backend?: GuardrailReportData };
 }
 
 // ─── Constants ──────────────────────────────────────────────────
@@ -693,6 +745,50 @@ export const useWebSocket = (projectId: string) => {
         });
         break;
 
+      case 'prd':
+        setWsState(prev => ({ ...prev, prdData: data.content }));
+        addMessage({
+          sender: 'agent',
+          username: 'Product Manager',
+          content: `**Product Requirements Document** generated for **${data.content?.projectName || 'Project'}**`,
+          type: 'text',
+          data: { prd: data.content },
+        });
+        break;
+
+      case 'feature_update':
+        setWsState(prev => ({
+          ...prev,
+          features: data.features,
+          featureSummary: data.summary,
+        }));
+        break;
+
+      case 'checkpoint_saved':
+        setWsState(prev => ({
+          ...prev,
+          checkpoints: [...(prev.checkpoints || []), { checkpointId: data.checkpointId, phase: data.phase, label: data.label }],
+        }));
+        break;
+
+      case 'guardrail_report':
+        setWsState(prev => ({
+          ...prev,
+          guardrailReports: {
+            ...prev.guardrailReports,
+            [data.side]: data.report,
+          },
+        }));
+        if (!data.report.passed) {
+          addMessage({
+            sender: 'agent',
+            username: 'Guardrails',
+            content: `**${data.side} guardrail failures:** ${data.report.criticalFailures.join('; ')}`,
+            type: 'status',
+          });
+        }
+        break;
+
       case 'error':
         setWsState(prev => ({
           ...prev,
@@ -919,6 +1015,17 @@ export const useWebSocket = (projectId: string) => {
     }));
   }, [safeSend]);
 
+  const resumeCheckpoint = useCallback((checkpointId: string) => {
+    safeSend({ type: 'resume_checkpoint', checkpointId, projectId });
+    setWsState(prev => ({
+      ...prev,
+      isGenerating: true,
+      flowStage: 'generating',
+      currentStatus: 'Resuming from checkpoint...',
+      currentAgent: 'System',
+    }));
+  }, [safeSend, projectId]);
+
   const cancelPipeline = useCallback(() => {
     safeSend({ type: 'cancel' });
     setWsState(prev => ({
@@ -955,6 +1062,7 @@ export const useWebSocket = (projectId: string) => {
     sendQAComplete,
     sendProceed,
     sendPermissionResponse,
+    resumeCheckpoint,
     cancelPipeline,
     setRawMessageCallback,
     connect,

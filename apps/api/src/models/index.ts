@@ -34,3 +34,5 @@ export { PermissionRule } from "./permission-rule.model.js";
 export { MCPServer } from "./mcp-server.model.js";
 export { PipelineQueue } from "./pipeline-queue.model.js";
 export { QualityTrend } from "./quality-trend.model.js";
+export { Feature } from "./feature.model.js";
+export { Checkpoint } from "./checkpoint.model.js";

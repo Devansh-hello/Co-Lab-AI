@@ -38,6 +38,7 @@ import { handleQAComplete } from "./handlers/qa.handler.js";
 import { handleProceed } from "./handlers/proceed.handler.js";
 import { handleResume } from "./handlers/resume.handler.js";
 import { handlePermissionResponse } from "./handlers/permission.handler.js";
+import { handleResumeCheckpoint } from "./handlers/checkpoint.handler.js";
 
 // ─── WebSocket Setup ────────────────────────────────────────────
 
@@ -225,6 +226,10 @@ export function setupWebSocket(server: Server) {
 
                     case 'permission_response':
                         await handlePermissionResponse(parsed, ctx);
+                        break;
+
+                    case 'resume_checkpoint':
+                        await handleResumeCheckpoint(parsed, ctx);
                         break;
                 }
             } catch (error: any) {

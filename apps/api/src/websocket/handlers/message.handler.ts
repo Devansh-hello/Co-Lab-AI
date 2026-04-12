@@ -11,8 +11,10 @@ import { Message, Project, ProjectSnapshot, PipelineRun } from "../../models/ind
 import { getUserSettings, getMissingProviders } from "../../services/user-settings.js";
 import { getPluginContext } from "../../services/plugin-context.js";
 import { UnderstandingAgent } from "../../agents/understanding.agent.js";
+import { PRDAgent } from "../../agents/prd.agent.js";
 import { handleProceed } from "./proceed.handler.js";
 import { enqueuePipeline } from "../../services/pipeline-queue.js";
+import { saveCheckpoint } from "../../services/checkpoint.js";
 import type { CodeMap, ProjectSnapshotData } from "../../agents/types.js";
 
 // ─── Retry Detection ────────────────────────────────────────────
@@ -163,6 +165,28 @@ export async function handleNewMessage(
     } catch (err: any) {
         console.error("[message] Failed to create PipelineRun:", err.message);
     }
+
+    // ── Init Mode: Generate PRD for new projects (no existing snapshot) ──
+    const isNewProject = !snapshot;
+    if (isNewProject) {
+        emitEvent(ctx, {
+            type: 'status', agent: 'Product Manager',
+            message: 'Generating product requirements document...',
+        });
+
+        try {
+            const prd = await PRDAgent(userMessage, understanding.projectName, preCheckSettings);
+            emitEvent(ctx, { type: 'prd', content: prd });
+        } catch (err: any) {
+            console.error("[message] PRD generation failed (non-blocking):", err.message);
+        }
+    }
+
+    // ── Save checkpoint after understanding phase ──
+    try {
+        const cpId = await saveCheckpoint(ctx, 'understanding', { label: 'After understanding' });
+        emitEvent(ctx, { type: 'checkpoint_saved', checkpointId: cpId, phase: 'understanding', label: 'After understanding' });
+    } catch { /* non-critical */ }
 
     emitEvent(ctx, {
         type: 'understanding',

@@ -76,7 +76,11 @@ export type ServerEvent =
     | { type: 'all_complete'; message: string; messageId: string; qualityGrade: string; feedbackIterations: number; seq?: number }
     | { type: 'error'; message: string; seq?: number }
     | { type: 'cancelled'; message: string; seq?: number }
-    | { type: 'permission_request'; requestId: string; resource: string; message: string; options: string[]; seq?: number };
+    | { type: 'permission_request'; requestId: string; resource: string; message: string; options: string[]; seq?: number }
+    | { type: 'prd'; content: any; seq?: number }
+    | { type: 'feature_update'; features: any[]; summary: Record<string, number>; seq?: number }
+    | { type: 'checkpoint_saved'; checkpointId: string; phase: string; label: string; seq?: number }
+    | { type: 'guardrail_report'; side: string; report: any; seq?: number };
 
 // ─── Wire Protocol: Client -> Server ────────────────────────────
 
@@ -87,7 +91,8 @@ export type ClientMessage =
     | { type: 'proceed'; proceed: boolean; projectId?: string }
     | { type: 'resume'; sessionId: string; lastSeq: number; projectId?: string }
     | { type: 'cancel' }
-    | { type: 'permission_response'; requestId: string; decision: PermissionDecision };
+    | { type: 'permission_response'; requestId: string; decision: PermissionDecision }
+    | { type: 'resume_checkpoint'; checkpointId: string; projectId: string };
 
 export type PermissionDecision = 'allow' | 'deny' | 'allow_always';
 
@@ -100,6 +105,7 @@ export const PERSISTABLE_EVENT_TYPES = [
     'complexity_score', 'quality_score', 'feedback_iteration',
     'token_usage', 'all_complete', 'error', 'cancelled',
     'permission_request',
+    'prd', 'feature_update', 'checkpoint_saved', 'guardrail_report',
 ] as const;
 
 /** Stream events are buffered but only persisted at throttled intervals */

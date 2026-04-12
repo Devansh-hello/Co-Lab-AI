@@ -18,6 +18,10 @@ import { useWebSocket } from "../hooks/useWebSocket"
 import { TestResultsCard } from "../components/TestResultsCard"
 import { QAPromptBox } from "../components/QAPromptBox"
 import { QualityScoreCard } from "../components/QualityScoreCard"
+import { FeatureTrackerCard } from "../components/FeatureTrackerCard"
+import { GuardrailReportCard } from "../components/GuardrailReportCard"
+import { CheckpointBar } from "../components/CheckpointBar"
+import { PRDCard } from "../components/PRDCard"
 import MainLoadingScreen from "../components/MainLoadingScreen"
 import {
   WifiOff,
@@ -76,17 +80,17 @@ function PipelineStatusBar({ currentAgent, completedAgents, currentStatus, token
     if (!barRef.current) return
     const count = completedAgents.length
     if (count > prevAgentCount.current) {
-      // Flash the newly completed badge
+      // Flash the newly completed badge — subtle 1.04 scale (not 1.15)
       const badges = barRef.current.querySelectorAll(".pipe-badge")
       const newBadge = badges[count - 1]
       if (newBadge) {
-        gsap.fromTo(newBadge, { scale: 1.15 }, { scale: 1, duration: 0.3, ease: "power2.out" })
+        gsap.fromTo(newBadge, { scale: 1.04 }, { scale: 1, duration: 0.38, ease: "power2.out" })
       }
       // Animate the connecting line
       const lines = barRef.current.querySelectorAll(".pipe-line")
       const newLine = lines[count - 1]
       if (newLine) {
-        gsap.fromTo(newLine, { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 0.15, duration: 0.3, ease: "power2.out" })
+        gsap.fromTo(newLine, { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 0.15, duration: 0.38, ease: "power2.out" })
       }
     }
     prevAgentCount.current = count
@@ -104,7 +108,7 @@ function PipelineStatusBar({ currentAgent, completedAgents, currentStatus, token
           return (
             <div key={agent} className="flex items-center">
               <div
-                className={`pipe-badge flex items-center gap-1.5 px-1.5 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all whitespace-nowrap tracking-[-0.02em]
+                className={`pipe-badge flex items-center gap-1.5 px-1.5 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-[background-color,border-color,box-shadow,opacity] duration-[180ms] whitespace-nowrap tracking-[-0.02em]
                   ${isActive
                     ? "bg-[#1A1A1A] border border-white/[0.12]"
                     : isCompleted
@@ -158,16 +162,16 @@ function FeedbackCard({ iteration, issues }: { iteration: number; issues: string
 
   useEffect(() => {
     if (!cardRef.current) return
-    // Card entrance
-    gsap.fromTo(cardRef.current, { opacity: 0, y: 12, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.3, ease: "power2.out" })
-    // Stagger issues
+    // Card entrance — matches --duration-slow (0.38s)
+    gsap.fromTo(cardRef.current, { opacity: 0, y: 12, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.38, ease: "power2.out" })
+    // Stagger issues — unified 0.05s stagger, 0.12s delay
     const items = cardRef.current.querySelectorAll(".fb-issue")
     if (items.length > 0) {
-      gsap.fromTo(items, { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.25, stagger: 0.06, delay: 0.15, ease: "power2.out" })
+      gsap.fromTo(items, { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.38, stagger: 0.05, delay: 0.12, ease: "power2.out" })
     }
-    // Orbit spin
+    // Orbit spin — matches breathe-cycle rhythm (4.5s = 1.5× of 3s)
     if (orbitRef.current) {
-      gsap.to(orbitRef.current, { rotation: 360, duration: 4, repeat: -1, ease: "none" })
+      gsap.to(orbitRef.current, { rotation: 360, duration: 4.5, repeat: -1, ease: "none" })
     }
   }, [])
 
@@ -325,10 +329,10 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
     requestAnimationFrame(() => {
       const tl = gsap.timeline({ defaults: { ease: "power2.out" } })
       if (sidebarWrapRef.current) {
-        tl.to(sidebarWrapRef.current, { opacity: 1, x: 0, duration: 0.4 }, 0)
+        tl.to(sidebarWrapRef.current, { opacity: 1, x: 0, duration: 0.38 }, 0)
       }
       if (chatAreaRef.current) {
-        tl.to(chatAreaRef.current, { opacity: 1, y: 0, duration: 0.45 }, 0.05)
+        tl.to(chatAreaRef.current, { opacity: 1, y: 0, duration: 0.38 }, 0.05)
       }
     })
   }, [isLoading])
@@ -528,7 +532,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                 onClick={() => latestFrontendFiles && setPreviewOpen(true)}
                 disabled={!latestFrontendFiles}
                 title={latestFrontendFiles ? "Open IDE" : "Generate a project first"}
-                className={`flex items-center gap-2 px-3 py-1 rounded-lg text-[13px] font-semibold border transition-all tracking-[-0.02em] ${
+                className={`flex items-center gap-2 px-3 py-1 rounded-lg text-[13px] font-semibold border transition-[color,background-color,border-color,box-shadow] duration-[180ms] tracking-[-0.02em] ${
                   latestFrontendFiles
                     ? "text-white/90 bg-gold-500/[0.08] hover:bg-gold-500/[0.12] border-gold-500/20 hover:border-gold-500/35 shadow-[0_0_12px_rgba(230,179,62,0.06)]"
                     : "text-white/10 bg-transparent border-white/[0.06] cursor-not-allowed"
@@ -570,7 +574,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                         <button
                           key={hint}
                           onClick={() => sendMessage(hint)}
-                          className="px-3.5 py-2 rounded-xl text-[13px] font-medium text-white/50 bg-white/[0.03] border border-white/[0.10] hover:border-gold-500/30 hover:text-gold-500/80 hover:bg-gold-500/[0.05] transition-all"
+                          className="px-3.5 py-2 rounded-xl text-[13px] font-medium text-white/50 bg-white/[0.03] border border-white/[0.10] hover:border-gold-500/30 hover:text-gold-500/80 hover:bg-gold-500/[0.05] transition-[color,border-color,background-color] duration-[180ms]"
                         >
                           {hint}
                         </button>
@@ -592,7 +596,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                               <div className="flex-1 min-w-0">
                                 <button
                                   onClick={() => setUnderstandingExpanded(prev => prev === message.id ? null : message.id)}
-                                  className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 cursor-pointer"
+                                  className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm cursor-pointer"
                                   style={{
                                     borderRadius: "8px",
                                     border: understandingExpanded === message.id ? "1px solid rgba(255,255,255,0.10)" : "1px solid transparent",
@@ -637,7 +641,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                               <div key="qa-collapsed" className="w-full">
                                 <button
                                   onClick={() => setQaCollapsed(false)}
-                                  className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 cursor-pointer"
+                                  className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm cursor-pointer"
                                   style={{ borderRadius: "8px", border: "1px solid transparent", backgroundColor: "transparent", color: "rgba(255,255,255,0.45)" }}
                                 >
                                   <Check className="w-4 h-4 text-gold-500/50 flex-shrink-0" />
@@ -678,7 +682,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                           <div key={message.id} className="animate-spring-in w-full">
                             <button
                               onClick={() => setQaSummaryExpanded(e => !e)}
-                              className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 cursor-pointer"
+                              className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm cursor-pointer"
                               style={{
                                 borderRadius: "8px",
                                 border: qaSummaryExpanded ? "1px solid rgba(255,255,255,0.10)" : "1px solid transparent",
@@ -751,7 +755,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                             <div key={message.id} className="animate-spring-in w-full">
                               <button
                                 onClick={() => setPlanExpanded(e => !e)}
-                                className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm transition-all duration-150 cursor-pointer"
+                                className="accordion-trigger w-full flex items-center gap-2 px-3 py-2 text-sm cursor-pointer"
                                 style={{
                                   borderRadius: "8px",
                                   border: planExpanded ? "1px solid rgba(255,255,255,0.10)" : "1px solid transparent",
@@ -927,7 +931,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                     <div className="flex justify-center">
                       <button
                         onClick={handleRetry}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500/[0.06] hover:bg-gold-500/[0.10] border border-gold-500/20 hover:border-gold-500/35 text-gold-500/70 hover:text-gold-500 text-[13px] font-semibold tracking-[-0.02em] transition-all"
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500/[0.06] hover:bg-gold-500/[0.10] border border-gold-500/20 hover:border-gold-500/35 text-gold-500/70 hover:text-gold-500 text-[13px] font-semibold tracking-[-0.02em] transition-[color,background-color,border-color] duration-[180ms]"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         {retryInfo.label}
@@ -947,6 +951,39 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                   currentStatus={wsState.currentStatus}
                   tokenCount={totalTokensDisplay}
                 />
+              )}
+
+              {/* Checkpoint resume bar */}
+              {wsState.checkpoints && wsState.checkpoints.length > 0 && (
+                <div className="w-full max-w-3xl">
+                  <CheckpointBar
+                    checkpoints={wsState.checkpoints}
+                    onResumeCheckpoint={resumeCheckpoint}
+                    isGenerating={wsState.isGenerating}
+                  />
+                </div>
+              )}
+
+              {/* Guardrail reports (inline, compact) */}
+              {wsState.guardrailReports && (
+                <div className="w-full max-w-3xl space-y-1.5">
+                  {wsState.guardrailReports.frontend && (
+                    <GuardrailReportCard side="frontend" report={wsState.guardrailReports.frontend} />
+                  )}
+                  {wsState.guardrailReports.backend && (
+                    <GuardrailReportCard side="backend" report={wsState.guardrailReports.backend} />
+                  )}
+                </div>
+              )}
+
+              {/* Feature tracker */}
+              {wsState.features && wsState.features.length > 0 && wsState.featureSummary && (
+                <div className="w-full max-w-3xl">
+                  <FeatureTrackerCard
+                    features={wsState.features}
+                    summary={wsState.featureSummary}
+                  />
+                </div>
               )}
 
               <div className="flex items-center gap-2 w-full max-w-3xl mb-4">
