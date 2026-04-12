@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from "react"
 import { api } from "../functions/send"
 import { Sidebar } from "../components/sidebar"
+import { MobileSidebar } from "../components/MobileSidebar"
 import {
   Plug, Search, Check, ChevronRight, ExternalLink, Shield,
-  Menu, X, Eye, EyeOff, Loader2,
+  Menu, X, Eye, EyeOff, Loader2, Plus, Trash2, Terminal,
+  Globe, RefreshCw, Wrench, ChevronDown,
 } from "lucide-react"
 
 // ─── Plugin Registry ─────────────────────────────────────────────
@@ -161,7 +163,7 @@ const PLUGIN_REGISTRY: PluginDef[] = [
   },
 ]
 
-const CATEGORIES = [...new Set(PLUGIN_REGISTRY.map(p => p.category))]
+const CATEGORIES = [...new Set(PLUGIN_REGISTRY.map(p => p.category)), 'Custom']
 
 // ─── Plugin Card ─────────────────────────────────────────────────
 
@@ -336,6 +338,303 @@ function PluginCard({ plugin, userState, onToggle, onSaveCredentials }: {
   )
 }
 
+// ─── Custom MCP Server Card ─────────────────────────────────────
+
+interface MCPServerData {
+  _id: string
+  name: string
+  transport: string
+  command?: string
+  args?: string[]
+  url?: string
+  enabled: boolean
+  healthStatus: string
+  discoveredTools?: Array<{ name: string; description: string }>
+}
+
+function CustomMCPCard({ server, onDelete, onDiscover, onToggle }: {
+  server: MCPServerData
+  onDelete: (id: string) => void
+  onDiscover: (id: string) => void
+  onToggle: (id: string, enabled: boolean) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const [discovering, setDiscovering] = useState(false)
+  const toolCount = server.discoveredTools?.length || 0
+
+  const handleDiscover = async () => {
+    setDiscovering(true)
+    await onDiscover(server._id)
+    setDiscovering(false)
+  }
+
+  const statusColor = server.healthStatus === 'healthy' ? '#4ADE80'
+    : server.healthStatus === 'unhealthy' ? '#EF4444' : 'rgba(255,255,255,0.25)'
+
+  return (
+    <div className={`rounded-xl border transition-all duration-200 ${
+      server.enabled
+        ? "bg-[var(--surface-raised)] border-white/[0.12] shadow-[0_0_16px_rgba(0,0,0,0.3)]"
+        : "bg-[#0e0e0e] border-[#1a1a1a] hover:border-white/[0.12]"
+    }`}>
+      <div className="flex items-center gap-3 p-3.5">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-bold flex-shrink-0 border bg-purple-500/10 text-purple-400 border-purple-500/20">
+          <Terminal className="w-4 h-4" />
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-white/85 tracking-[-0.02em]">{server.name}</span>
+            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: statusColor }} />
+            <span className="text-[9px] font-medium text-white/20 uppercase tracking-wider">
+              {server.transport}
+            </span>
+            {toolCount > 0 && (
+              <span className="text-[9px] font-mono text-purple-400/60 bg-purple-500/[0.08] px-1.5 py-0.5 rounded border border-purple-500/15">
+                {toolCount} tools
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-white/30 mt-0.5 truncate font-mono">
+            {server.transport === 'stdio'
+              ? `${server.command} ${(server.args || []).join(' ')}`
+              : server.url || ''}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            onClick={handleDiscover}
+            disabled={discovering}
+            className="p-1.5 rounded-md text-white/20 hover:text-purple-400 hover:bg-purple-500/[0.08] transition-all"
+            title="Discover tools"
+          >
+            {discovering ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
+            onClick={() => onToggle(server._id, !server.enabled)}
+            className={`relative w-10 h-[22px] rounded-full transition-all duration-200 flex-shrink-0 ${
+              server.enabled ? "bg-purple-500/25" : "bg-white/[0.06]"
+            }`}
+          >
+            <div className={`absolute top-[2px] w-[18px] h-[18px] rounded-full transition-all duration-200 shadow-sm ${
+              server.enabled ? "left-[20px] bg-purple-400" : "left-[2px] bg-white/25"
+            }`} />
+          </button>
+
+          <button
+            onClick={() => setExpanded(e => !e)}
+            className="p-1 rounded-md text-white/15 hover:text-white/40 hover:bg-white/[0.04] transition-all"
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`} />
+          </button>
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="px-4 pb-4 border-t border-white/[0.06]">
+          {/* Discovered tools */}
+          {toolCount > 0 && (
+            <div className="mt-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/20 block mb-1.5">
+                <Wrench className="w-3 h-3 inline mr-1" />
+                Discovered Tools
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {server.discoveredTools!.map(tool => (
+                  <span key={tool.name} className="group relative px-2 py-0.5 rounded-md text-[10px] font-medium text-purple-300/50 bg-purple-500/[0.06] border border-purple-500/10">
+                    {tool.name}
+                    {tool.description && (
+                      <span className="hidden group-hover:block absolute bottom-full left-0 mb-1 px-2 py-1 rounded bg-[#1a1a1a] border border-white/10 text-[9px] text-white/50 whitespace-nowrap z-10 max-w-[250px] truncate">
+                        {tool.description}
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-3 flex justify-end">
+            <button
+              onClick={() => onDelete(server._id)}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-red-400/60 hover:text-red-400 hover:bg-red-500/[0.08] transition-all"
+            >
+              <Trash2 className="w-3 h-3" />
+              Remove
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Add MCP Server Form ────────────────────────────────────────
+
+function AddMCPServerForm({ onAdd }: { onAdd: (server: MCPServerData) => void }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [transport, setTransport] = useState<"stdio" | "http-sse" | "streamable-http">("stdio")
+  const [command, setCommand] = useState("npx")
+  const [args, setArgs] = useState("")
+  const [url, setUrl] = useState("")
+  const [envVars, setEnvVars] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
+
+  const handleSubmit = async () => {
+    if (!name.trim()) { setError("Name is required"); return }
+    if (transport === 'stdio' && !command.trim()) { setError("Command is required"); return }
+    if (transport !== 'stdio' && !url.trim()) { setError("URL is required"); return }
+
+    setSaving(true)
+    setError("")
+
+    try {
+      const payload: any = { name: name.trim(), transport, enabled: true }
+
+      if (transport === 'stdio') {
+        payload.command = command.trim()
+        payload.args = args.trim() ? args.trim().split(/\s+/) : []
+      } else {
+        payload.url = url.trim()
+      }
+
+      // Parse env vars (KEY=VALUE per line)
+      if (envVars.trim()) {
+        const env: Record<string, string> = {}
+        for (const line of envVars.trim().split('\n')) {
+          const eq = line.indexOf('=')
+          if (eq > 0) env[line.slice(0, eq).trim()] = line.slice(eq + 1).trim()
+        }
+        payload.env = env
+      }
+
+      const res = await api.post("/mcp/servers", payload)
+      onAdd(res.data.server)
+      setName(""); setArgs(""); setUrl(""); setEnvVars(""); setOpen(false)
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to add server")
+    }
+    setSaving(false)
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-white/[0.08] text-white/25 hover:text-white/50 hover:border-white/[0.15] hover:bg-white/[0.02] transition-all"
+      >
+        <Plus className="w-4 h-4" />
+        <span className="text-[13px] font-medium">Add Custom MCP Server</span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="rounded-xl border border-purple-500/20 bg-[#0e0e0e] p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] font-semibold text-white/70">Add MCP Server</span>
+        <button onClick={() => setOpen(false)} className="text-white/20 hover:text-white/40">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Name */}
+      <div>
+        <label className="text-[11px] text-white/30 font-medium block mb-1">Server Name <span className="text-red-400/50">*</span></label>
+        <input
+          value={name} onChange={e => setName(e.target.value)} placeholder="My MCP Server"
+          className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors"
+        />
+      </div>
+
+      {/* Transport */}
+      <div>
+        <label className="text-[11px] text-white/30 font-medium block mb-1">Transport</label>
+        <div className="flex gap-2">
+          {(["stdio", "http-sse", "streamable-http"] as const).map(t => (
+            <button
+              key={t} onClick={() => setTransport(t)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                transport === t
+                  ? "bg-purple-500/15 text-purple-300 border border-purple-500/25"
+                  : "text-white/25 border border-white/[0.08] hover:border-white/[0.15]"
+              }`}
+            >
+              {t === 'stdio' ? 'stdio' : t === 'http-sse' ? 'HTTP+SSE' : 'Streamable HTTP'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* stdio fields */}
+      {transport === 'stdio' && (
+        <>
+          <div>
+            <label className="text-[11px] text-white/30 font-medium block mb-1">Command <span className="text-red-400/50">*</span></label>
+            <input
+              value={command} onChange={e => setCommand(e.target.value)} placeholder="npx"
+              className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors font-mono"
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-white/30 font-medium block mb-1">Arguments <span className="text-white/15">(space-separated)</span></label>
+            <input
+              value={args} onChange={e => setArgs(e.target.value)} placeholder="-y @modelcontextprotocol/server-github"
+              className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors font-mono"
+            />
+          </div>
+        </>
+      )}
+
+      {/* HTTP fields */}
+      {transport !== 'stdio' && (
+        <div>
+          <label className="text-[11px] text-white/30 font-medium block mb-1">Server URL <span className="text-red-400/50">*</span></label>
+          <input
+            value={url} onChange={e => setUrl(e.target.value)} placeholder="https://mcp.example.com/api"
+            className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[13px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors font-mono"
+          />
+        </div>
+      )}
+
+      {/* Env vars */}
+      <div>
+        <label className="text-[11px] text-white/30 font-medium block mb-1">
+          Environment Variables <span className="text-white/15">(KEY=VALUE, one per line)</span>
+        </label>
+        <textarea
+          value={envVars} onChange={e => setEnvVars(e.target.value)}
+          placeholder={"GITHUB_TOKEN=ghp_...\nAPI_KEY=sk-..."}
+          rows={3}
+          className="w-full bg-[#050505] border border-white/[0.12] rounded-lg px-3 py-2 text-[12px] text-white/70 placeholder:text-white/15 outline-none focus:border-purple-500/30 transition-colors font-mono resize-none"
+        />
+      </div>
+
+      {error && <p className="text-[11px] text-red-400/70">{error}</p>}
+
+      <div className="flex justify-end gap-2 pt-1">
+        <button
+          onClick={() => setOpen(false)}
+          className="px-3 py-1.5 rounded-lg text-[12px] text-white/30 hover:text-white/50 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSubmit} disabled={saving}
+          className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[12px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/25 hover:bg-purple-500/25 disabled:opacity-40 transition-all"
+        >
+          {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+          Add Server
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Plugins Page ────────────────────────────────────────────────
 
 export default function PluginsPage() {
@@ -344,17 +643,28 @@ export default function PluginsPage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [customServers, setCustomServers] = useState<MCPServerData[]>([])
 
-  // Load user's plugin states
+  // Load user's plugin states + custom MCP servers
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.get("/plugins")
+        const [pluginRes, mcpRes] = await Promise.all([
+          api.get("/plugins"),
+          api.get("/mcp/servers"),
+        ])
         const map: Record<string, any> = {}
-        for (const p of res.data.plugins || []) {
+        for (const p of pluginRes.data.plugins || []) {
           map[p.pluginId] = { enabled: p.enabled, credentials: p.credentials || {} }
         }
         setUserPlugins(map)
+
+        // Filter out bridge-managed servers (they have matching plugin names)
+        const builtinNames = PLUGIN_REGISTRY.map(p => p.name.toLowerCase())
+        const custom = (mcpRes.data.servers || []).filter(
+          (s: any) => !builtinNames.includes(s.name.toLowerCase())
+        )
+        setCustomServers(custom)
       } catch { /* ignore */ }
       setLoading(false)
     })()
@@ -378,6 +688,45 @@ export default function PluginsPage() {
     }
   }, [])
 
+  // Custom MCP server handlers
+  const handleAddServer = useCallback((server: MCPServerData) => {
+    setCustomServers(prev => [...prev, server])
+  }, [])
+
+  const handleDeleteServer = useCallback(async (id: string) => {
+    try {
+      await api.delete(`/mcp/servers/${id}`)
+      setCustomServers(prev => prev.filter(s => s._id !== id))
+    } catch (e) {
+      console.error("Failed to delete MCP server:", e)
+    }
+  }, [])
+
+  const handleDiscoverTools = useCallback(async (id: string) => {
+    try {
+      const res = await api.post(`/mcp/servers/${id}/discover`)
+      setCustomServers(prev => prev.map(s =>
+        s._id === id ? { ...s, discoveredTools: res.data.tools, healthStatus: 'healthy' } : s
+      ))
+    } catch (e) {
+      console.error("Tool discovery failed:", e)
+      setCustomServers(prev => prev.map(s =>
+        s._id === id ? { ...s, healthStatus: 'unhealthy' } : s
+      ))
+    }
+  }, [])
+
+  const handleToggleServer = useCallback(async (id: string, enabled: boolean) => {
+    try {
+      await api.put(`/mcp/servers/${id}`, { enabled })
+      setCustomServers(prev => prev.map(s =>
+        s._id === id ? { ...s, enabled } : s
+      ))
+    } catch (e) {
+      console.error("Failed to toggle MCP server:", e)
+    }
+  }, [])
+
   // Filter plugins
   const filtered = PLUGIN_REGISTRY.filter(p => {
     if (activeCategory && p.category !== activeCategory) return false
@@ -388,7 +737,7 @@ export default function PluginsPage() {
     return true
   })
 
-  const enabledCount = Object.values(userPlugins).filter(p => p.enabled).length
+  const enabledCount = Object.values(userPlugins).filter(p => p.enabled).length + customServers.filter(s => s.enabled).length
 
   return (
     <div className="flex flex-row h-screen w-screen bg-background overflow-hidden">
@@ -397,15 +746,7 @@ export default function PluginsPage() {
         <Sidebar />
       </div>
 
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="absolute inset-0 bg-black/60 animate-overlay-in" onClick={() => setSidebarOpen(false)} />
-          <div className="relative z-10 h-full w-[280px] animate-slide-in-left">
-            <Sidebar />
-          </div>
-        </div>
-      )}
+      <MobileSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main content */}
       <div className="flex-1 overflow-y-auto chat-scroll">
@@ -491,9 +832,38 @@ export default function PluginsPage() {
             </div>
           )}
 
-          {!loading && filtered.length === 0 && (
+          {!loading && filtered.length === 0 && !search && (
             <div className="text-center py-16">
               <p className="text-[14px] text-white/25 font-medium">No plugins match your search.</p>
+            </div>
+          )}
+
+          {/* Custom MCP Servers Section */}
+          {!loading && (!activeCategory || activeCategory === 'Custom') && (
+            <div className="max-w-2xl mx-auto mt-10">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                  <Terminal className="w-4 h-4 text-purple-400/70" />
+                </div>
+                <div>
+                  <h2 className="text-[15px] font-semibold text-white/80 tracking-[-0.02em]">Custom MCP Servers</h2>
+                  <p className="text-[11px] text-white/25">Add your own MCP servers — agents will discover and use their tools automatically</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {customServers.map(server => (
+                  <CustomMCPCard
+                    key={server._id}
+                    server={server}
+                    onDelete={handleDeleteServer}
+                    onDiscover={handleDiscoverTools}
+                    onToggle={handleToggleServer}
+                  />
+                ))}
+
+                <AddMCPServerForm onAdd={handleAddServer} />
+              </div>
             </div>
           )}
         </div>

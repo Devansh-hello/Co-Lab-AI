@@ -32,6 +32,9 @@ const PLUGIN_MCP_MAP: Record<string, MCPConfig> = {
         transport: 'stdio',
         command: 'npx',
         args: ['-y', '@upstash/context7-mcp@latest'],
+        buildEnv: (creds) => ({
+            CONTEXT7_API_KEY: creds.apiKey || '',
+        }),
     },
     'github': {
         transport: 'stdio',
