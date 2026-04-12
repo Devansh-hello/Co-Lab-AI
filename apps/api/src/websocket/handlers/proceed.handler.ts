@@ -193,26 +193,75 @@ export async function handleProceed(
     pipeline.backendResult = backendResult;
     await messageDoc.save();
 
-    // -- Guardrails: validate agent output --
+    // -- Guardrails: validate agent output + auto-fix critical failures --
+    let guardrailFixApplied = false;
+
     if (frontendResult) {
         const feReport = runCodeGuardrails(frontendResult, 'frontend', taskFile, backendResult);
         emitEvent(ctx, { type: 'guardrail_report', side: 'frontend', report: feReport });
-        if (!feReport.passed) {
+
+        if (!feReport.passed && feReport.criticalFailures.length > 0) {
             emitEvent(ctx, {
                 type: 'status', agent: 'Guardrails',
-                message: `Frontend: ${feReport.criticalFailures.length} critical issue(s) detected`,
+                message: `Frontend: ${feReport.criticalFailures.length} critical issue(s) — auto-fixing...`,
             });
+
+            try {
+                const fixed = await FeedbackFixAgent(
+                    feReport.criticalFailures, frontendResult, 'frontend',
+                    taskFile, ctx.ws, pipeline.userSettings, signal,
+                );
+                frontendResult = fixed as CodeMap;
+                pipeline.frontendResult = frontendResult;
+                messageDoc.frontendResponse = { content: frontendResult, timestamp: new Date() };
+                emitEvent(ctx, { type: 'frontend_complete', content: frontendResult });
+                guardrailFixApplied = true;
+
+                // Re-validate after fix
+                const recheck = runCodeGuardrails(frontendResult, 'frontend', taskFile, backendResult);
+                emitEvent(ctx, { type: 'guardrail_report', side: 'frontend', report: recheck });
+            } catch (err: any) {
+                console.error("[proceed] Guardrail auto-fix failed for frontend:", err.message);
+            }
         }
     }
+
     if (backendResult) {
         const beReport = runCodeGuardrails(backendResult, 'backend', taskFile, frontendResult);
         emitEvent(ctx, { type: 'guardrail_report', side: 'backend', report: beReport });
-        if (!beReport.passed) {
+
+        if (!beReport.passed && beReport.criticalFailures.length > 0) {
             emitEvent(ctx, {
                 type: 'status', agent: 'Guardrails',
-                message: `Backend: ${beReport.criticalFailures.length} critical issue(s) detected`,
+                message: `Backend: ${beReport.criticalFailures.length} critical issue(s) — auto-fixing...`,
             });
+
+            try {
+                const fixed = await FeedbackFixAgent(
+                    beReport.criticalFailures, backendResult, 'backend',
+                    taskFile, ctx.ws, pipeline.userSettings, signal,
+                );
+                backendResult = fixed as CodeMap;
+                pipeline.backendResult = backendResult;
+                messageDoc.backendResponse = { content: backendResult, timestamp: new Date() };
+                emitEvent(ctx, { type: 'backend_complete', content: backendResult });
+                guardrailFixApplied = true;
+
+                // Re-validate after fix
+                const recheck = runCodeGuardrails(backendResult, 'backend', taskFile, frontendResult);
+                emitEvent(ctx, { type: 'guardrail_report', side: 'backend', report: recheck });
+            } catch (err: any) {
+                console.error("[proceed] Guardrail auto-fix failed for backend:", err.message);
+            }
         }
+    }
+
+    if (guardrailFixApplied) {
+        await messageDoc.save();
+        emitEvent(ctx, {
+            type: 'status', agent: 'Guardrails',
+            message: 'Auto-fix applied, proceeding to review...',
+        });
     }
 
     // -- Checkpoint: save after building --
