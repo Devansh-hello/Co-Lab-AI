@@ -80,7 +80,8 @@ export type ServerEvent =
     | { type: 'prd'; content: any; seq?: number }
     | { type: 'feature_update'; features: any[]; summary: Record<string, number>; seq?: number }
     | { type: 'checkpoint_saved'; checkpointId: string; phase: string; label: string; seq?: number }
-    | { type: 'guardrail_report'; side: string; report: any; seq?: number };
+    | { type: 'guardrail_report'; side: string; report: any; seq?: number }
+    | { type: 'tool_call'; call: { serverName: string; toolName: string; args: any }; result: { success: boolean; preview: string; durationMs: number }; phase: string; seq?: number };
 
 // ─── Wire Protocol: Client -> Server ────────────────────────────
 
@@ -105,7 +106,7 @@ export const PERSISTABLE_EVENT_TYPES = [
     'complexity_score', 'quality_score', 'feedback_iteration',
     'token_usage', 'all_complete', 'error', 'cancelled',
     'permission_request',
-    'prd', 'feature_update', 'checkpoint_saved', 'guardrail_report',
+    'prd', 'feature_update', 'checkpoint_saved', 'guardrail_report', 'tool_call',
 ] as const;
 
 /** Stream events are buffered but only persisted at throttled intervals */

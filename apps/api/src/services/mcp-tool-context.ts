@@ -31,7 +31,7 @@ export async function getMCPToolContext(userId: string, projectId?: string): Pro
         if (servers.length === 0) return '';
 
         const lines: string[] = [
-            'AVAILABLE MCP TOOLS (user has these tool servers connected — you can reference their capabilities):',
+            'AVAILABLE MCP TOOLS (user has these tool servers connected — tools are executed automatically before code generation to enrich your context):',
         ];
 
         for (const server of servers) {

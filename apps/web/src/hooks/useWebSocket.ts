@@ -120,6 +120,20 @@ export interface CheckpointData {
   label: string;
 }
 
+export interface ToolCallData {
+  call: {
+    serverName: string;
+    toolName: string;
+    args: Record<string, any>;
+  };
+  result: {
+    success: boolean;
+    preview: string;
+    durationMs: number;
+  };
+  phase: string;
+}
+
 export interface WebSocketState {
   isConnected: boolean;
   isGenerating: boolean;
@@ -145,6 +159,7 @@ export interface WebSocketState {
   featureSummary?: Record<string, number>;
   checkpoints?: CheckpointData[];
   guardrailReports?: { frontend?: GuardrailReportData; backend?: GuardrailReportData };
+  toolCalls?: ToolCallData[];
 }
 
 // ─── Constants ──────────────────────────────────────────────────
@@ -715,6 +730,8 @@ export const useWebSocket = (projectId: string) => {
           understandingData: undefined,
           featureReviewData: undefined,
           pendingPermission: undefined,
+          toolCalls: undefined,
+          guardrailReports: undefined,
         }));
         {
           const gradeEmoji = data.qualityGrade === 'A' ? '' : data.qualityGrade === 'B' ? '' : '';
@@ -769,6 +786,24 @@ export const useWebSocket = (projectId: string) => {
           ...prev,
           checkpoints: [...(prev.checkpoints || []), { checkpointId: data.checkpointId, phase: data.phase, label: data.label }],
         }));
+        break;
+
+      case 'tool_call':
+        setWsState(prev => ({
+          ...prev,
+          toolCalls: [...(prev.toolCalls || []), {
+            call: data.call,
+            result: data.result,
+            phase: data.phase,
+          }],
+        }));
+        addMessage({
+          sender: 'agent',
+          username: data.call.serverName,
+          content: `Used **${data.call.toolName}**`,
+          type: 'status',
+          data: { toolCall: data },
+        });
         break;
 
       case 'guardrail_report':

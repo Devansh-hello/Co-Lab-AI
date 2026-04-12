@@ -26,6 +26,7 @@ import { computeQualityScore } from "../../agents/quality-scorer.js";
 import { runCodeGuardrails } from "../../services/guardrails.js";
 import { saveCheckpoint } from "../../services/checkpoint.js";
 import { syncFeaturesFromPlan, advanceFeatures, updateFeatureQuality, getFeatureSummary } from "../../services/feature-tracker.js";
+import { runToolLoop, type ToolCallEvent } from "../../services/tool-executor.js";
 import type { CodeMap } from "../../agents/types.js";
 
 export async function handleProceed(
@@ -94,6 +95,43 @@ export async function handleProceed(
         const cpId = await saveCheckpoint(ctx, 'planning', { label: 'After planning' });
         emitEvent(ctx, { type: 'checkpoint_saved', checkpointId: cpId, phase: 'planning', label: 'After planning' });
     } catch { /* non-critical */ }
+
+    // -- Tool Execution Loop: run MCP tools before code generation --
+    let toolContext = '';
+    try {
+        const taskSummary = [
+            `Project: ${taskFile.projectMeta?.name || 'Project'}`,
+            `Features: ${(taskFile.features || []).join(', ')}`,
+            `Tech: ${taskFile.techStack?.frontend?.framework || 'React'}, ${taskFile.techStack?.backend?.framework || 'Express'}`,
+            `Libraries: ${[...(taskFile.techStack?.frontend?.libraries || []), ...(taskFile.techStack?.backend?.libraries || [])].join(', ')}`,
+        ].join('\n');
+
+        const onToolCall = (event: ToolCallEvent) => {
+            emitEvent(ctx, {
+                type: 'tool_call',
+                call: event.call,
+                result: event.result,
+                phase: event.phase,
+            } as any);
+            emitEvent(ctx, {
+                type: 'status',
+                agent: `${event.call.serverName}`,
+                message: `Using ${event.call.toolName}${event.result.success ? ` (${event.result.durationMs}ms)` : ' (failed)'}`,
+            });
+        };
+
+        toolContext = await runToolLoop(
+            'frontend', taskSummary, pipeline.userSettings,
+            pipeline.userId, projectId, onToolCall,
+        );
+
+        if (toolContext) {
+            // Append tool results to plugin context so agents receive them
+            pipeline.pluginContext += toolContext;
+        }
+    } catch (err: any) {
+        console.error("[proceed] Tool loop failed (non-blocking):", err.message);
+    }
 
     // -- Code Agents (parallel) --
     let frontendResult: CodeMap | null = pipeline.frontendResult || null;

@@ -22,6 +22,7 @@ import { FeatureTrackerCard } from "../components/FeatureTrackerCard"
 import { GuardrailReportCard } from "../components/GuardrailReportCard"
 import { CheckpointBar } from "../components/CheckpointBar"
 import { PRDCard } from "../components/PRDCard"
+import { ToolCallCard, ToolCallPill } from "../components/ToolCallCard"
 import MainLoadingScreen from "../components/MainLoadingScreen"
 import {
   WifiOff,
@@ -823,6 +824,28 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                         )
                       }
 
+                      // ── PRD card (init mode) ──────────────
+                      if (message.data?.prd) {
+                        return <PRDCard key={message.id} prd={message.data.prd} />
+                      }
+
+                      // ── Tool call card ─────────────────────
+                      if (message.data?.toolCall) {
+                        const tc = message.data.toolCall
+                        return (
+                          <ToolCallCard
+                            key={message.id}
+                            serverName={tc.call.serverName}
+                            toolName={tc.call.toolName}
+                            args={tc.call.args}
+                            success={tc.result.success}
+                            preview={tc.result.preview}
+                            durationMs={tc.result.durationMs}
+                            phase={tc.phase}
+                          />
+                        )
+                      }
+
                       // ── Feedback iteration notice ─────────
                       if (message.type === 'feedback_iteration' && message.data) {
                         return (
@@ -953,6 +976,21 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                 />
               )}
 
+              {/* Tool calls during generation */}
+              {wsState.toolCalls && wsState.toolCalls.length > 0 && wsState.isGenerating && (
+                <div className="w-full max-w-3xl flex flex-wrap gap-1.5 px-1">
+                  {wsState.toolCalls.map((tc, i) => (
+                    <ToolCallPill
+                      key={i}
+                      serverName={tc.call.serverName}
+                      toolName={tc.call.toolName}
+                      success={tc.result.success}
+                      durationMs={tc.result.durationMs}
+                    />
+                  ))}
+                </div>
+              )}
+
               {/* Checkpoint resume bar */}
               {wsState.checkpoints && wsState.checkpoints.length > 0 && (
                 <div className="w-full max-w-3xl">
@@ -964,7 +1002,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                 </div>
               )}
 
-              {/* Guardrail reports (inline, compact) */}
+              {/* Guardrail reports */}
               {wsState.guardrailReports && (
                 <div className="w-full max-w-3xl space-y-1.5">
                   {wsState.guardrailReports.frontend && (

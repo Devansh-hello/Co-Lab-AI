@@ -32,7 +32,7 @@ const pipelineEventSchema = new mongoose.Schema({
             'complexity_score', 'quality_score', 'feedback_iteration',
             'token_usage', 'all_complete', 'error', 'cancelled',
             'permission_request',
-            'prd', 'feature_update', 'checkpoint_saved', 'guardrail_report',
+            'prd', 'feature_update', 'checkpoint_saved', 'guardrail_report', 'tool_call',
         ],
     },
     /** The full event payload (JSON blob) */
