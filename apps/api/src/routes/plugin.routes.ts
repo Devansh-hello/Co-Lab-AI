@@ -4,6 +4,10 @@
  * Manages user plugin integrations (Supabase, GitHub, Firebase, etc.).
  * Each plugin can be enabled/disabled with optional credentials.
  *
+ * When a plugin with MCP support is toggled, the bridge service
+ * automatically registers/disables the corresponding MCP server
+ * so agents can invoke its tools during code generation.
+ *
  * Routes:
  *   GET    /api/v1/plugins             - List all plugin states for the user
  *   PUT    /api/v1/plugins/:pluginId   - Enable/disable a plugin + save credentials
@@ -14,10 +18,11 @@ import { Router } from "express";
 
 import { UserPlugin } from "../models/index.js";
 import { authCheck, type AuthRequest } from "../middleware/index.js";
+import { onPluginEnabled, onPluginDisabled } from "../services/plugin-mcp-bridge.js";
 
 export const pluginRouter = Router();
 
-// ─── List Plugins ───────────────────────────────────────────────
+// -- List Plugins --
 
 pluginRouter.get("/api/v1/plugins", authCheck, async (req: AuthRequest, res) => {
     try {
@@ -28,7 +33,7 @@ pluginRouter.get("/api/v1/plugins", authCheck, async (req: AuthRequest, res) => 
     }
 });
 
-// ─── Enable/Disable Plugin ──────────────────────────────────────
+// -- Enable/Disable Plugin --
 
 pluginRouter.put("/api/v1/plugins/:pluginId", authCheck, async (req: AuthRequest, res) => {
     try {
@@ -45,17 +50,40 @@ pluginRouter.put("/api/v1/plugins/:pluginId", authCheck, async (req: AuthRequest
             { upsert: true, new: true }
         );
 
+        // Bridge to MCP: register/disable the MCP server
+        try {
+            if (enabled) {
+                await onPluginEnabled(
+                    req.userId!,
+                    pluginId,
+                    credentials || plugin.credentials || {},
+                );
+            } else {
+                await onPluginDisabled(req.userId!, pluginId);
+            }
+        } catch (err: any) {
+            // Non-blocking: MCP registration failure shouldn't break plugin toggle
+            console.error(`[plugins] MCP bridge failed for ${pluginId}:`, err.message);
+        }
+
         res.json({ plugin });
     } catch {
         res.status(500).json({ message: "Failed to update plugin" });
     }
 });
 
-// ─── Reset Plugin ───────────────────────────────────────────────
+// -- Reset Plugin --
 
 pluginRouter.delete("/api/v1/plugins/:pluginId", authCheck, async (req: AuthRequest, res) => {
     try {
-        await UserPlugin.deleteOne({ userId: req.userId, pluginId: req.params.pluginId });
+        const { pluginId } = req.params;
+        await UserPlugin.deleteOne({ userId: req.userId, pluginId });
+
+        // Also disable the MCP server
+        try {
+            await onPluginDisabled(req.userId!, pluginId);
+        } catch { /* non-blocking */ }
+
         res.json({ message: "Plugin reset" });
     } catch {
         res.status(500).json({ message: "Failed to reset plugin" });
