@@ -195,6 +195,8 @@ export const useWebSocket = (projectId: string) => {
   });
 
   const ws = useRef<WebSocket | null>(null);
+  const messagesRef = useRef<Message[]>([]);
+  messagesRef.current = messages;
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const intentRef = useRef<string | undefined>(undefined);
   const prevProjectIdRef = useRef(projectId);
@@ -463,26 +465,54 @@ export const useWebSocket = (projectId: string) => {
 
       // ── Understanding phase ────────────────────────────────
       case 'understanding':
-        setWsState(prev => ({
-          ...prev,
-          isGenerating: false,
-          flowStage: 'waiting_understanding',
-          currentStatus: '',
-          currentAgent: undefined,
-          completedAgents: [],
-          understandingData: {
-            summary: data.summary,
-            projectName: data.projectName,
-            questions: data.questions || [],
-          },
-        }));
-        addMessage({
-          sender: 'agent',
-          username: 'System',
-          content: data.summary,
-          type: 'understanding',
-          data: { summary: data.summary, projectName: data.projectName, questions: data.questions || [] },
-        });
+        {
+          const questions = data.questions || [];
+          const hasQuestions = questions.length > 0;
+
+          setWsState(prev => ({
+            ...prev,
+            isGenerating: false,
+            flowStage: 'waiting_understanding',
+            currentStatus: '',
+            currentAgent: undefined,
+            completedAgents: [],
+            understandingData: {
+              summary: data.summary,
+              projectName: data.projectName,
+              questions,
+            },
+          }));
+          addMessage({
+            sender: 'agent',
+            username: 'System',
+            content: data.summary,
+            type: 'understanding',
+            data: { summary: data.summary, projectName: data.projectName, questions },
+          });
+
+          // Auto-confirm when there are no questions AND this is a follow-up
+          // (previous messages already contain a final_plan from an earlier build).
+          // Without this, the collapsed "Project understood" view has no confirm
+          // button and the pipeline stalls.
+          const hasPriorBuild = messagesRef.current.some(m =>
+            m.type === 'final_plan' || m.type === 'qa_summary' || m.type === 'qa_question'
+          );
+          if (!hasQuestions && hasPriorBuild) {
+            setTimeout(() => {
+              const socket = ws.current;
+              if (socket?.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'understanding_response', confirmed: true, projectId }));
+              }
+              setWsState(prev => ({
+                ...prev,
+                isGenerating: true,
+                flowStage: 'planning',
+                currentStatus: 'Creating your project plan...',
+                currentAgent: 'Orchestrator Agent',
+              }));
+            }, 300);
+          }
+        }
         break;
 
       // ── Final plan (after Q&A + orchestrator) ──────────────
