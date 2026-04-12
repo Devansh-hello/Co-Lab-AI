@@ -12,7 +12,7 @@ import mongoose from "mongoose";
 
 const pipelineEventSchema = new mongoose.Schema({
     /** Groups events for one pipeline execution */
-    pipelineRunId: { type: String, required: true, index: true },
+    pipelineRunId: { type: String, default: '', index: true },
     /** FK to Message document */
     messageId: { type: mongoose.Schema.Types.ObjectId, ref: "message" },
     /** FK to Project */

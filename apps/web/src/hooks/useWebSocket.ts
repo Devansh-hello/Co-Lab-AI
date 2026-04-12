@@ -336,14 +336,18 @@ export const useWebSocket = (projectId: string) => {
           }
 
           if (msg.qualityScore?.grade) {
+            const qMetrics = msg.qualityScore.metrics || {};
+            // Compute overall from metrics if not stored directly
+            const metricValues = Object.values(qMetrics).filter((v): v is number => typeof v === 'number');
+            const qOverall = metricValues.length > 0 ? Math.round(metricValues.reduce((a, b) => a + b, 0) / metricValues.length) : 0;
             formattedMessages.push({
               id: `${msg._id}-quality`,
               sender: 'agent',
               username: 'System',
-              content: `Quality Grade: **${msg.qualityScore.grade}** (${msg.qualityScore.metrics?.overall || ''}%)`,
+              content: `Quality Grade: **${msg.qualityScore.grade}** (${qOverall}%)`,
               timestamp: new Date(msg.qualityScore.timestamp || msg.timestamp),
               type: 'quality_score',
-              data: msg.qualityScore,
+              data: { grade: msg.qualityScore.grade, metrics: qMetrics, overall: qOverall, needsFeedback: false },
             });
           }
 
@@ -649,8 +653,8 @@ export const useWebSocket = (projectId: string) => {
           const backendStillRunning = prev.streaming.backendStream && !updatedAgents.includes('Backend Agent');
           return {
             ...prev,
-            currentStatus: backendStillRunning ? 'Waiting for backend...' : 'Preparing review...',
-            currentAgent: backendStillRunning ? prev.currentAgent : undefined,
+            currentStatus: backendStillRunning ? 'Generating backend...' : 'Preparing review...',
+            currentAgent: backendStillRunning ? 'Backend Agent' : undefined,
             streaming: { ...prev.streaming, frontendStream: '' },
             completedAgents: updatedAgents,
           };
@@ -677,8 +681,8 @@ export const useWebSocket = (projectId: string) => {
           const frontendStillRunning = prev.streaming.frontendStream && !updatedAgents.includes('Frontend Agent');
           return {
             ...prev,
-            currentStatus: frontendStillRunning ? 'Waiting for frontend...' : 'Preparing review...',
-            currentAgent: frontendStillRunning ? prev.currentAgent : undefined,
+            currentStatus: frontendStillRunning ? 'Generating frontend...' : 'Preparing review...',
+            currentAgent: frontendStillRunning ? 'Frontend Agent' : undefined,
             streaming: { ...prev.streaming, backendStream: '' },
             completedAgents: updatedAgents,
           };
