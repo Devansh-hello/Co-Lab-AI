@@ -1030,8 +1030,8 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                 </div>
               )}
 
-              {/* Feature tracker */}
-              {wsState.features && wsState.features.length > 0 && wsState.featureSummary && (
+              {/* Feature tracker — only show while pipeline is actively generating */}
+              {wsState.features && wsState.features.length > 0 && wsState.featureSummary && wsState.isGenerating && (
                 <div className="w-full max-w-3xl">
                   <FeatureTrackerCard
                     features={wsState.features}

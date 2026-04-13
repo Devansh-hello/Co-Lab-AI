@@ -158,6 +158,10 @@ export async function handleProceed(
                     messageDoc.frontendResponse = { content: frontendResult, timestamp: new Date() };
                     emitEvent(ctx, { type: 'frontend_complete', content: frontendResult });
                 })
+                .catch(err => {
+                    console.error("[proceed] Frontend agent failed:", err.message);
+                    emitEvent(ctx, { type: 'error', message: `Frontend generation failed: ${err.message}` });
+                })
         );
     } else if (frontendResult) {
         messageDoc.frontendResponse = { content: frontendResult, timestamp: new Date() };
@@ -180,6 +184,10 @@ export async function handleProceed(
                     backendResult = isPartial ? { ...snapshot!.backendCode, ...agentOutput } as CodeMap : agentOutput;
                     messageDoc.backendResponse = { content: backendResult, timestamp: new Date() };
                     emitEvent(ctx, { type: 'backend_complete', content: backendResult });
+                })
+                .catch(err => {
+                    console.error("[proceed] Backend agent failed:", err.message);
+                    emitEvent(ctx, { type: 'error', message: `Backend generation failed: ${err.message}` });
                 })
         );
     } else if (backendResult) {

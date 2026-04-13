@@ -24,6 +24,17 @@ export interface TokenUsage {
 }
 
 /**
+ * Newer OpenAI models (o1, o3, o4, gpt-4.1, etc.) require `max_completion_tokens`
+ * instead of `max_tokens`. This helper returns the correct parameter object.
+ */
+function tokenLimitParam(model: string, maxTokens: number): { max_tokens: number } | { max_completion_tokens: number } {
+    const needsCompletionTokens = /^(o[1-4]|gpt-4\.1|gpt-4o|gpt-5)/.test(model)
+        || model.includes('/o1') || model.includes('/o3') || model.includes('/o4')
+        || model.includes('/gpt-4o') || model.includes('/gpt-4.1') || model.includes('/gpt-5');
+    return needsCompletionTokens ? { max_completion_tokens: maxTokens } : { max_tokens: maxTokens };
+}
+
+/**
  * Make a single (non-streaming) AI call and return the full response text.
  * Automatically routes to the correct provider SDK based on the provider param.
  */
@@ -80,8 +91,8 @@ export async function callAIGenerate(
             { role: "user", content: userPrompt },
         ],
         ...(model !== 'gpt-5-mini' && { temperature: 0.2 }),
-        max_tokens: maxTokens,
-    });
+        ...tokenLimitParam(model, maxTokens),
+    } as any);
     return response.choices[0]?.message?.content || "";
 }
 
@@ -171,13 +182,13 @@ export async function* callAIGenerateStream(
             { role: "user" as const, content: userPrompt },
         ],
         stream: true as const,
-        max_tokens: maxTokens,
+        ...tokenLimitParam(model, maxTokens),
         ...(supportsTemperature && { temperature: 0.2 }),
     };
 
     const stream = supportsUsage
-        ? await client.chat.completions.create({ ...baseParams, stream_options: { include_usage: true } })
-        : await client.chat.completions.create(baseParams);
+        ? await client.chat.completions.create({ ...baseParams, stream_options: { include_usage: true } } as any)
+        : await client.chat.completions.create(baseParams as any);
 
     let charCount = 0;
     let usageFired = false;
