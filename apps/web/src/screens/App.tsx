@@ -17,8 +17,6 @@ import { BGPattern } from "../components/ui/bg-pattern"
 import { useWebSocket } from "../hooks/useWebSocket"
 import { QAPromptBox } from "../components/QAPromptBox"
 import { PipelineReportCard } from "../components/PipelineReportCard"
-import { FeatureTrackerCard } from "../components/FeatureTrackerCard"
-import { GuardrailReportCard } from "../components/GuardrailReportCard"
 import { CheckpointBar } from "../components/CheckpointBar"
 import { PRDCard } from "../components/PRDCard"
 import { ToolCallCard, ToolCallPill } from "../components/ToolCallCard"
@@ -1018,27 +1016,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
                 </div>
               )}
 
-              {/* Guardrail reports */}
-              {wsState.guardrailReports && (
-                <div className="w-full max-w-3xl space-y-1.5">
-                  {wsState.guardrailReports.frontend && (
-                    <GuardrailReportCard side="frontend" report={wsState.guardrailReports.frontend} />
-                  )}
-                  {wsState.guardrailReports.backend && (
-                    <GuardrailReportCard side="backend" report={wsState.guardrailReports.backend} />
-                  )}
-                </div>
-              )}
-
-              {/* Feature tracker — only show while pipeline is actively generating */}
-              {wsState.features && wsState.features.length > 0 && wsState.featureSummary && wsState.isGenerating && (
-                <div className="w-full max-w-3xl">
-                  <FeatureTrackerCard
-                    features={wsState.features}
-                    summary={wsState.featureSummary}
-                  />
-                </div>
-              )}
+              {/* Guardrail reports and Feature tracker hidden from input bar */}
 
               <div className="flex items-center gap-2 w-full max-w-3xl mb-4">
                 <MessageBox
