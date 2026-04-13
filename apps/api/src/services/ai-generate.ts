@@ -92,7 +92,7 @@ export async function callAIGenerate(
         ],
         ...(model !== 'gpt-5-mini' && { temperature: 0.2 }),
         ...tokenLimitParam(model, maxTokens),
-    } as any);
+    } as any) as OpenAI.Chat.Completions.ChatCompletion;
     return response.choices[0]?.message?.content || "";
 }
 
@@ -175,20 +175,21 @@ export async function* callAIGenerateStream(
 
     const supportsUsage = provider === 'openai' || provider === 'openrouter';
     const supportsTemperature = model !== 'gpt-5-mini';
-    const baseParams = {
+    const tokenLimit = tokenLimitParam(model, maxTokens);
+    const baseParams: Record<string, any> = {
         model,
         messages: [
             { role: "system" as const, content: systemPrompt },
             { role: "user" as const, content: userPrompt },
         ],
         stream: true as const,
-        ...tokenLimitParam(model, maxTokens),
+        ...tokenLimit,
         ...(supportsTemperature && { temperature: 0.2 }),
     };
 
     const stream = supportsUsage
-        ? await client.chat.completions.create({ ...baseParams, stream_options: { include_usage: true } } as any)
-        : await client.chat.completions.create(baseParams as any);
+        ? await client.chat.completions.create({ ...baseParams, stream_options: { include_usage: true } } as any) as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>
+        : await client.chat.completions.create(baseParams as any) as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
 
     let charCount = 0;
     let usageFired = false;
