@@ -858,7 +858,13 @@ export const StreamingDropdown: FC<{
                     <span className="text-[12px] font-medium text-white/30">Generating... ({Math.ceil(content.length / 4).toLocaleString()} tokens)</span>
                   </div>
                 ) : (
-                  <span className="text-[12px] font-medium text-white/35">Processing output...</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-400/50" />
+                      <span className="text-[12px] font-medium text-white/40">{Math.ceil(content.length / 4).toLocaleString()} tokens generated</span>
+                    </div>
+                    <pre ref={scrollRef} className="text-[11px] text-white/20 font-mono whitespace-pre-wrap max-h-[200px] overflow-y-auto leading-relaxed">{content.slice(0, 500)}{content.length > 500 ? "\n..." : ""}</pre>
+                  </div>
                 )}
               </div>
             )}

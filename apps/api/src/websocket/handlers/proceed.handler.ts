@@ -385,6 +385,10 @@ export async function handleProceed(
                         messageDoc.frontendResponse = { content: fixed, timestamp: new Date() };
                         emitEvent(ctx, { type: 'frontend_complete', content: fixed as CodeMap });
                     })
+                    .catch(err => {
+                        console.error("[proceed] Frontend feedback fix failed:", err.message);
+                        emitEvent(ctx, { type: 'error', message: `Frontend fix failed: ${err.message}` });
+                    })
             );
         }
 
@@ -402,6 +406,10 @@ export async function handleProceed(
                         pipeline.backendResult = fixed as CodeMap;
                         messageDoc.backendResponse = { content: fixed, timestamp: new Date() };
                         emitEvent(ctx, { type: 'backend_complete', content: fixed as CodeMap });
+                    })
+                    .catch(err => {
+                        console.error("[proceed] Backend feedback fix failed:", err.message);
+                        emitEvent(ctx, { type: 'error', message: `Backend fix failed: ${err.message}` });
                     })
             );
         }

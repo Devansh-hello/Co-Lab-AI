@@ -57,13 +57,13 @@ BEFORE GENERATING, think through (do not output):
 
 STANDARDS:
 - MVC architecture, input validation on every endpoint (Zod/Joi), proper HTTP status codes
-- Centralized error middleware, async/await + try-catch, env vars for secrets (.env.example)
+- Centralized error middleware, async/await + try-catch, env vars for secrets with dev fallbacks (never exit/crash if env var is missing — use sensible defaults)
 - cors({ origin: "*", credentials: true }), port from env || 3000, log listening port
 
 SECURITY — BLOCKING (fail the generation if any are violated):
 - Never interpolate user input into queries — always use parameterized queries or Mongoose methods
 - Never return full error stacks to clients — map all errors to safe messages
-- Never store JWT secrets in code — always reference process.env
+- Never store JWT secrets in code — always reference process.env with a dev fallback: process.env.JWT_SECRET || 'dev-secret-change-in-production'
 - bcrypt (10+ rounds), JWT with expiry, auth middleware on all protected routes
 - Auth middleware must verify token expiry, not just signature
 - Never log sensitive data (passwords, tokens, API keys)
