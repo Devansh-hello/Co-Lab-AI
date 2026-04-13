@@ -230,6 +230,7 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
     sendProceed,
     cancelPipeline,
     addMessage,
+    resumeCheckpoint,
   } = useWebSocket(projectId)
 
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -1041,7 +1042,19 @@ function App({ projectId: initialProjectId }: { projectId: string }) {
 
               <div className="flex items-center gap-2 w-full max-w-3xl mb-4">
                 <MessageBox
-                  onSendMessage={sendMessage}
+                  onSendMessage={(msg: string) => {
+                    const stage = wsState.flowStage
+                    const isProceedText = /^(continue|proceed|go|yes|ok|looks good|lgtm|ship it)$/i.test(msg.trim())
+                    if (stage === 'waiting_plan_review' && isProceedText) {
+                      sendProceed(true)
+                      return
+                    }
+                    // Block new messages while pipeline is actively running
+                    if (stage !== 'idle' && stage !== 'completed' && stage !== 'waiting_plan_review') {
+                      return
+                    }
+                    sendMessage(msg)
+                  }}
                   onStop={cancelPipeline}
                   isGenerating={wsState.isGenerating}
                   hasMessages={messages.length > 0}
