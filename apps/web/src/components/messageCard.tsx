@@ -17,6 +17,7 @@ import {
   Monitor,
   Code2,
   RotateCcw,
+  ShieldAlert,
 } from "lucide-react"
 import { Collapse } from "./Collapse"
 import { LogoMarkAnimated } from "./Logo"
@@ -970,6 +971,46 @@ export const MessageCard: FC<{ message: Message; allMessages?: Message[]; onRetr
             </span>
           </button>
         )}
+      </div>
+    )
+  }
+
+  // ── Guardrail failure card ──────────────────────────────────
+  if (message.type === "guardrail") {
+    // Parse: "**frontend guardrail failures:** [Syntax] issue1; [Security] issue2"
+    const content = message.content || ""
+    const sideMatch = content.match(/\*\*(\w+) guardrail failures:\*\*\s*(.+)/s)
+    const side = sideMatch?.[1] || "Code"
+    const failureText = sideMatch?.[2] || content
+    const issues = failureText.split('; ').filter(Boolean)
+
+    return (
+      <div className="flex justify-start w-full animate-bubble-in px-2 md:px-0">
+        <div className="w-full max-w-lg overflow-hidden rounded-xl border border-amber-500/15 bg-amber-500/[0.04]">
+          <div className="flex items-center gap-2 px-3.5 py-2 border-b border-amber-500/10 bg-amber-500/[0.06]">
+            <ShieldAlert className="w-3.5 h-3.5 text-amber-400/70 flex-shrink-0" />
+            <span className="text-[12px] font-semibold text-amber-300/80 uppercase tracking-wide">
+              {side} Guardrail Issues
+            </span>
+            <span className="text-[11px] font-mono text-amber-400/40 ml-auto">{issues.length}</span>
+          </div>
+          <div className="px-3.5 py-2.5 space-y-1.5">
+            {issues.map((issue, i) => {
+              const catMatch = issue.match(/^\[(\w+)\]\s*(.+)/)
+              const category = catMatch?.[1]
+              const detail = catMatch?.[2] || issue
+              return (
+                <div key={i} className="flex items-start gap-2">
+                  <div className="w-1 h-1 rounded-full bg-amber-400/40 mt-[7px] flex-shrink-0" />
+                  <p className="text-[12px] text-white/50 leading-relaxed">
+                    {category && <span className="text-amber-400/60 font-medium">{category}: </span>}
+                    {detail}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     )
   }

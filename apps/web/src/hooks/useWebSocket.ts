@@ -7,7 +7,7 @@ export interface Message {
   username: string;
   content: string;
   timestamp: Date;
-  type?: 'text' | 'orchestrator' | 'frontend' | 'backend' | 'review' | 'test' | 'status' | 'error' | 'streaming' | 'understanding' | 'qa_question' | 'qa_answer' | 'qa_summary' | 'final_plan' | 'env_setup' | 'quality_score' | 'feedback_iteration' | 'retry_prompt' | 'cancelled';
+  type?: 'text' | 'orchestrator' | 'frontend' | 'backend' | 'review' | 'test' | 'status' | 'error' | 'streaming' | 'understanding' | 'qa_question' | 'qa_answer' | 'qa_summary' | 'final_plan' | 'env_setup' | 'quality_score' | 'feedback_iteration' | 'retry_prompt' | 'cancelled' | 'guardrail';
   data?: any;
   intent?: 'build' | 'iterate' | 'debug';
   isStreaming?: boolean;
@@ -853,7 +853,7 @@ export const useWebSocket = (projectId: string) => {
             sender: 'agent',
             username: 'Guardrails',
             content: `**${data.side} guardrail failures:** ${data.report.criticalFailures.join('; ')}`,
-            type: 'status',
+            type: 'guardrail',
           });
         }
         break;
