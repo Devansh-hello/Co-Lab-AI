@@ -276,9 +276,30 @@ export default defineConfig({
       // 5. Start servers
       setStatus("starting")
 
-      const env: Record<string, string> = {
+      // Auto-detect env vars needed from backend code (.env.example or process.env references)
+      const autoEnv: Record<string, string> = {
         PORT: "3000",
         NODE_ENV: "development",
+        JWT_SECRET: "dev-secret-change-in-production",
+        SESSION_SECRET: "dev-session-secret",
+        MONGO_URI: "mongodb://localhost:27017/app",
+        MONGODB_URI: "mongodb://localhost:27017/app",
+        DATABASE_URL: "file:local.db",
+      }
+
+      // Parse .env.example if present to pick up any custom var names
+      const envExample = backendFiles[".env.example"] || backendFiles[".env"]
+      if (envExample) {
+        for (const line of envExample.split("\n")) {
+          const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)/)
+          if (m && !autoEnv[m[1]]) {
+            autoEnv[m[1]] = m[2] || "dev-placeholder"
+          }
+        }
+      }
+
+      const env: Record<string, string> = {
+        ...autoEnv,
         ...tursoEnv,
       }
 
