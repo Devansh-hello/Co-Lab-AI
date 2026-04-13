@@ -187,9 +187,9 @@ export async function* callAIGenerateStream(
         ...(supportsTemperature && { temperature: 0.2 }),
     };
 
-    const stream = supportsUsage
-        ? await client.chat.completions.create({ ...baseParams, stream_options: { include_usage: true } } as any) as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>
-        : await client.chat.completions.create(baseParams as any) as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
+    const stream = (supportsUsage
+        ? await client.chat.completions.create({ ...baseParams, stream_options: { include_usage: true } } as any)
+        : await client.chat.completions.create(baseParams as any)) as unknown as AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>;
 
     let charCount = 0;
     let usageFired = false;
