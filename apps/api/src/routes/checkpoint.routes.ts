@@ -6,17 +6,17 @@
  */
 
 import { Router } from "express";
-import { authMiddleware } from "../middleware/auth.js";
+import { authCheck } from "../middleware/auth.js";
 import { listCheckpoints, getCheckpoint } from "../services/checkpoint.js";
 
 export const checkpointRouter = Router();
 
 /** List checkpoints for a project */
-checkpointRouter.get("/api/v1/checkpoints/:projectId", authMiddleware, async (req, res) => {
+checkpointRouter.get("/api/v1/checkpoints/:projectId", authCheck, async (req, res) => {
     try {
         const { pipelineRunId } = req.query;
         const checkpoints = await listCheckpoints(
-            req.params.projectId,
+            req.params.projectId as string,
             pipelineRunId as string | undefined,
         );
         res.json({ checkpoints });
@@ -26,9 +26,9 @@ checkpointRouter.get("/api/v1/checkpoints/:projectId", authMiddleware, async (re
 });
 
 /** Get a specific checkpoint */
-checkpointRouter.get("/api/v1/checkpoint/:checkpointId", authMiddleware, async (req, res) => {
+checkpointRouter.get("/api/v1/checkpoint/:checkpointId", authCheck, async (req, res) => {
     try {
-        const checkpoint = await getCheckpoint(req.params.checkpointId);
+        const checkpoint = await getCheckpoint(req.params.checkpointId as string);
         if (!checkpoint) return res.status(404).json({ message: "Checkpoint not found" });
         res.json(checkpoint);
     } catch (err: any) {

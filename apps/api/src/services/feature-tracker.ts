@@ -110,7 +110,8 @@ export async function getFeatureSummary(projectId: string): Promise<Record<strin
         planned: 0, architected: 0, in_progress: 0, in_review: 0, approved: 0, deployed: 0,
     };
     for (const f of features) {
-        if (summary[f.status] !== undefined) summary[f.status]++;
+        const s = f.status as string;
+        if (summary[s] !== undefined) summary[s]++;
     }
     return summary;
 }

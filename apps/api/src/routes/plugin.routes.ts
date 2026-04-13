@@ -37,7 +37,7 @@ pluginRouter.get("/api/v1/plugins", authCheck, async (req: AuthRequest, res) => 
 
 pluginRouter.put("/api/v1/plugins/:pluginId", authCheck, async (req: AuthRequest, res) => {
     try {
-        const { pluginId } = req.params;
+        const pluginId = req.params.pluginId as string;
         const { enabled, credentials } = req.body;
 
         const update: Record<string, unknown> = { enabled: !!enabled };
@@ -76,7 +76,7 @@ pluginRouter.put("/api/v1/plugins/:pluginId", authCheck, async (req: AuthRequest
 
 pluginRouter.delete("/api/v1/plugins/:pluginId", authCheck, async (req: AuthRequest, res) => {
     try {
-        const { pluginId } = req.params;
+        const pluginId = req.params.pluginId as string;
         await UserPlugin.deleteOne({ userId: req.userId, pluginId });
 
         // Also disable the MCP server

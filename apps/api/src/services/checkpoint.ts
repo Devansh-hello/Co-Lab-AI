@@ -93,7 +93,7 @@ export async function getLatestCheckpoint(projectId: string): Promise<any> {
 export function getResumePhase(checkpointPhase: string): string {
     const idx = PHASE_ORDER.indexOf(checkpointPhase as any);
     if (idx === -1 || idx >= PHASE_ORDER.length - 1) return 'done';
-    return PHASE_ORDER[idx + 1];
+    return PHASE_ORDER[idx + 1] as string;
 }
 
 /**

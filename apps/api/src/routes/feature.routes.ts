@@ -7,13 +7,13 @@
 
 import { Router } from "express";
 import { Feature } from "../models/feature.model.js";
-import { authMiddleware } from "../middleware/auth.js";
+import { authCheck } from "../middleware/auth.js";
 import { getFeatureSummary } from "../services/feature-tracker.js";
 
 export const featureRouter = Router();
 
 /** List features for a project */
-featureRouter.get("/api/v1/features/:projectId", authMiddleware, async (req, res) => {
+featureRouter.get("/api/v1/features/:projectId", authCheck, async (req, res) => {
     try {
         const { projectId } = req.params;
         const { status } = req.query;
@@ -31,9 +31,9 @@ featureRouter.get("/api/v1/features/:projectId", authMiddleware, async (req, res
 });
 
 /** Get feature summary (counts by status) */
-featureRouter.get("/api/v1/features/:projectId/summary", authMiddleware, async (req, res) => {
+featureRouter.get("/api/v1/features/:projectId/summary", authCheck, async (req, res) => {
     try {
-        const summary = await getFeatureSummary(req.params.projectId);
+        const summary = await getFeatureSummary(req.params.projectId as string);
         res.json(summary);
     } catch (err: any) {
         res.status(500).json({ message: err.message });
@@ -41,7 +41,7 @@ featureRouter.get("/api/v1/features/:projectId/summary", authMiddleware, async (
 });
 
 /** Get a single feature */
-featureRouter.get("/api/v1/feature/:featureId", authMiddleware, async (req, res) => {
+featureRouter.get("/api/v1/feature/:featureId", authCheck, async (req, res) => {
     try {
         const feature = await Feature.findOne({
             _id: req.params.featureId,
@@ -56,7 +56,7 @@ featureRouter.get("/api/v1/feature/:featureId", authMiddleware, async (req, res)
 });
 
 /** Update feature status (manual lifecycle transition) */
-featureRouter.patch("/api/v1/feature/:featureId/status", authMiddleware, async (req, res) => {
+featureRouter.patch("/api/v1/feature/:featureId/status", authCheck, async (req, res) => {
     try {
         const { status, reason } = req.body;
         const feature = await Feature.findOne({
@@ -83,7 +83,7 @@ featureRouter.patch("/api/v1/feature/:featureId/status", authMiddleware, async (
 });
 
 /** Update feature details */
-featureRouter.put("/api/v1/feature/:featureId", authMiddleware, async (req, res) => {
+featureRouter.put("/api/v1/feature/:featureId", authCheck, async (req, res) => {
     try {
         const { name, description, priority, acceptanceCriteria, spec } = req.body;
         const feature = await Feature.findOneAndUpdate(
@@ -100,7 +100,7 @@ featureRouter.put("/api/v1/feature/:featureId", authMiddleware, async (req, res)
 });
 
 /** Delete a feature */
-featureRouter.delete("/api/v1/feature/:featureId", authMiddleware, async (req, res) => {
+featureRouter.delete("/api/v1/feature/:featureId", authCheck, async (req, res) => {
     try {
         const result = await Feature.findOneAndDelete({
             _id: req.params.featureId,

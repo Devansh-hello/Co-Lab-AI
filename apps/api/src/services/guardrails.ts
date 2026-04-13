@@ -219,7 +219,7 @@ function runSyntaxGuardrail(codeMap: CodeMap): GuardrailResult {
         const lines = code.split('\n');
 
         while ((match = declRegex.exec(code)) !== null) {
-            const name = match[2];
+            const name = match[2] as string;
             const lineNum = code.slice(0, match.index).split('\n').length;
             if (!declarations.has(name)) declarations.set(name, []);
             declarations.get(name)!.push(lineNum);
@@ -289,7 +289,7 @@ function runSyntaxGuardrail(codeMap: CodeMap): GuardrailResult {
         // 3. Broken imports — importing files that don't exist in the output
         const importRegex = /import\s+.*?\s+from\s+['"](\.[^'"]+)['"]/g;
         while ((match = importRegex.exec(code)) !== null) {
-            const importPath = match[1];
+            const importPath = match[1] as string;
             // Resolve relative to the file's directory
             const dir = filepath.split('/').slice(0, -1).join('/');
             const resolved = resolvePath(dir, importPath);

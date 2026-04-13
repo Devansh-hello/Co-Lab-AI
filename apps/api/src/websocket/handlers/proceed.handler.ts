@@ -100,10 +100,9 @@ export async function handleProceed(
     let toolContext = '';
     try {
         const taskSummary = [
-            `Project: ${taskFile.projectMeta?.name || 'Project'}`,
+            `Project: ${taskFile.projectName || 'Project'}`,
             `Features: ${(taskFile.features || []).join(', ')}`,
-            `Tech: ${taskFile.techStack?.frontend?.framework || 'React'}, ${taskFile.techStack?.backend?.framework || 'Express'}`,
-            `Libraries: ${[...(taskFile.techStack?.frontend?.libraries || []), ...(taskFile.techStack?.backend?.libraries || [])].join(', ')}`,
+            `Packages: ${[...(taskFile.packages?.frontend || []), ...(taskFile.packages?.backend || [])].join(', ')}`,
         ].join('\n');
 
         const onToolCall = (event: ToolCallEvent) => {
