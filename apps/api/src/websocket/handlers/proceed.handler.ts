@@ -28,6 +28,9 @@ import { saveCheckpoint } from "../../services/checkpoint.js";
 import { syncFeaturesFromPlan, advanceFeatures, updateFeatureQuality, getFeatureSummary } from "../../services/feature-tracker.js";
 import { runToolLoop, type ToolCallEvent } from "../../services/tool-executor.js";
 import type { CodeMap } from "../../agents/types.js";
+import { logger } from "../../lib/logger.js";
+
+const log = logger.child({ module: "ws.handler.proceed" });
 
 export async function handleProceed(
     parsed: any,
@@ -87,7 +90,7 @@ export async function handleProceed(
             emitEvent(ctx, { type: 'feature_update', features, summary });
         }
     } catch (err: any) {
-        console.error("[proceed] Feature sync failed (non-blocking):", err.message);
+        log.error({ err, sessionId: ctx.sessionId }, "feature sync failed (non-blocking)");
     }
 
     // -- Checkpoint: save after planning --
@@ -129,7 +132,7 @@ export async function handleProceed(
             pipeline.pluginContext += toolContext;
         }
     } catch (err: any) {
-        console.error("[proceed] Tool loop failed (non-blocking):", err.message);
+        log.error({ err, sessionId: ctx.sessionId }, "tool loop failed (non-blocking)");
     }
 
     // -- Code Agents (parallel) --
@@ -159,7 +162,7 @@ export async function handleProceed(
                     emitEvent(ctx, { type: 'frontend_complete', content: frontendResult });
                 })
                 .catch(err => {
-                    console.error("[proceed] Frontend agent failed:", err.message);
+                    log.error({ err, sessionId: ctx.sessionId }, "frontend agent failed");
                     emitEvent(ctx, { type: 'error', message: `Frontend generation failed: ${err.message}` });
                 })
         );
@@ -186,7 +189,7 @@ export async function handleProceed(
                     emitEvent(ctx, { type: 'backend_complete', content: backendResult });
                 })
                 .catch(err => {
-                    console.error("[proceed] Backend agent failed:", err.message);
+                    log.error({ err, sessionId: ctx.sessionId }, "backend agent failed");
                     emitEvent(ctx, { type: 'error', message: `Backend generation failed: ${err.message}` });
                 })
         );
@@ -228,7 +231,7 @@ export async function handleProceed(
                 const recheck = runCodeGuardrails(frontendResult, 'frontend', taskFile, backendResult);
                 emitEvent(ctx, { type: 'guardrail_report', side: 'frontend', report: recheck });
             } catch (err: any) {
-                console.error("[proceed] Guardrail auto-fix failed for frontend:", err.message);
+                log.error({ err, sessionId: ctx.sessionId }, "guardrail auto-fix failed for frontend");
             }
         }
     }
@@ -258,7 +261,7 @@ export async function handleProceed(
                 const recheck = runCodeGuardrails(backendResult, 'backend', taskFile, frontendResult);
                 emitEvent(ctx, { type: 'guardrail_report', side: 'backend', report: recheck });
             } catch (err: any) {
-                console.error("[proceed] Guardrail auto-fix failed for backend:", err.message);
+                log.error({ err, sessionId: ctx.sessionId }, "guardrail auto-fix failed for backend");
             }
         }
     }
@@ -386,7 +389,7 @@ export async function handleProceed(
                         emitEvent(ctx, { type: 'frontend_complete', content: fixed as CodeMap });
                     })
                     .catch(err => {
-                        console.error("[proceed] Frontend feedback fix failed:", err.message);
+                        log.error({ err, sessionId: ctx.sessionId }, "frontend feedback fix failed");
                         emitEvent(ctx, { type: 'error', message: `Frontend fix failed: ${err.message}` });
                     })
             );
@@ -408,7 +411,7 @@ export async function handleProceed(
                         emitEvent(ctx, { type: 'backend_complete', content: fixed as CodeMap });
                     })
                     .catch(err => {
-                        console.error("[proceed] Backend feedback fix failed:", err.message);
+                        log.error({ err, sessionId: ctx.sessionId }, "backend feedback fix failed");
                         emitEvent(ctx, { type: 'error', message: `Backend fix failed: ${err.message}` });
                     })
             );
@@ -450,7 +453,7 @@ export async function handleProceed(
         modelUsed: pipeline.userSettings.agentModels.frontend.model,
         complexity: complexity.overall,
         feedbackTriggered: quality.needsFeedback,
-    }).catch(err => console.error('[quality-trend] Failed to record:', err));
+    }).catch(err => log.error({ err, sessionId: ctx.sessionId }, "failed to record quality trend"));
 
     // Check for regression (non-blocking)
     detectRegression(projectId, quality.overall).then(result => {

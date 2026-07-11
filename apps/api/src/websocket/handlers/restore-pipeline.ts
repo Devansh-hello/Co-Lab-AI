@@ -9,6 +9,9 @@ import type { ConnectionContext, PipelinePhase } from "../types.js";
 import { PipelineRun, Message } from "../../models/index.js";
 import { getUserSettings } from "../../services/user-settings.js";
 import { getPluginContext } from "../../services/plugin-context.js";
+import { logger } from "../../lib/logger.js";
+
+const log = logger.child({ module: "ws.handler.restore" });
 
 /**
  * Try to restore pipeline from the most recent PipelineRun matching
@@ -58,7 +61,7 @@ export async function tryRestorePipelineFromRun(
         ctx.pipelineRunId = activeRun._id.toString();
         return true;
     } catch (err) {
-        console.error("[restore-pipeline] Failed to restore:", err);
+        log.error({ err, sessionId: ctx.sessionId, userId: ctx.userId }, "failed to restore pipeline");
         return false;
     }
 }

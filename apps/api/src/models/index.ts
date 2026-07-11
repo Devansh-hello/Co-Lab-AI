@@ -7,6 +7,9 @@
  */
 
 import mongoose from "mongoose";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "db" });
 
 /**
  * Connect to MongoDB using the DATABASE_URL environment variable.
@@ -15,9 +18,9 @@ import mongoose from "mongoose";
 export async function mongo() {
     try {
         await mongoose.connect(process.env.DATABASE_URL as string);
-        console.log("[db] Connected to MongoDB");
+        log.info("connected to MongoDB");
     } catch (err) {
-        console.error("[db] Unable to connect to database", err);
+        log.fatal({ err }, "unable to connect to database");
         process.exit(1);
     }
 }

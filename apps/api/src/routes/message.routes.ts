@@ -15,6 +15,9 @@ import z from "zod";
 
 import { Message, Project } from "../models/index.js";
 import { authCheck, validate, type AuthRequest } from "../middleware/index.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "routes.message" });
 
 export const messageRouter = Router();
 
@@ -71,7 +74,7 @@ messageRouter.get("/api/v1/projects/:projectId/messages", authCheck, async (req:
 
         res.json({ messages: messages || [] });
     } catch (error) {
-        console.error("[messages] Error fetching:", error);
+        log.error({ err: error, projectId: req.params.projectId }, "fetch messages failed");
         res.status(500).json({
             error: "Failed to fetch messages",
             details: error instanceof Error ? error.message : "Unknown error",

@@ -22,6 +22,9 @@ import { OAuth2Client } from "google-auth-library";
 import { User } from "../models/index.js";
 import { validate, authCheck, type AuthRequest } from "../middleware/index.js";
 import { JWT_SECRET, GOOGLE_CLIENT_ID, IS_PRODUCTION } from "../config/env.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "auth" });
 
 export const authRouter = Router();
 
@@ -63,7 +66,7 @@ authRouter.post("/api/v1/signup", validate(signupSchema), async (req, res) => {
         if (mongoError.code === 11000) {
             res.status(409).json({ message: "user already exists" });
         } else {
-            console.error("[signup] error:", error);
+            log.error({ err: error, email }, "signup failed");
             res.status(400).json({ message: "error creating user" });
         }
     }
@@ -157,7 +160,7 @@ authRouter.post("/api/v1/auth/google", async (req, res) => {
             message: "Signed in with Google successfully",
         });
     } catch (error) {
-        console.error("[google-auth] error:", error);
+        log.error({ err: error }, "google auth failed");
         res.status(401).json({ message: "Google authentication failed" });
     }
 });
@@ -212,7 +215,7 @@ authRouter.post("/api/v1/auth/google/redirect",
             res.cookie("token", token, cookieOptions)
                 .redirect(302, "/projects");
         } catch (error) {
-            console.error("[google-auth-redirect] error:", error);
+            log.error({ err: error }, "google auth redirect failed");
             res.redirect(302, "/login?error=google_auth_failed");
         }
     }

@@ -15,6 +15,9 @@
 import { WebSocket } from "ws";
 import type { ConnectionContext, ServerEvent } from "./types.js";
 import { PERSISTABLE_EVENT_TYPES, STREAM_EVENT_TYPES } from "./types.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "ws.event-emitter" });
 
 /** Throttle interval for persisting stream events (ms) */
 const STREAM_PERSIST_INTERVAL = 5000;
@@ -38,7 +41,7 @@ export function emitEvent(ctx: ConnectionContext, event: ServerEvent): void {
 
     // Persist to database (async, non-blocking)
     persistEvent(ctx, event).catch(err => {
-        console.error("[event-emitter] Failed to persist event:", err.message);
+        log.error({ err, eventType: event.type, sessionId: ctx.sessionId }, "failed to persist event");
     });
 
     // Send over WebSocket if open
@@ -46,7 +49,7 @@ export function emitEvent(ctx: ConnectionContext, event: ServerEvent): void {
         try {
             ctx.ws.send(JSON.stringify(event));
         } catch (err: any) {
-            console.error("[event-emitter] Failed to send:", err.message);
+            log.error({ err, eventType: event.type, sessionId: ctx.sessionId }, "failed to send ws event");
         }
     }
 }

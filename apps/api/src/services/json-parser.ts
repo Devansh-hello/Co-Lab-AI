@@ -6,6 +6,10 @@
  * validation with one retry attempt.
  */
 
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "service.json-parser" });
+
 // ─── JSON Extraction ────────────────────────────────────────────
 
 /**
@@ -143,7 +147,7 @@ export async function extractAndValidate(
 
         /* Validation failed - retry once if a retry function was provided */
         if (retryFn) {
-            console.warn(`Schema validation failed (${errors.join('; ')}), retrying...`);
+            log.warn({ errors }, "schema validation failed, retrying");
             const retryText = await retryFn();
             try {
                 const retryData = extractJSON(retryText) as any;

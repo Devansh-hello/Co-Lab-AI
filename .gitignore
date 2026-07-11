@@ -39,3 +39,5 @@ tsc_out.txt
 Docs/
 
 .claude/
+# Playwright MCP debug output
+.playwright-mcp/

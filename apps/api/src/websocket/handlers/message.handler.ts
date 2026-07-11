@@ -16,6 +16,9 @@ import { handleProceed } from "./proceed.handler.js";
 import { enqueuePipeline } from "../../services/pipeline-queue.js";
 import { saveCheckpoint } from "../../services/checkpoint.js";
 import type { CodeMap, ProjectSnapshotData } from "../../agents/types.js";
+import { logger } from "../../lib/logger.js";
+
+const log = logger.child({ module: "ws.handler.message" });
 
 // ─── Retry Detection ────────────────────────────────────────────
 
@@ -163,7 +166,7 @@ export async function handleNewMessage(
         });
         ctx.pipelineRunId = run._id.toString();
     } catch (err: any) {
-        console.error("[message] Failed to create PipelineRun:", err.message);
+        log.error({ err, sessionId: ctx.sessionId, userId: ctx.userId }, "failed to create PipelineRun");
     }
 
     // ── Init Mode: Generate PRD for new projects (no existing snapshot) ──
@@ -178,7 +181,7 @@ export async function handleNewMessage(
             const prd = await PRDAgent(userMessage, understanding.projectName, preCheckSettings);
             emitEvent(ctx, { type: 'prd', content: prd });
         } catch (err: any) {
-            console.error("[message] PRD generation failed (non-blocking):", err.message);
+            log.error({ err, sessionId: ctx.sessionId }, "PRD generation failed (non-blocking)");
         }
     }
 

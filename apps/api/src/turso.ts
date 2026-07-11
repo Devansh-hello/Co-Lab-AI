@@ -1,4 +1,7 @@
 import "./config/env.js"; // Ensure env is loaded (dotenv called once in config/env.ts)
+import { logger } from "./lib/logger.js";
+
+const log = logger.child({ module: "turso" });
 
 const TURSO_API_URL = "https://api.turso.tech";
 const TURSO_ORG = process.env.TURSO_ORG_SLUG || "";
@@ -21,7 +24,7 @@ export async function createDatabase(dbName: string): Promise<{
     dbName: string;
 } | null> {
     if (!TURSO_API_TOKEN || !TURSO_ORG) {
-        console.warn("[turso] Missing TURSO_API_TOKEN or TURSO_ORG_SLUG env vars");
+        log.warn("missing TURSO_API_TOKEN or TURSO_ORG_SLUG env vars");
         return null;
     }
 
@@ -39,8 +42,8 @@ export async function createDatabase(dbName: string): Promise<{
         );
 
         if (!res.ok) {
-            const err = await res.text();
-            console.error(`[turso] Create DB failed (${res.status}):`, err);
+            const body = await res.text();
+            log.error({ status: res.status, dbName, body }, "create DB failed");
             return null;
         }
 
@@ -49,7 +52,7 @@ export async function createDatabase(dbName: string): Promise<{
 
         return { hostname: `libsql://${hostname}`, dbName: data.database?.Name || dbName };
     } catch (err) {
-        console.error("[turso] Create DB error:", err);
+        log.error({ err, dbName }, "create DB error");
         return null;
     }
 }
@@ -70,14 +73,14 @@ export async function createAuthToken(dbName: string): Promise<string | null> {
         );
 
         if (!res.ok) {
-            console.error(`[turso] Create token failed (${res.status}):`, await res.text());
+            log.error({ status: res.status, dbName, body: await res.text() }, "create token failed");
             return null;
         }
 
         const data = await res.json() as any;
         return data.jwt || null;
     } catch (err) {
-        console.error("[turso] Create token error:", err);
+        log.error({ err, dbName }, "create token error");
         return null;
     }
 }

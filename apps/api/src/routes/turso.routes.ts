@@ -17,6 +17,9 @@ import { TursoDatabase, Project } from "../models/index.js";
 import { authCheck, type AuthRequest } from "../middleware/index.js";
 import { provisionDatabase, deleteDatabase, getDatabaseUsage, isTursoConfigured } from "../turso.js";
 import { USER_STORAGE_LIMIT_MB } from "../config/env.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "routes.turso" });
 
 export const tursoRouter = Router();
 
@@ -126,7 +129,7 @@ tursoRouter.post("/api/v1/turso/provision", authCheck, async (req: AuthRequest, 
             database: { hostname: result.hostname, dbName: result.dbName },
         });
     } catch (err) {
-        console.error("[turso] Provision error:", err);
+        log.error({ err, userId: req.userId }, "provision database failed");
         res.status(500).json({ message: "Failed to provision database" });
     }
 });

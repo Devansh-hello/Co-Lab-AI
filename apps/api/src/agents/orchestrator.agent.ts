@@ -16,6 +16,9 @@ import { callAIGenerate } from "../services/ai-generate.js";
 import { extractJSON, extractAndValidate, ORCHESTRATOR_SHAPE } from "../services/json-parser.js";
 import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 import { validateOrchestratorPlan } from "./helpers.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "agent.orchestrator" });
 
 /**
  * Generate a project plan from the user's message and conversation history.
@@ -86,7 +89,7 @@ JSON format:
     try {
         content = await callAIGenerate(orchProvider, orchModel, systemPrompt, fullUserPrompt, 8000, orchKey || undefined);
     } catch (err: any) {
-        console.error("[orchestrator] AI call failed:", err.message || err);
+        log.error({ err, provider: orchProvider, model: orchModel }, "orchestrator AI call failed");
         return {
             intent: snapshot ? 'iterate' : 'build',
             projectMeta: { name: "Generated Project", description: userMessage },
@@ -127,8 +130,8 @@ JSON format:
         }
 
         return plan;
-    } catch {
-        console.warn("[orchestrator] JSON parse failed, using fallback");
+    } catch (err) {
+        log.warn({ err }, "orchestrator JSON parse failed, using fallback plan");
         return {
             intent: snapshot ? 'iterate' : 'build',
             projectMeta: { name: "Generated Project", description: userMessage },

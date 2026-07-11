@@ -11,6 +11,9 @@
 
 import { MCPServer } from "../models/index.js";
 import { mcpManager } from "./mcp-client.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "service.plugin-mcp-bridge" });
 
 // ─── Plugin → MCP Server Config Map ────────────────────────────
 
@@ -257,9 +260,9 @@ function discoverToolsBackground(serverDoc: any): void {
     (async () => {
         try {
             await mcpManager.discoverTools(serverDoc);
-            console.log(`[plugin-mcp-bridge] Discovered tools for ${serverDoc.name}`);
+            log.info({ serverName: serverDoc.name }, "discovered MCP tools");
         } catch (err: any) {
-            console.error(`[plugin-mcp-bridge] Tool discovery failed for ${serverDoc.name}:`, err.message);
+            log.error({ err, serverName: serverDoc.name }, "MCP tool discovery failed");
             // Mark as unhealthy but don't fail
             await MCPServer.findByIdAndUpdate(serverDoc._id, {
                 healthStatus: 'unhealthy',

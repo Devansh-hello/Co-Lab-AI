@@ -10,6 +10,9 @@ import { emitEvent } from "../event-emitter.js";
 import { Message } from "../../models/index.js";
 import { OrchestratorAgent } from "../../agents/orchestrator.agent.js";
 import { tryRestorePipelineFromRun } from "./restore-pipeline.js";
+import { logger } from "../../lib/logger.js";
+
+const log = logger.child({ module: "ws.handler.qa" });
 
 /** Handle Q&A answers and proceed to orchestrator */
 export async function handleQAComplete(
@@ -62,7 +65,7 @@ export async function runOrchestratorAndSendPlan(ctx: ConnectionContext): Promis
         conversationHistory = await Message.find({ projectId: pipeline.projectId })
             .sort({ timestamp: -1 }).limit(5).lean();
     } catch (err: any) {
-        console.error("[orchestrator] Failed to load conversation history:", err.message);
+        log.error({ err, projectId: pipeline.projectId, sessionId: ctx.sessionId }, "failed to load conversation history");
         conversationHistory = [];
     }
 

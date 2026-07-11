@@ -31,6 +31,9 @@ import { JWT_SECRET } from "../config/env.js";
 import type { ConnectionContext } from "./types.js";
 import { CircularEventBuffer } from "./event-buffer.js";
 import { emitEvent } from "./event-emitter.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "ws" });
 
 import { handleNewMessage } from "./handlers/message.handler.js";
 import { handleUnderstandingResponse } from "./handlers/understanding.handler.js";
@@ -78,6 +81,7 @@ export function setupWebSocket(server: Server) {
         const token = cookies.token;
 
         if (!token) {
+            log.warn({ remoteAddress: req.socket.remoteAddress }, "ws connection rejected: missing token");
             ws.send(JSON.stringify({ type: "error", message: "Unauthorized - token missing" }));
             ws.close(4401, "Unauthorized");
             return;
@@ -87,7 +91,8 @@ export function setupWebSocket(server: Server) {
         try {
             const payload = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
             wsUserId = payload.id as string;
-        } catch {
+        } catch (err) {
+            log.warn({ err, remoteAddress: req.socket.remoteAddress }, "ws connection rejected: invalid token");
             ws.send(JSON.stringify({ type: "error", message: "Forbidden - invalid or expired token" }));
             ws.close(4403, "Forbidden");
             return;
@@ -95,6 +100,8 @@ export function setupWebSocket(server: Server) {
 
         /* Initialize connection context */
         const sessionId = crypto.randomUUID();
+        const connLog = log.child({ sessionId, userId: wsUserId });
+        connLog.info("ws connection open");
         const ctx: ConnectionContext = {
             ws,
             userId: wsUserId,
@@ -145,7 +152,7 @@ export function setupWebSocket(server: Server) {
                         { upsert: true }
                     );
                 } catch (err) {
-                    console.error("[ws] Failed to save pipeline state on disconnect:", err);
+                    connLog.error({ err, pipelineRunId: ctx.pipelineRunId }, "failed to save pipeline state on disconnect");
                 }
             }
 
@@ -160,6 +167,7 @@ export function setupWebSocket(server: Server) {
                 pending.resolve('deny');
             }
             ctx.pendingPermissions.clear();
+            connLog.info("ws connection closed");
         });
 
         ws.on("message", async function message(data) {
@@ -233,7 +241,7 @@ export function setupWebSocket(server: Server) {
                         break;
                 }
             } catch (error: any) {
-                console.error("[ws] Error:", error);
+                connLog.error({ err: error, pipelineRunId: ctx.pipelineRunId }, "ws message handler threw");
 
                 if (ctx.pipeline?.messageDoc) {
                     ctx.pipeline.messageDoc.status = 'error';

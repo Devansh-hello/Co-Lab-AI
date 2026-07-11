@@ -16,6 +16,9 @@ import z from "zod";
 import { Project, Message, ProjectSnapshot, TursoDatabase } from "../models/index.js";
 import { authCheck, validate, type AuthRequest } from "../middleware/index.js";
 import { deleteDatabase } from "../turso.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "routes.project" });
 
 export const projectRouter = Router();
 
@@ -70,7 +73,7 @@ projectRouter.delete("/api/v1/project/:id", authCheck, async (req: AuthRequest, 
             try {
                 await deleteDatabase(tursoDb.dbName);
             } catch (err) {
-                console.warn(`[turso] Failed to delete database ${tursoDb.dbName}:`, err);
+                log.warn({ err, dbName: tursoDb.dbName }, "failed to delete turso database during project deletion");
             }
             await TursoDatabase.deleteOne({ _id: tursoDb._id });
         }

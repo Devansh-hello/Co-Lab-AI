@@ -19,6 +19,9 @@ import { Router } from "express";
 import { UserPlugin } from "../models/index.js";
 import { authCheck, type AuthRequest } from "../middleware/index.js";
 import { onPluginEnabled, onPluginDisabled } from "../services/plugin-mcp-bridge.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "routes.plugin" });
 
 export const pluginRouter = Router();
 
@@ -63,7 +66,7 @@ pluginRouter.put("/api/v1/plugins/:pluginId", authCheck, async (req: AuthRequest
             }
         } catch (err: any) {
             // Non-blocking: MCP registration failure shouldn't break plugin toggle
-            console.error(`[plugins] MCP bridge failed for ${pluginId}:`, err.message);
+            log.error({ err, pluginId, userId: req.userId }, "MCP bridge failed during plugin toggle");
         }
 
         res.json({ plugin });

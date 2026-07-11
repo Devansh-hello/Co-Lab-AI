@@ -17,6 +17,9 @@ import { callAIGenerate, callAIGenerateStream, type TokenUsage } from "../servic
 import { extractJSON } from "../services/json-parser.js";
 import { resolveApiKey, DEFAULT_AGENT_MODELS, type UserSettings } from "../services/user-settings.js";
 import { compressSnapshotForAgent } from "./helpers.js";
+import { logger } from "../lib/logger.js";
+
+const log = logger.child({ module: "agent.frontend" });
 
 /**
  * Generate frontend code for the given task file.
@@ -174,6 +177,6 @@ ${intentInstruction}`;
     } catch { /* recovery also failed */ }
 
     /* Last resort: return empty map so the frontend doesn't break */
-    console.error('[frontend-agent] Failed to extract valid JSON from response');
+    log.error("failed to extract valid JSON from frontend agent response");
     return {};
 }
